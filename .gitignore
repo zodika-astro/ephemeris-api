@@ -1,0 +1,11 @@
+node_modules
+.env
+.env-dev
+.env-qa
+.env-prod
+.http
+.DS_Store
+.vscode
+.idea
+log
+*.log
