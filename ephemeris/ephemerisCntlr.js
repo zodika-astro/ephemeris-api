@@ -9,14 +9,14 @@ const EphemerisCntlr = (function () {
         getPlanetNames
     };
 
-    function get(inputs) {
+    function get(req, res, next) {
 
-        let models = inputs.models;
-        let planets = inputs.planets;
-        let startDate = inputs.startDate;
-        let endDate = inputs.endDate;
-        let count = inputs.count;
-        let step = inputs.step;
+        let models = res.locals.models;
+        let planets = res.locals.planets;
+        let startDate = res.locals.startDate;
+        let endDate = res.locals.endDate;
+        let count = res.locals.count;
+        let step = res.locals.step;
         let errors = [];
         let warnings = [];
         let results = { ephemerisQuery: {}, ephemerides: {} };
@@ -49,21 +49,25 @@ const EphemerisCntlr = (function () {
 
         });
 
+        res.locals.results = results;
 
         if (warnings.length) {
-            results.warnings = warnings;
+            res.locals.warnings = warnings;
         }
 
         if (errors.length) {
-            let { status, message } = Utils.evaluateError(errors[0]);
+            res.locals.errors = errors;
 
-            return Promise.reject({ status, message, errors, results });
+            let { status, message } = Utils.evaluateError(errors[0]);
+            next({ status, message });
         }
 
-        return Promise.resolve(results);
+        res.locals.status = 200;
+        res.locals.message = 'Ephemerides returned';
+        next();
     }
 
-    function getPlanetNames() {
+    function getPlanetNames(req, res, next) {
 
         let planetNames = {};
 
@@ -75,7 +79,10 @@ const EphemerisCntlr = (function () {
             }
         });
 
-        return Promise.resolve(planetNames);
+        res.locals.results = planetNames;
+        res.locals.status = 200;
+        res.locals.message = 'Planet Names returned';
+        next();
     }
 
 }());
