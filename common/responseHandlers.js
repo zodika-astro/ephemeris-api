@@ -73,7 +73,7 @@ var responseHandlers = (function () {
         res.locals.status = res.locals.status || err.status || 500;
         res.status(res.locals.status);
 
-        res.locals.message = res.locals.message || err.message || 'Express.App catching: Internal Server error';
+        res.locals.message = res.locals.message || String(err && err.message ? err.message : 'Server error');
 
         if (res.locals.errors && res.locals.errors.length == 0) {
             res.locals.errors.push(err);    
