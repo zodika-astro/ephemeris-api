@@ -24,7 +24,7 @@ var responseHandlers = (function () {
 
         response.outcome.statusCode = res.locals.status;
         // TODO - if there is no specified message, then lookup message form table of std responses
-        response.outcome.message = res.locals.message;
+res.locals.message = res.locals.message || String(err && err.message ? err.message : 'Server error');
 
         if (res.locals.errors && res.locals.errors.length > 0) {
             response.outcome.errors = res.locals.errors;
