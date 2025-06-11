@@ -1,2 +1,1 @@
-[phases.setup]
-nixPkgs = ["pkgs.python3Full"]
+packages = ["python3"]
