@@ -1,3 +1,8 @@
+var express = require('express');
+var logger = require('morgan');
+var responseHandler = require('./common/responseHandlers');
+
+var app = express();
 // --- Basic Auth ---
 var basicAuth = require('express-basic-auth');
 var USER = process.env.BASIC_USER;
@@ -8,11 +13,6 @@ app.use(basicAuth({
   challenge: true
 }));
 // -------------------
-var express = require('express');
-var logger = require('morgan');
-var responseHandler = require('./common/responseHandlers');
-
-var app = express();
 
 app.use(logger('combined'));
 
