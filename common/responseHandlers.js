@@ -78,7 +78,7 @@ var responseHandlers = (function () {
         if (res.locals.errors && res.locals.errors.length == 0) {
             res.locals.errors.push(err);    
         } else {
-            res.locals.errors = res.locals.errors.concat(err.errors || [err]);
+        res.locals.errors = (res.locals.errors || []).concat(err && err.errors ? err.errors : [err]);
         }
 
         // build envelope
