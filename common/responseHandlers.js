@@ -24,7 +24,7 @@ var responseHandlers = (function () {
 
         response.outcome.statusCode = res.locals.status;
         // TODO - if there is no specified message, then lookup message form table of std responses
-res.locals.message = res.locals.message || String(err && err.message ? err.message : 'Server error');
+        response.outcome.message = res.locals.message;
 
         if (res.locals.errors && res.locals.errors.length > 0) {
             response.outcome.errors = res.locals.errors;
@@ -78,7 +78,7 @@ res.locals.message = res.locals.message || String(err && err.message ? err.messa
         if (res.locals.errors && res.locals.errors.length == 0) {
             res.locals.errors.push(err);    
         } else {
-         res.locals.errors = (res.locals.errors || []).concat(err && err.errors ? err.errors : [err]);
+            res.locals.errors = res.locals.errors.concat(err.errors || [err]);
         }
 
         // build envelope
