@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y python3 build-essential && \
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 COPY . .
 EXPOSE 8080
