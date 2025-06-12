@@ -96,4 +96,21 @@ module.exports = {
           model: 'geo'
         }];
 
-        const nome =
+        const nome = planetNames[code];
+        const signo = getSigno(eph.longitude);
+        signosResultado[nome] = signo;
+      }
+
+      return {
+        ephemerisQuery: reqBody,
+        ephemerides: {
+          geo: ephemerides
+        },
+        signos: signosResultado
+      };
+    } catch (err) {
+      console.error('🔥 Internal Ephemeris Error:', err);
+      throw err;
+    }
+  }
+};
