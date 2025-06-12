@@ -7,6 +7,8 @@ var app = express();
 var basicAuth = require('express-basic-auth');
 var USER = process.env.BASIC_USER;
 var PASS = process.env.BASIC_PASS;
+console.log('🔐 BASIC_USER:', USER);
+console.log('🔐 BASIC_PASS:', PASS);
 
 app.use(basicAuth({
   users: { [USER]: PASS },
