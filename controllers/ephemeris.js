@@ -64,7 +64,6 @@ module.exports = {
 
       console.log('🧮 Julian Day calculado:', jd);
 
-      // ✅ Define posição geográfica
       swisseph.swe_set_topo(longitude, latitude, 0);
 
       const planetCodes = [
@@ -104,9 +103,11 @@ module.exports = {
         signosResultado[nome] = signo;
       }
 
-      // ✅ Cálculo das casas astrológicas (sistema Placidus) com proteção aprimorada
+      // ✅ Cálculo das casas astrológicas (com log de diagnóstico)
       const casasSignos = await new Promise((resolve, reject) => {
         swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
+          console.log('🏠 Resultado raw do swe_houses:', houses);
+
           if (houses.error || !houses.cusps) {
             reject(new Error("Erro ao calcular casas astrológicas"));
           } else {
