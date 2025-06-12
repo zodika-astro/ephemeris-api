@@ -10,4 +10,5 @@ RUN npm ci --omit=dev
 
 COPY . .
 EXPOSE 9010
+ENV BASIC_USER=${BASIC_USER} BASIC_PASS=${BASIC_PASS}
 CMD ["node", "app.js"]
