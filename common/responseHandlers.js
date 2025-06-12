@@ -81,6 +81,8 @@ var responseHandlers = (function () {
         res.locals.errors = (res.locals.errors || []).concat(err && err.errors ? err.errors : [err]);
         }
 
+        console.log('DEBUG locals.message →', res.locals.message);
+
         // build envelope
         res.json(buildResponseEnvelope(res, req));
     }
