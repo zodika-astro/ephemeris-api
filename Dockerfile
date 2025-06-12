@@ -9,6 +9,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY . .
-EXPOSE 9010
+EXPOSE 80800
 ENV BASIC_USER=${BASIC_USER} BASIC_PASS=${BASIC_PASS}
 CMD ["node", "app.js"]

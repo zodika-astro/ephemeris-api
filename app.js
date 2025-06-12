@@ -22,6 +22,12 @@ app.use(basicAuth({
   challenge: true
 }));
 
+// ✅ Inicia servidor na porta esperada pelo Railway
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
 // ✅ Rotas principais
 app.use('/', require('./routes/index'));
 app.use('/api', require('./routes/api'));
