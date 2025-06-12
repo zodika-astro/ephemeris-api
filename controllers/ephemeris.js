@@ -104,11 +104,11 @@ module.exports = {
         signosResultado[nome] = signo;
       }
 
-      // ✅ Cálculo das casas astrológicas (sistema Placidus)
+      // ✅ Cálculo das casas astrológicas (sistema Placidus) com proteção
       const casasSignos = await new Promise((resolve, reject) => {
         swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
-          if (houses.error) {
-            reject(houses.error);
+          if (houses.error || !houses.cusps) {
+            reject(new Error("Erro ao calcular casas astrológicas"));
           } else {
             const resultado = {};
             for (let i = 1; i <= 12; i++) {
