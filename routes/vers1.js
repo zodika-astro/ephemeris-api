@@ -2,20 +2,24 @@ const express = require('express');
 const router = express.Router();
 const EphemerisCntlr = require('../controllers/ephemeris');
 
-router.post('/ephemeris', async (req, res, next) => {
+router.post('/ephemeris', async (req, res) => {
   try {
     console.log('✅ /ephemeris route called');
-    const result = await EphemerisCntlr.compute(req.body); // ✅ Correção essencial aqui
-    res.locals.status = 200;
-    res.locals.message = 'Ephemeris computed successfully';
-    res.locals.results = result;
-    next();
+    const result = await EphemerisCntlr.compute(req.body);
+
+    res.status(200).json({
+      statusCode: 200,
+      message: 'Ephemeris computed successfully',
+      ...result // inclui ephemerides, signos e query direto
+    });
   } catch (error) {
     console.error('❌ Error in /ephemeris route:', error);
-    res.locals.status = 500;
-    res.locals.message = 'Internal Server Error';
-    res.locals.results = { error: error.message };
-    next();
+
+    res.status(500).json({
+      statusCode: 500,
+      message: 'Internal Server Error',
+      error: error.message
+    });
   }
 });
 
