@@ -19,21 +19,24 @@ module.exports = {
         }
       };
 
-      // ✅ Aqui usamos res corretamente
-      res.locals = res.locals || {};
+      // ✅ Garantimos que res.locals existe
+      if (!res.locals) res.locals = {};
+
       res.locals.status = 200;
       res.locals.message = 'Ephemerides returned';
       res.locals.results = result;
 
-      next();
+      return next();
     } catch (err) {
-      // 🛠 Garante que res.locals existe antes de atribuir
-      res.locals = res.locals || {};
+      // ✅ Garante que 'res' e 'res.locals' sempre existam
+      if (!res) res = {};
+      if (!res.locals) res.locals = {};
+
       res.locals.status = 500;
       res.locals.message = err.message || 'Unexpected error in ephemeris controller';
       res.locals.errors = [err];
 
-      next(err);
+      return next(err);
     }
   }
 };
