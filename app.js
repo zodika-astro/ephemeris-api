@@ -3,6 +3,8 @@ var logger = require('morgan');
 var responseHandler = require('./common/responseHandlers');
 
 var app = express();
+app.use(express.json());
+
 // --- Basic Auth ---
 var basicAuth = require('express-basic-auth');
 var USER = process.env.BASIC_USER;
