@@ -1,3 +1,4 @@
+console.log('✅ Entered ephemeris route');
 const express = require('express');
 const router = express.Router();
 const InfoCntlr = require('../common/info');
