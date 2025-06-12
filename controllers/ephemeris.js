@@ -64,6 +64,9 @@ module.exports = {
 
       console.log('🧮 Julian Day calculado:', jd);
 
+      // ✅ Definir posição de observação com base na localização
+      swisseph.swe_set_topo(longitude, latitude, 0);
+
       const planetCodes = [
         swisseph.SE_SUN,
         swisseph.SE_MOON,
