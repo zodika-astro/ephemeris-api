@@ -1,40 +1,84 @@
 'use strict';
 
-var EphemerisCtrl = (function () {
-  return {
-    getEphemeris: getEphemeris
-  };
+const swisseph = require('swisseph');
 
-  function getEphemeris(req, res, next) {
-    const now = new Date();
+const planetNames = {
+  0: 'sol',
+  1: 'lua',
+  2: 'mercurio',
+  3: 'venus',
+  4: 'marte',
+  5: 'jupiter',
+  6: 'saturno',
+  7: 'urano',
+  8: 'netuno',
+  9: 'plutao'
+};
 
-    res.locals.status = 200;
-    res.locals.message = 'Ephemerides returned';
-    res.locals.results = {
-      ephemerisQuery: {
-        models: ['geo'],
-        planets: [1],
-        startDate: now,
-        endDate: now,
-        count: 1,
-        step: 1
-      },
-      ephemerides: {
-        geo: {
-          1: [{
-            longitude: 273.45,
-            latitude: -4.91,
-            distance: 0.0026,
-            dt: now,
-            planet: 1,
-            model: 'geo'
-          }]
-        }
-      }
-    };
-    next();
-  }
-}());
+const signos = [
+  "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
+  "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
+];
 
-module.exports = EphemerisCtrl;
+function getSigno(longitude) {
+  const index = Math.floor(longitude / 30) % 12;
+  return signos[index];
+}
 
+module.exports = {
+  compute: async function (reqBody) {
+    try {
+      const {
+        year,
+        month,
+        date,
+        hours,
+        minutes,
+        seconds,
+        latitude,
+        longitude,
+        timezone,
+        config
+      } = reqBody;
+
+      const decimalHours = hours + minutes / 60 + seconds / 3600;
+
+      const jd = swisseph.swe_julday(
+        year,
+        month,
+        date,
+        decimalHours,
+        swisseph.SE_GREG_CAL
+      );
+
+      const planetCodes = [
+        swisseph.SE_SUN,
+        swisseph.SE_MOON,
+        swisseph.SE_MERCURY,
+        swisseph.SE_VENUS,
+        swisseph.SE_MARS,
+        swisseph.SE_JUPITER,
+        swisseph.SE_SATURN,
+        swisseph.SE_URANUS,
+        swisseph.SE_NEPTUNE,
+        swisseph.SE_PLUTO
+      ];
+
+      const ephemerides = {};
+      const signosResultado = {};
+
+      for (const code of planetCodes) {
+        const eph = await new Promise((resolve, reject) => {
+          swisseph.swe_calc(jd, code, 0, (res) => {
+            if (res.error) reject(res.error);
+            else resolve(res);
+          });
+        });
+
+        const nome = planetNames[code];
+        const signo = getSigno(eph.longitude);
+
+        ephemerides[code] = [{
+          longitude: eph.longitude,
+          latitude: eph.latitude,
+          distance: eph.distance,
