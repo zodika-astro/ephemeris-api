@@ -64,7 +64,7 @@ module.exports = {
 
       console.log('🧮 Julian Day calculado:', jd);
 
-      // ✅ Definir posição de observação com base na localização
+      // ✅ Define posição geográfica
       swisseph.swe_set_topo(longitude, latitude, 0);
 
       const planetCodes = [
@@ -104,13 +104,32 @@ module.exports = {
         signosResultado[nome] = signo;
       }
 
+      // ✅ Cálculo das casas astrológicas (sistema Placidus)
+      const casasSignos = await new Promise((resolve, reject) => {
+        swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
+          if (houses.error) {
+            reject(houses.error);
+          } else {
+            const resultado = {};
+            for (let i = 1; i <= 12; i++) {
+              const grau = houses.cusps[i];
+              const signo = getSigno(grau);
+              resultado[`casa${i}`] = signo;
+            }
+            resolve(resultado);
+          }
+        });
+      });
+
       return {
         ephemerisQuery: reqBody,
         ephemerides: {
           geo: ephemerides
         },
-        signos: signosResultado
+        signos: signosResultado,
+        casas: casasSignos
       };
+
     } catch (err) {
       console.error('🔥 Internal Ephemeris Error:', err);
       throw err;
