@@ -41,28 +41,42 @@ module.exports = {
 
       console.log('🧮 Julian Day calculado:', jd);
 
-      // Exemplo: cálculo para o Sol (planeta 0)
-      const eph = await new Promise((resolve, reject) => {
-        swisseph.swe_calc(jd, swisseph.SE_SUN, 0, (res) => {
-          if (res.error) reject(res.error);
-          else resolve(res);
+      const planetCodes = [
+        swisseph.SE_SUN,
+        swisseph.SE_MOON,
+        swisseph.SE_MERCURY,
+        swisseph.SE_VENUS,
+        swisseph.SE_MARS,
+        swisseph.SE_JUPITER,
+        swisseph.SE_SATURN,
+        swisseph.SE_URANUS,
+        swisseph.SE_NEPTUNE,
+        swisseph.SE_PLUTO
+      ];
+
+      const ephemerides = {};
+
+      for (const code of planetCodes) {
+        const eph = await new Promise((resolve, reject) => {
+          swisseph.swe_calc(jd, code, 0, (res) => {
+            if (res.error) reject(res.error);
+            else resolve(res);
+          });
         });
-      });
+
+        ephemerides[code] = [{
+          longitude: eph.longitude,
+          latitude: eph.latitude,
+          distance: eph.distance,
+          planet: code,
+          model: 'geo'
+        }];
+      }
 
       return {
         ephemerisQuery: reqBody,
         ephemerides: {
-          geo: {
-            0: [ // Sol
-              {
-                longitude: eph.longitude,
-                latitude: eph.latitude,
-                distance: eph.distance,
-                planet: 0,
-                model: 'geo'
-              }
-            ]
-          }
+          geo: ephemerides
         }
       };
     } catch (err) {
