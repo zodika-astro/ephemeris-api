@@ -2,6 +2,29 @@
 
 const swisseph = require('swisseph');
 
+const planetNames = {
+  0: 'sol',
+  1: 'lua',
+  2: 'mercurio',
+  3: 'venus',
+  4: 'marte',
+  5: 'jupiter',
+  6: 'saturno',
+  7: 'urano',
+  8: 'netuno',
+  9: 'plutao'
+};
+
+const signos = [
+  "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
+  "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
+];
+
+function getSigno(longitude) {
+  const index = Math.floor(longitude / 30) % 12;
+  return signos[index];
+}
+
 module.exports = {
   compute: async function (reqBody) {
     try {
@@ -55,6 +78,7 @@ module.exports = {
       ];
 
       const ephemerides = {};
+      const signosResultado = {};
 
       for (const code of planetCodes) {
         const eph = await new Promise((resolve, reject) => {
@@ -71,18 +95,5 @@ module.exports = {
           planet: code,
           model: 'geo'
         }];
-      }
 
-      return {
-        ephemerisQuery: reqBody,
-        ephemerides: {
-          geo: ephemerides
-        }
-      };
-    } catch (err) {
-      console.error('🔥 Internal Ephemeris Error:', err);
-      
-      throw err;
-    }
-  }
-};
+        const nome =
