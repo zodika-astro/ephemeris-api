@@ -103,17 +103,17 @@ module.exports = {
         signosResultado[nome] = signo;
       }
 
-      // ✅ Cálculo das casas astrológicas (com log de diagnóstico)
+      // ✅ Cálculo das casas astrológicas com campo correto "house"
       const casasSignos = await new Promise((resolve, reject) => {
         swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
           console.log('🏠 Resultado raw do swe_houses:', houses);
 
-          if (houses.error || !houses.cusps) {
+          if (houses.error || !houses.house) {
             reject(new Error("Erro ao calcular casas astrológicas"));
           } else {
             const resultado = {};
             for (let i = 1; i <= 12; i++) {
-              const grau = houses.cusps[i];
+              const grau = houses.house[i - 1];
               if (typeof grau !== 'number' || isNaN(grau)) {
                 reject(new Error(`Cúspide da casa ${i} está inválida.`));
                 return;
