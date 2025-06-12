@@ -1,12 +1,17 @@
 var express = require('express');
 var logger = require('morgan');
 var responseHandler = require('./common/responseHandlers');
+var basicAuth = require('express-basic-auth');
 
 var app = express();
+
+// ✅ Middleware para interpretar JSON no corpo das requisições
 app.use(express.json());
 
-// --- Basic Auth ---
-var basicAuth = require('express-basic-auth');
+// ✅ Logger
+app.use(logger('combined'));
+
+// ✅ Autenticação básica
 var USER = process.env.BASIC_USER;
 var PASS = process.env.BASIC_PASS;
 console.log('🔐 BASIC_USER:', USER);
@@ -16,16 +21,14 @@ app.use(basicAuth({
   users: { [USER]: PASS },
   challenge: true
 }));
-// -------------------
 
-app.use(logger('combined'));
-
+// ✅ Rotas principais
 app.use('/', require('./routes/index'));
 app.use('/api', require('./routes/api'));
 
-// set response handlers
+// ✅ Tratamento global de respostas (res.locals)
 app.use(responseHandler.handleResponse);
 app.use(responseHandler.handleErrorResponse);
 
-// start Server
-app.listen(process.env.PORT || 9010);
+module.exports = app;
+
