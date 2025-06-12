@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = {
-  compute: function (req, res, next) {
+  compute: function (req, res) {
     try {
       const result = {
         ephemerisQuery: req.body || {},
@@ -19,25 +19,22 @@ module.exports = {
         }
       };
 
-      // ✅ Garantimos que res.locals existe
-      if (!res.locals) res.locals = {};
+      res.status(200).json({
+        outcome: {
+          statusCode: 200,
+          message: 'Ephemerides returned'
+        },
+        content: result
+      });
 
-      res.locals.status = 200;
-      res.locals.message = 'Ephemerides returned';
-      res.locals.results = result;
-
-      return next();
     } catch (err) {
-      // ✅ Garante que 'res' e 'res.locals' sempre existam
-      if (!res) res = {};
-      if (!res.locals) res.locals = {};
-
-      res.locals.status = 500;
-      res.locals.message = err.message || 'Unexpected error in ephemeris controller';
-      res.locals.errors = [err];
-
-      return next(err);
+      res.status(500).json({
+        outcome: {
+          statusCode: 500,
+          message: err.message || 'Unexpected error in ephemeris controller',
+          errors: [err]
+        }
+      });
     }
   }
 };
-
