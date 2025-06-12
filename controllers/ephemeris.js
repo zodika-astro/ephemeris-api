@@ -81,6 +81,7 @@ module.exports = {
       };
     } catch (err) {
       console.error('🔥 Internal Ephemeris Error:', err);
+      
       throw err;
     }
   }
