@@ -39,98 +39,103 @@ const calcularSigno = (grau) => {
 };
 
 /**
- * Retorna o grau de início de um signo específico (0, 30, 60...).
+ * Retorna o índice de um signo no array `signosZodiaco`.
  * @param {string} signo - O nome do signo.
- * @returns {number} O grau de início do signo.
+ * @returns {number} O índice do signo (0-11).
  */
-const getGrauInicioSigno = (signo) => {
-  const index = signosZodiaco.indexOf(signo);
-  return index * 30;
+const getSignoIndex = (signo) => {
+    return signosZodiaco.indexOf(signo);
 };
 
 /**
- * Retorna o grau de fim de um signo específico (29.999..., 59.999...).
- * @param {string} signo - O nome do signo.
- * @returns {number} O grau de fim do signo.
+ * Normaliza um grau para o intervalo [0, 360).
+ * @param {number} grau - O grau a ser normalizado.
+ * @returns {number} O grau normalizado.
  */
-const getGrauFimSigno = (signo) => {
-  const index = signosZodiaco.indexOf(signo);
-  // Subtrair um pequeno valor para evitar problemas de ponto flutuante em comparações de limite.
-  return ((index + 1) * 30) - 0.0001;
+const normalizarGrau = (grau) => {
+    let normalized = grau % 360;
+    return normalized < 0 ? normalized + 360 : normalized;
 };
+
 
 /**
  * Identifica as cúspides das casas e os signos interceptados.
- * MODO DE SAÍDA:
- * {
- * cuspides: { casa1: { grau: 15.00, signo: 'Sagitário' }, ... },
- * signosPresentes: ['Sagitário', 'Capricórnio', ...],
- * signosInterceptados: ['Áries', 'Escorpião']
- * }
  * @param {number[]} grausCuspides - Um array de 12 graus, um para cada cúspide de casa.
- * @returns {{cuspides: object, signosPresentes: string[], signosInterceptados: string[]}} Informações das casas e signos.
+ * @returns {{cuspides: object, signosInterceptados: string[]}} Informações das casas e signos.
  */
 const identificarSignos = (grausCuspides) => {
   const cuspides = {};
-  const signosNasCuspides = new Set(); // Armazena os signos que são o início de uma casa
+  const signosQueSaoCuspides = new Set(); // Armazena os signos que são o início de uma casa
 
-  // Preenche o objeto 'cuspides' e o Set 'signosNasCuspides'
+  // 1. Processa as cúspides para identificar os signos que iniciam as casas
   for (let i = 0; i < 12; i++) {
-    const grau = grausCuspides[i] % 360;
-    const signo = calcularSigno(grau);
-    cuspides[`casa${i + 1}`] = { grau: parseFloat(grau.toFixed(2)), signo };
-    signosNasCuspides.add(signo); // Adiciona o signo da cúspide ao Set
+    const grauCuspide = normalizarGrau(grausCuspides[i]);
+    const signoCuspide = calcularSigno(grauCuspide);
+    cuspides[`casa${i + 1}`] = { grau: parseFloat(grauCuspide.toFixed(2)), signo: signoCuspide };
+    signosQueSaoCuspides.add(signoCuspide);
   }
 
   const signosInterceptados = new Set();
 
-  // Itera sobre cada casa para encontrar signos interceptados
+  // 2. Itera por cada casa para encontrar signos interceptados
   for (let i = 0; i < 12; i++) {
-    const cuspideAtualGrau = grausCuspides[i] % 360;
-    let cuspideProximaGrau = grausCuspides[(i + 1) % 12] % 360;
+    const cuspideAtualGrau = normalizarGrau(grausCuspides[i]);
+    let proximaCuspideGrau = normalizarGrau(grausCuspides[(i + 1) % 12]); // Cúspide final da casa atual
 
-    // Ajusta o grau da próxima cúspide se a casa cruzar o ponto 0 de Áries
-    if (cuspideProximaGrau < cuspideAtualGrau) {
-      cuspideProximaGrau += 360;
+    // Ajusta o grau da próxima cúspide se a casa cruzar o ponto 0 de Áries (o arco da casa atravessa 360/0)
+    if (proximaCuspideGrau < cuspideAtualGrau) {
+      proximaCuspideGrau += 360;
     }
 
-    // Itera por todos os signos do zodíaco para verificar se estão inteiramente dentro da casa
-    for (let j = 0; j < signosZodiaco.length; j++) {
-      const signoAtual = signosZodiaco[j];
-      let grauInicioSigno = getGrauInicioSigno(signoAtual);
-      let grauFimSigno = getGrauFimSigno(signoAtual);
+    // Identifica os signos que a casa 'atravessa'
+    let currentSignIndex = Math.floor(cuspideAtualGrau / 30);
+    let endSignIndex = Math.floor((proximaCuspideGrau - 0.0001) / 30); // Subtrai um epsilon para garantir que não pule o último signo se for exato
 
-      // Se a casa cruza 0 graus e o signo também, ajustamos os graus do signo para a "volta" extendida
-      if (grauInicioSigno < cuspideAtualGrau && grauFimSigno < cuspideAtualGrau && cuspideProximaGrau > 360) {
-        grauInicioSigno += 360;
-        grauFimSigno += 360;
-      }
+    // Loop pelos signos entre a cúspide inicial e a final da casa
+    // A iteração deve ser 'cíclica' se a casa atravessar o 0/360
+    for (let s = 0; s < 12; s++) { // Percorre todos os 12 signos do zodíaco
+        const signoVerificado = signosZodiaco[(currentSignIndex + s) % 12];
+        const signoVerificadoIndex = getSignoIndex(signoVerificado);
 
-      // Condições para um signo ser interceptado:
-      // 1. O início do signo está DENTRO da casa (depois da cúspide inicial da casa)
-      // 2. O fim do signo está DENTRO da casa (antes da cúspide final da casa)
-      // 3. O signo NÃO é o signo da cúspide de NENHUMA casa (já presente em signosNasCuspides)
-      if (grauInicioSigno > cuspideAtualGrau &&
-          grauFimSigno < cuspideProximaGrau &&
-          !signosNasCuspides.has(signoAtual)) {
-        signosInterceptados.add(signoAtual);
-      }
+        let signoStartGrau = signoVerificadoIndex * 30;
+        let signoEndGrau = (signoVerificadoIndex + 1) * 30;
+
+        // Se o arco da casa atravessou 0/360, ajusta os graus do signo para a mesma "volta"
+        if (signoStartGrau < cuspideAtualGrau && signoEndGrau < cuspideAtualGrau && proximaCuspideGrau > 360) {
+            signoStartGrau += 360;
+            signoEndGrau += 360;
+        }
+
+        // Verifica se o signo está inteiramente dentro da casa atual
+        // E se ele NÃO é um signo de cúspide (ou seja, não foi o início de nenhuma casa)
+        if (signoStartGrau >= cuspideAtualGrau &&
+            signoEndGrau <= proximaCuspideGrau &&
+            !signosQueSaoCuspides.has(signoVerificado)) {
+            signosInterceptados.add(signoVerificado);
+        }
+
+        // Se já passamos do signo final da casa (ajustado para 360), podemos parar
+        if (normalizarGrau(signoEndGrau) > normalizarGrau(proximaCuspideGrau)) {
+             // Esta condição precisa de um ajuste mais inteligente, pois um signo pode estar interceptado no "final" do arco extendido
+             // Melhor confiar nas condições de start/end do signo
+        }
     }
   }
 
-  // A astrologia define que se um signo está interceptado, seu oposto também está.
-  // Garante que se um signo foi adicionado, seu oposto também seja incluído.
+  // 3. Garante que se um signo é interceptado, seu oposto também seja.
   const signosFinaisInterceptados = new Set(signosInterceptados);
   signosInterceptados.forEach(s => {
-    const idx = signosZodiaco.indexOf(s);
+    const idx = getSignoIndex(s);
     const opostoIdx = (idx + 6) % 12; // O oposto é sempre 6 signos (180 graus) de distância
     signosFinaisInterceptados.add(signosZodiaco[opostoIdx]);
   });
 
+
+  // No seu formato de saída desejado, você quer apenas as cúspides e os interceptados
+  // O 'signosPresentes' (signosQueSaoCuspides) é para uso interno da lógica.
   return {
-    cuspides,
-    signosPresentes: Array.from(signosNasCuspides), // Os signos que "tocam" as cúspides
-    signosInterceptados: Array.from(signosFinaisInterceptados) // Os signos "escondidos"
+    cuspides, // { casa1: { grau, signo }, ... }
+    signosInterceptados: Array.from(signosFinaisInterceptados)
   };
 };
 
@@ -244,14 +249,14 @@ const compute = async (input) => {
     }
 
     // 5. Cálculo das cúspides das casas e identificação de signos interceptados
-    const casasInfo = await new Promise((resolve, reject) => {
+    const casasResult = await new Promise((resolve, reject) => {
       // swisseph.swe_houses: Calcula as cúspides das casas astrológicas.
       // 'P' indica o sistema de casas Plácidus.
       swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
         if (houses.error || !houses.house) {
           reject(new Error('Erro ao calcular casas astrológicas.'));
         } else {
-          // Usa a função `identificarSignos` revisada, que retorna { cuspides, signosPresentes, signosInterceptados }
+          // Usa a função `identificarSignos` revisada, que retorna { cuspides, signosInterceptados }
           resolve(identificarSignos(houses.house));
         }
       });
@@ -265,11 +270,10 @@ const compute = async (input) => {
       ephemerides, // Dados brutos dos planetas (se ainda for útil)
       signos: signosPlanetas, // Signo de cada planeta (sol: 'Gêmeos', etc.)
       casas: { // A estrutura de casas é mantida, com a adição de signosInterceptados
-        // As cúspides das casas no formato: { casa1: { grau: X, signo: 'Y' }, ... }
-        // Isso vem diretamente de casasInfo.cuspides
-        ...casasInfo.cuspides,
+        // As cúspides das casas no formato: { casa1: { grau, signo }, ... }
+        ...casasResult.cuspides,
         // E aqui está a nova informação de interceptação:
-        signosInterceptados: casasInfo.signosInterceptados
+        signosInterceptados: casasResult.signosInterceptados
       }
     };
   } catch (error) {
