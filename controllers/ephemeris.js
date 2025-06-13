@@ -1,12 +1,10 @@
-const swisseph = require('swisseph');
-
 const signos = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
   "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
 ];
 
 function grauParaSigno(grau) {
-  const index = Math.floor((grau % 360) / 30);
+  const index = Math.floor(((grau % 360) + 360) % 360 / 30); // normaliza graus negativos
   return signos[index];
 }
 
@@ -15,18 +13,23 @@ function identificarSignosInterceptados(cuspides) {
     .map((c, i) => ({ grau: c.grau, casa: i + 1 }))
     .sort((a, b) => a.casa - b.casa);
 
-  casas.push({ grau: (casas[0].grau + 360), casa: 13 });
+  casas.push({ grau: casas[0].grau + 360, casa: 13 }); // fecha ciclo
 
   const signosAtravessados = new Set();
-
   for (let i = 0; i < 12; i++) {
     const grauInicio = casas[i].grau;
     const grauFim = casas[i + 1].grau;
+    const inicioSigno = grauParaSigno(grauInicio);
+    const fimSigno = grauParaSigno(grauFim - 1e-6); // evitar erro no limite
+    const start = Math.floor(grauInicio / 30);
+    const end = Math.floor(grauFim / 30);
+    const range = [];
 
-    for (let g = grauInicio; g < grauFim; g += 1) {
-      const signo = grauParaSigno(g);
-      signosAtravessados.add(signo);
+    for (let j = start; j <= end; j++) {
+      range.push(signos[j % 12]);
     }
+
+    range.forEach(signo => signosAtravessados.add(signo));
   }
 
   const signosNasCuspides = new Set(
@@ -45,43 +48,21 @@ function identificarSignosInterceptados(cuspides) {
 
 module.exports = {
   compute: async ({
-    year,
-    month,
-    date,
-    hours,
-    minutes,
-    seconds,
-    latitude,
-    longitude,
-    timezone,
-    config
+    year, month, date, hours, minutes, seconds,
+    latitude, longitude, timezone, config
   }) => {
     return new Promise(async (resolve, reject) => {
       try {
         const ephemerides = await getPlanetaryPositions({
-          year,
-          month,
-          date,
-          hours,
-          minutes,
-          seconds,
-          latitude,
-          longitude,
-          timezone
+          year, month, date, hours, minutes, seconds,
+          latitude, longitude, timezone
         });
 
         const signosPlanetas = getSignosDosPlanetas(ephemerides.geo);
 
         const cuspides = await getCuspides({
-          year,
-          month,
-          date,
-          hours,
-          minutes,
-          seconds,
-          latitude,
-          longitude,
-          timezone
+          year, month, date, hours, minutes, seconds,
+          latitude, longitude, timezone
         });
 
         const signosCasas = {};
@@ -92,22 +73,18 @@ module.exports = {
           };
         }
 
-        const { signosPresentes, signosNasCuspides, signosInterceptados } = identificarSignosInterceptados(signosCasas);
+        const {
+          signosPresentes,
+          signosNasCuspides,
+          signosInterceptados
+        } = identificarSignosInterceptados(signosCasas);
 
         resolve({
           statusCode: 200,
           message: "Ephemeris computed successfully",
           ephemerisQuery: {
-            year,
-            month,
-            date,
-            hours,
-            minutes,
-            seconds,
-            latitude,
-            longitude,
-            timezone,
-            config
+            year, month, date, hours, minutes, seconds,
+            latitude, longitude, timezone, config
           },
           ephemerides,
           signos: signosPlanetas,
@@ -119,23 +96,21 @@ module.exports = {
           }
         });
       } catch (error) {
+        console.error("Erro na geração da Ephemeris:", error);
         reject(new Error("Erro ao calcular casas astrológicas"));
       }
     });
   }
 };
 
-// Funções auxiliares (mockups ou sua implementação já existente)
-
+// Mock functions para teste local
 async function getPlanetaryPositions(params) {
-  // Substitua com sua implementação real que consulta Swiss Ephemeris
   return {
-    geo: {} // retornos dos planetas
+    geo: {} // Substitua pela sua lógica real
   };
 }
 
 async function getCuspides(params) {
-  // Substitua com sua lógica de cálculo das cúspides (casas)
   return {
     casa1: { grau: 217.67 },
     casa2: { grau: 246.02 },
@@ -153,17 +128,10 @@ async function getCuspides(params) {
 }
 
 function getSignosDosPlanetas(geo) {
-  // Substitua com sua lógica real
   return {
-    sol: "Touro",
-    lua: "Gêmeos",
-    mercurio: "Áries",
-    venus: "Câncer",
-    marte: "Câncer",
-    jupiter: "Leão",
-    saturno: "Aquário",
-    urano: "Capricórnio",
-    netuno: "Capricórnio",
-    plutao: "Escorpião"
+    sol: "Touro", lua: "Gêmeos", mercurio: "Áries",
+    venus: "Câncer", marte: "Câncer", jupiter: "Leão",
+    saturno: "Aquário", urano: "Capricórnio",
+    netuno: "Capricórnio", plutao: "Escorpião"
   };
 }
