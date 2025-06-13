@@ -16,118 +16,103 @@ const planetNames = {
 };
 
 const signosZodiaco = [
-  'Áries',
-  'Touro',
-  'Gêmeos',
-  'Câncer',
-  'Leão',
-  'Virgem',
-  'Libra',
-  'Escorpião',
-  'Sagitário',
-  'Capricórnio',
-  'Aquário',
-  'Peixes',
+  'Áries', 'Touro', 'Gêmeos', 'Câncer', 'Leão', 'Virgem',
+  'Libra', 'Escorpião', 'Sagitário', 'Capricórnio', 'Aquário', 'Peixes'
 ];
 
-const casasSignos = (casas) => {
-  const casasEmGraus = casas.map((grau) => grau % 360);
-  const signos = casasEmGraus.map((grau) => signosZodiaco[Math.floor(grau / 30)]);
-
-  const signosDuplicados = [];
-  const signosUnicos = new Set();
-  const ocorrencias = {};
-
-  signos.forEach((signo) => {
-    ocorrencias[signo] = (ocorrencias[signo] || 0) + 1;
-  });
-
-  Object.entries(ocorrencias).forEach(([signo, count]) => {
-    if (count === 2) signosDuplicados.push(signo);
-  });
-
-  signosZodiaco.forEach((signo) => signosUnicos.add(signo));
-  signos.forEach((signo) => signosUnicos.delete(signo));
-  const signosAusentes = Array.from(signosUnicos);
-
-  const casasComSignos = {};
-  signos.forEach((signo, index) => {
-    casasComSignos[`casa${index + 1}`] = signo;
-  });
-
-  return {
-    casas: casasComSignos,
-    signosDuplicados,
-    signosAusentes,
-  };
+const calcularSigno = (grau) => {
+  const index = Math.floor((grau % 360) / 30);
+  return signosZodiaco[index];
 };
 
-const calcularSigno = (longitude) => {
-  return signosZodiaco[Math.floor(longitude / 30) % 12];
+const identificarSignos = (graus) => {
+  const cuspides = {};
+  const presentes = new Set();
+  for (let i = 0; i < 12; i++) {
+    const grau = graus[i];
+    const signo = calcularSigno(grau);
+    cuspides[`casa${i + 1}`] = {
+      grau: parseFloat(grau.toFixed(2)),
+      signo
+    };
+    presentes.add(signo);
+  }
+  const ausentes = signosZodiaco.filter(s => !presentes.has(s));
+  return {
+    cuspides,
+    signosPresentes: Array.from(presentes),
+    signosInterceptados: ausentes
+  };
 };
 
 const compute = async (input) => {
   try {
     const {
-      year,
-      month,
-      date,
-      hours,
-      minutes,
-      seconds,
-      latitude,
-      longitude,
-      timezone,
+      year, month, date,
+      hours, minutes, seconds,
+      latitude, longitude, timezone
     } = input;
 
-    const julianDayUT = swisseph.swe_julday(
-      year,
-      month,
-      date,
-      hours + minutes / 60 + seconds / 3600 - timezone,
-      swisseph.SE_GREG_CAL
-    );
+    const decimalHoursUTC = (hours - timezone) + minutes / 60 + seconds / 3600;
+    const jd = swisseph.swe_julday(year, month, date, decimalHoursUTC, swisseph.SE_GREG_CAL);
+    swisseph.swe_set_topo(longitude, latitude, 0);
+
+    const planetCodes = [
+      swisseph.SE_SUN, swisseph.SE_MOON, swisseph.SE_MERCURY,
+      swisseph.SE_VENUS, swisseph.SE_MARS, swisseph.SE_JUPITER,
+      swisseph.SE_SATURN, swisseph.SE_URANUS, swisseph.SE_NEPTUNE,
+      swisseph.SE_PLUTO
+    ];
 
     const ephemerides = { geo: {} };
+    const signosPlanetas = {};
 
-    for (let i = 0; i <= 9; i++) {
-      const planet = swisseph.swe_calc_ut(julianDayUT, i, swisseph.SEFLG_SWIEPH);
-      ephemerides.geo[i] = [{
-        longitude: planet.longitude,
-        latitude: planet.latitude,
-        distance: planet.distance,
-        planet: i,
-        model: 'geo',
+    for (const code of planetCodes) {
+      const eph = await new Promise((resolve, reject) => {
+        swisseph.swe_calc_ut(jd, code, 0, (res) => {
+          if (res.error) reject(res.error);
+          else resolve(res);
+        });
+      });
+      ephemerides.geo[code] = [{
+        longitude: eph.longitude,
+        latitude: eph.latitude,
+        distance: eph.distance,
+        planet: code,
+        model: 'geo'
       }];
+      const nome = planetNames[code];
+      signosPlanetas[nome] = calcularSigno(eph.longitude);
     }
 
-    const casasRaw = swisseph.swe_houses(julianDayUT, latitude, longitude, 'P');
-    const casasGraus = casasRaw.house;
-
-    const planetasComSignos = {};
-    Object.entries(ephemerides.geo).forEach(([index, [dados]]) => {
-      const nome = planetNames[index];
-      planetasComSignos[nome] = calcularSigno(dados.longitude);
+    const casasInfo = await new Promise((resolve, reject) => {
+      swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
+        if (houses.error || !houses.house) {
+          reject(new Error('Erro ao calcular casas'));
+        } else {
+          resolve(identificarSignos(houses.house));
+        }
+      });
     });
-
-    const casasInterpretadas = casasSignos(casasGraus);
 
     return {
       statusCode: 200,
       message: 'Ephemeris computed successfully',
       ephemerisQuery: input,
       ephemerides,
-      signos: planetasComSignos,
-      casas: casasInterpretadas.casas,
-      signosDuplicados: casasInterpretadas.signosDuplicados,
-      signosAusentes: casasInterpretadas.signosAusentes,
+      signos: signosPlanetas,
+      casas: {
+        cuspides: casasInfo.cuspides,
+        signosPresentes: casasInfo.signosPresentes,
+        signosInterceptados: casasInfo.signosInterceptados
+      }
     };
   } catch (error) {
     console.error('🔥 Internal Ephemeris Error:', error);
-    throw new Error('Erro ao calcular efemérides');
+    throw error;
   }
 };
 
 module.exports = {
-  compute,
+  compute
 };
