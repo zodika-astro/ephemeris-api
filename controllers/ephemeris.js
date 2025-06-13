@@ -13,140 +13,84 @@ function grauParaSigno(grau) {
 }
 
 function identificarSignosInterceptados(cuspides) {
-  const casas = Object.values(cuspides)
-    .map((c, i) => ({ grau: c.grau, casa: i + 1 }))
-    .sort((a, b) => a.casa - b.casa);
+  const graus = Object.values(cuspides).map(c => c.grau);
+  graus.push(cuspides.casa1.grau + 360); // casa13
 
-  casas.push({ grau: casas[0].grau + 360, casa: 13 });
-
-  const signosAtravessados = new Set();
-
+  const presentes = new Set();
   for (let i = 0; i < 12; i++) {
-    const grauInicio = casas[i].grau;
-    const grauFim = casas[i + 1].grau;
-
-    for (let g = grauInicio; g < grauFim; g += 1) {
-      const signo = grauParaSigno(g);
-      signosAtravessados.add(signo);
+    const inicio = graus[i];
+    const fim = graus[i + 1];
+    for (let g = inicio; g < fim; g += 1) {
+      presentes.add(grauParaSigno(g));
     }
   }
 
-  const signosNasCuspides = Object.values(cuspides).map(c => grauParaSigno(c.grau));
-
-  const signosInterceptados = signos.filter(
-    signo => signosAtravessados.has(signo) && !signosNasCuspides.includes(signo)
+  const cuspidesSet = new Set(
+    Object.values(cuspides).map(c => c.signo)
   );
 
-  const signosComDuplaRegencia = signosNasCuspides.filter((signo, index, arr) =>
-    arr.indexOf(signo) !== index && arr.lastIndexOf(signo) === index
-  );
-
+  const interceptados = [...presentes].filter(s => !cuspidesSet.has(s));
   return {
-    signosPresentes: [...signosAtravessados],
-    signosNasCuspides,
-    signosInterceptados,
-    signosComDuplaRegencia
+    signosPresentes: [...presentes],
+    signosNasCuspides: [...cuspidesSet],
+    signosInterceptados: interceptados
   };
 }
 
 module.exports = {
-  compute: async ({
-    year, month, date,
-    hours, minutes, seconds,
-    latitude, longitude, timezone, config
-  }) => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const ephemerides = await getPlanetaryPositions({
-          year, month, date,
-          hours, minutes, seconds,
-          latitude, longitude, timezone
-        });
+  compute: async function (reqBody) {
+    try {
+      const {
+        year, month, date,
+        hours, minutes, seconds,
+        latitude, longitude
+      } = reqBody;
 
-        const signosPlanetas = getSignosDosPlanetas(ephemerides.geo);
+      const decimalHours = hours + minutes / 60 + seconds / 3600;
 
-        const cuspides = await getCuspides({
-          year, month, date,
-          hours, minutes, seconds,
-          latitude, longitude, timezone
-        });
+      const jd = swisseph.swe_julday(
+        year, month, date, decimalHours, swisseph.SE_GREG_CAL
+      );
 
-        const signosCasas = {};
-        for (const [casa, data] of Object.entries(cuspides)) {
-          signosCasas[casa] = {
-            grau: data.grau,
-            signo: grauParaSigno(data.grau)
-          };
-        }
-
-        const {
-          signosPresentes,
-          signosNasCuspides,
-          signosInterceptados,
-          signosComDuplaRegencia
-        } = identificarSignosInterceptados(signosCasas);
-
-        resolve({
-          statusCode: 200,
-          message: "Ephemeris computed successfully",
-          ephemerisQuery: {
-            year, month, date,
-            hours, minutes, seconds,
-            latitude, longitude, timezone, config
-          },
-          ephemerides,
-          signos: signosPlanetas,
-          casas: {
-            cuspides: signosCasas,
-            signosPresentes,
-            signosNasCuspides,
-            signosInterceptados,
-            signosComDuplaRegencia
+      const casas = await new Promise((resolve, reject) => {
+        swisseph.swe_houses(jd, latitude, longitude, 'P', (res) => {
+          if (res.error || !res.house) {
+            reject(new Error("Erro ao calcular casas"));
+          } else {
+            const cuspides = {};
+            for (let i = 0; i < 12; i++) {
+              const grau = res.house[i];
+              cuspides[`casa${i + 1}`] = {
+                grau,
+                signo: grauParaSigno(grau)
+              };
+            }
+            resolve(cuspides);
           }
         });
-      } catch (error) {
-        reject(new Error("Erro ao calcular casas astrológicas"));
-      }
-    });
+      });
+
+      const { signosPresentes, signosNasCuspides, signosInterceptados } =
+        identificarSignosInterceptados(casas);
+
+      return {
+        statusCode: 200,
+        message: "Ephemeris computed successfully",
+        ephemerisQuery: reqBody,
+        ephemerides: {
+          geo: {} // Se quiser, adicione os planetas aqui
+        },
+        signos: {}, // idem acima
+        casas: {
+          cuspides: casas,
+          signosPresentes,
+          signosNasCuspides,
+          signosInterceptados
+        }
+      };
+    } catch (err) {
+      console.error('🔥 Internal Ephemeris Error:', err);
+      throw err;
+    }
   }
 };
-
-// Funções auxiliares (mockups ou sua implementação real)
-
-async function getPlanetaryPositions(params) {
-  return {
-    geo: {} // Substitua por sua implementação
-  };
-}
-
-async function getCuspides(params) {
-  return {
-    casa1: { grau: 180 },
-    casa2: { grau: 210 },
-    casa3: { grau: 240 },
-    casa4: { grau: 270 },
-    casa5: { grau: 300 },
-    casa6: { grau: 330 },
-    casa7: { grau: 0 },
-    casa8: { grau: 30 },
-    casa9: { grau: 60 },
-    casa10: { grau: 90 },
-    casa11: { grau: 120 },
-    casa12: { grau: 150 }
-  };
-}
-
-function getSignosDosPlanetas(geo) {
-  return {
-    sol: "Touro",
-    lua: "Gêmeos",
-    mercurio: "Áries",
-    venus: "Câncer",
-    marte: "Câncer",
-    jupiter: "Leão",
-    saturno: "Aquário",
-    urano: "Capricórnio",
-    netuno: "Capricórnio",
-    plutao: "Escorpião"
-  };
-}
