@@ -3,16 +3,8 @@
 const swisseph = require('swisseph');
 
 const planetNames = {
-  0: 'sol',
-  1: 'lua',
-  2: 'mercurio',
-  3: 'venus',
-  4: 'marte',
-  5: 'jupiter',
-  6: 'saturno',
-  7: 'urano',
-  8: 'netuno',
-  9: 'plutao'
+  0: 'sol', 1: 'lua', 2: 'mercurio', 3: 'venus', 4: 'marte',
+  5: 'jupiter', 6: 'saturno', 7: 'urano', 8: 'netuno', 9: 'plutao'
 };
 
 const signos = [
@@ -21,7 +13,7 @@ const signos = [
 ];
 
 function getSigno(longitude) {
-  const index = Math.floor(longitude / 30) % 12;
+  const index = Math.floor((longitude % 360) / 30);
   return signos[index];
 }
 
@@ -29,47 +21,23 @@ module.exports = {
   compute: async function (reqBody) {
     try {
       const {
-        year,
-        month,
-        date,
-        hours,
-        minutes,
-        seconds,
-        latitude,
-        longitude,
-        timezone,
-        config
+        year, month, date,
+        hours, minutes, seconds,
+        latitude, longitude, timezone
       } = reqBody;
 
-      console.log('📦 Inputs recebidos:');
-      console.log({ year, month, date, hours, minutes, seconds, latitude, longitude, timezone });
+      const decimalHoursLocal = hours + minutes / 60 + seconds / 3600;
+      const decimalHoursUTC = decimalHoursLocal - timezone;
 
-      // Aplica timezone para obter a hora UTC
-      const utcHours = hours - timezone;
-      const decimalHours = utcHours + minutes / 60 + seconds / 3600;
-
-      const jd = swisseph.swe_julday(
-        year,
-        month,
-        date,
-        decimalHours,
-        swisseph.SE_GREG_CAL
-      );
-
-      console.log('🧮 Julian Day calculado:', jd);
+      const jd = swisseph.swe_julday(year, month, date, decimalHoursUTC, swisseph.SE_GREG_CAL);
 
       swisseph.swe_set_topo(longitude, latitude, 0);
 
+      // ☀️ PLANETAS
       const planetCodes = [
-        swisseph.SE_SUN,
-        swisseph.SE_MOON,
-        swisseph.SE_MERCURY,
-        swisseph.SE_VENUS,
-        swisseph.SE_MARS,
-        swisseph.SE_JUPITER,
-        swisseph.SE_SATURN,
-        swisseph.SE_URANUS,
-        swisseph.SE_NEPTUNE,
+        swisseph.SE_SUN, swisseph.SE_MOON, swisseph.SE_MERCURY,
+        swisseph.SE_VENUS, swisseph.SE_MARS, swisseph.SE_JUPITER,
+        swisseph.SE_SATURN, swisseph.SE_URANUS, swisseph.SE_NEPTUNE,
         swisseph.SE_PLUTO
       ];
 
@@ -97,32 +65,27 @@ module.exports = {
         signosResultado[nome] = signo;
       }
 
-      // Cálculo do Ascendente e casas (sistema Whole Sign)
-      const casasSignos = await new Promise((resolve, reject) => {
+      // ⬆️ ASCENDENTE
+      const ascendenteGrau = await new Promise((resolve, reject) => {
         swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
-          if (houses.error || !houses.ascendant) {
-            reject(new Error("Erro ao calcular Ascendente"));
-            return;
+          if (houses && houses.ascendant) {
+            resolve(houses.ascendant);
+          } else {
+            reject("Erro ao calcular ascendente");
           }
-
-          const resultado = {};
-          const ascGrau = houses.ascendant;
-          const ascSignIndex = Math.floor(ascGrau / 30) % 12;
-
-          for (let i = 0; i < 12; i++) {
-            const signoIndex = (ascSignIndex + i) % 12;
-            resultado[`casa${i + 1}`] = signos[signoIndex];
-          }
-
-          resolve(resultado);
         });
       });
 
+      const ascSignIndex = Math.floor((ascendenteGrau % 360) / 30);
+      const casasSignos = {};
+      for (let i = 0; i < 12; i++) {
+        const signoIndex = (ascSignIndex + i) % 12;
+        casasSignos[`casa${i + 1}`] = signos[signoIndex];
+      }
+
       return {
         ephemerisQuery: reqBody,
-        ephemerides: {
-          geo: ephemerides
-        },
+        ephemerides: { geo: ephemerides },
         signos: signosResultado,
         casas: casasSignos
       };
