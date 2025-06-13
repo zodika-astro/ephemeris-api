@@ -27,21 +27,36 @@ const calcularSigno = (grau) => {
 
 const identificarSignos = (graus) => {
   const cuspides = {};
-  const presentes = new Set();
+  const signosIniciais = [];
+  const usados = new Set();
   for (let i = 0; i < 12; i++) {
-    const grau = graus[i];
+    const grau = graus[i] % 360;
     const signo = calcularSigno(grau);
-    cuspides[`casa${i + 1}`] = {
-      grau: parseFloat(grau.toFixed(2)),
-      signo
-    };
-    presentes.add(signo);
+    cuspides[`casa${i + 1}`] = { grau: parseFloat(grau.toFixed(2)), signo };
+    signosIniciais.push(signo);
+    usados.add(signo);
   }
-  const ausentes = signosZodiaco.filter(s => !presentes.has(s));
+
+  // detectar signos entre as cúspides que nunca aparecem como início
+  const interceptados = new Set();
+  for (let i = 0; i < 12; i++) {
+    const grauA = graus[i] % 360;
+    const grauB = graus[(i + 1) % 12] % 360;
+    let start = grauA;
+    let end = grauB;
+
+    if (end <= start) end += 360;
+
+    for (let g = start + 1; g < end; g += 1) {
+      const signo = calcularSigno(g);
+      if (!usados.has(signo)) interceptados.add(signo);
+    }
+  }
+
   return {
     cuspides,
-    signosPresentes: Array.from(presentes),
-    signosInterceptados: ausentes
+    signosPresentes: Array.from(usados),
+    signosInterceptados: Array.from(interceptados)
   };
 };
 
@@ -101,11 +116,7 @@ const compute = async (input) => {
       ephemerisQuery: input,
       ephemerides,
       signos: signosPlanetas,
-      casas: {
-        cuspides: casasInfo.cuspides,
-        signosPresentes: casasInfo.signosPresentes,
-        signosInterceptados: casasInfo.signosInterceptados
-      }
+      casas: casasInfo
     };
   } catch (error) {
     console.error('🔥 Internal Ephemeris Error:', error);
