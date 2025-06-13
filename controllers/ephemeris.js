@@ -60,69 +60,35 @@ const normalizarGrau = (grau) => {
 
 /**
  * Identifica as cúspides das casas e os signos interceptados.
+ *
  * @param {number[]} grausCuspides - Um array de 12 graus, um para cada cúspide de casa.
- * @returns {{cuspides: object, signosInterceptados: string[]}} Informações das casas e signos.
+ * @returns {{[key: string]: {grau: number, signo: string}|string[]}} Objeto com as cúspides das casas e um array de signos interceptados.
  */
 const identificarSignos = (grausCuspides) => {
-  const cuspides = {};
-  const signosQueSaoCuspides = new Set(); // Armazena os signos que são o início de uma casa
+  const casasOutput = {}; // Objeto final para as casas (casa1: {grau, signo}, etc.)
+  const signosQueSaoCuspides = new Set(); // Para rastrear quais signos aparecem nas cúspides
 
-  // 1. Processa as cúspides para identificar os signos que iniciam as casas
+  // 1. Preenche o objeto de cúspides e o Set de signos que são cúspides
   for (let i = 0; i < 12; i++) {
     const grauCuspide = normalizarGrau(grausCuspides[i]);
     const signoCuspide = calcularSigno(grauCuspide);
-    cuspides[`casa${i + 1}`] = { grau: parseFloat(grauCuspide.toFixed(2)), signo: signoCuspide };
+    casasOutput[`casa${i + 1}`] = { grau: parseFloat(grauCuspide.toFixed(2)), signo: signoCuspide };
     signosQueSaoCuspides.add(signoCuspide);
   }
 
+  // 2. Identifica os signos interceptados
   const signosInterceptados = new Set();
 
-  // 2. Itera por cada casa para encontrar signos interceptados
-  for (let i = 0; i < 12; i++) {
-    const cuspideAtualGrau = normalizarGrau(grausCuspides[i]);
-    let proximaCuspideGrau = normalizarGrau(grausCuspides[(i + 1) % 12]); // Cúspide final da casa atual
-
-    // Ajusta o grau da próxima cúspide se a casa cruzar o ponto 0 de Áries (o arco da casa atravessa 360/0)
-    if (proximaCuspideGrau < cuspideAtualGrau) {
-      proximaCuspideGrau += 360;
+  // Percorre todos os 12 signos do zodíaco
+  signosZodiaco.forEach(signo => {
+    // Se o signo não aparece como cúspide de nenhuma casa, ele é potencialmente interceptado
+    if (!signosQueSaoCuspides.has(signo)) {
+      signosInterceptados.add(signo);
     }
-
-    // Identifica os signos que a casa 'atravessa'
-    let currentSignIndex = Math.floor(cuspideAtualGrau / 30);
-    let endSignIndex = Math.floor((proximaCuspideGrau - 0.0001) / 30); // Subtrai um epsilon para garantir que não pule o último signo se for exato
-
-    // Loop pelos signos entre a cúspide inicial e a final da casa
-    // A iteração deve ser 'cíclica' se a casa atravessar o 0/360
-    for (let s = 0; s < 12; s++) { // Percorre todos os 12 signos do zodíaco
-        const signoVerificado = signosZodiaco[(currentSignIndex + s) % 12];
-        const signoVerificadoIndex = getSignoIndex(signoVerificado);
-
-        let signoStartGrau = signoVerificadoIndex * 30;
-        let signoEndGrau = (signoVerificadoIndex + 1) * 30;
-
-        // Se o arco da casa atravessou 0/360, ajusta os graus do signo para a mesma "volta"
-        if (signoStartGrau < cuspideAtualGrau && signoEndGrau < cuspideAtualGrau && proximaCuspideGrau > 360) {
-            signoStartGrau += 360;
-            signoEndGrau += 360;
-        }
-
-        // Verifica se o signo está inteiramente dentro da casa atual
-        // E se ele NÃO é um signo de cúspide (ou seja, não foi o início de nenhuma casa)
-        if (signoStartGrau >= cuspideAtualGrau &&
-            signoEndGrau <= proximaCuspideGrau &&
-            !signosQueSaoCuspides.has(signoVerificado)) {
-            signosInterceptados.add(signoVerificado);
-        }
-
-        // Se já passamos do signo final da casa (ajustado para 360), podemos parar
-        if (normalizarGrau(signoEndGrau) > normalizarGrau(proximaCuspideGrau)) {
-             // Esta condição precisa de um ajuste mais inteligente, pois um signo pode estar interceptado no "final" do arco extendido
-             // Melhor confiar nas condições de start/end do signo
-        }
-    }
-  }
+  });
 
   // 3. Garante que se um signo é interceptado, seu oposto também seja.
+  // Isso é uma convenção astrológica comum.
   const signosFinaisInterceptados = new Set(signosInterceptados);
   signosInterceptados.forEach(s => {
     const idx = getSignoIndex(s);
@@ -130,13 +96,17 @@ const identificarSignos = (grausCuspides) => {
     signosFinaisInterceptados.add(signosZodiaco[opostoIdx]);
   });
 
+  // O seu formato de saída desejado era:
+  // casas: {
+  //   casa1: { grau, signo },
+  //   casa2: { grau, signo },
+  //   ...,
+  //   signosInterceptados: [...]
+  // }
+  // Então, adicionamos a propriedade signosInterceptados diretamente no objeto de casas.
+  casasOutput.signosInterceptados = Array.from(signosFinaisInterceptados);
 
-  // No seu formato de saída desejado, você quer apenas as cúspides e os interceptados
-  // O 'signosPresentes' (signosQueSaoCuspides) é para uso interno da lógica.
-  return {
-    cuspides, // { casa1: { grau, signo }, ... }
-    signosInterceptados: Array.from(signosFinaisInterceptados)
-  };
+  return casasOutput;
 };
 
 /**
@@ -256,7 +226,7 @@ const compute = async (input) => {
         if (houses.error || !houses.house) {
           reject(new Error('Erro ao calcular casas astrológicas.'));
         } else {
-          // Usa a função `identificarSignos` revisada, que retorna { cuspides, signosInterceptados }
+          // Usa a função `identificarSignos` revisada, que retorna o objeto de casas completo.
           resolve(identificarSignos(houses.house));
         }
       });
@@ -269,12 +239,7 @@ const compute = async (input) => {
       ephemerisQuery: input, // Parâmetros de entrada para referência
       ephemerides, // Dados brutos dos planetas (se ainda for útil)
       signos: signosPlanetas, // Signo de cada planeta (sol: 'Gêmeos', etc.)
-      casas: { // A estrutura de casas é mantida, com a adição de signosInterceptados
-        // As cúspides das casas no formato: { casa1: { grau, signo }, ... }
-        ...casasResult.cuspides,
-        // E aqui está a nova informação de interceptação:
-        signosInterceptados: casasResult.signosInterceptados
-      }
+      casas: casasResult // casasResult já contém as cúspides e os signosInterceptados no formato final
     };
   } catch (error) {
     console.error('🔥 Erro Interno no Cálculo de Efemérides:', error);
