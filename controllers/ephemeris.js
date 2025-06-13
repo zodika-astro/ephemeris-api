@@ -4,40 +4,41 @@ const signos = [
 ];
 
 function grauParaSigno(grau) {
-  const index = Math.floor(((grau % 360) + 360) % 360 / 30); // normaliza graus negativos
+  const index = Math.floor((((grau % 360) + 360) % 360) / 30);
   return signos[index];
 }
 
 function identificarSignosInterceptados(cuspides) {
-  const casas = Object.values(cuspides)
-    .map((c, i) => ({ grau: c.grau, casa: i + 1 }))
-    .sort((a, b) => a.casa - b.casa);
+  const graus = Object.values(cuspides).map(c => c.grau);
 
-  casas.push({ grau: casas[0].grau + 360, casa: 13 }); // fecha ciclo
-
-  const signosAtravessados = new Set();
-  for (let i = 0; i < 12; i++) {
-    const grauInicio = casas[i].grau;
-    const grauFim = casas[i + 1].grau;
-    const inicioSigno = grauParaSigno(grauInicio);
-    const fimSigno = grauParaSigno(grauFim - 1e-6); // evitar erro no limite
-    const start = Math.floor(grauInicio / 30);
-    const end = Math.floor(grauFim / 30);
-    const range = [];
-
-    for (let j = start; j <= end; j++) {
-      range.push(signos[j % 12]);
-    }
-
-    range.forEach(signo => signosAtravessados.add(signo));
-  }
+  // Adiciona o último grau + 360° para fechar o ciclo circular
+  const grausCompletos = [...graus, graus[0] + 360];
 
   const signosNasCuspides = new Set(
-    Object.values(cuspides).map(c => grauParaSigno(c.grau))
+    graus.map(grau => grauParaSigno(grau))
   );
 
-  const signosInterceptados = [...signosAtravessados]
-    .filter(s => !signosNasCuspides.has(s));
+  const signosAtravessados = new Set();
+
+  for (let i = 0; i < 12; i++) {
+    const inicio = grausCompletos[i];
+    const fim = grausCompletos[i + 1];
+
+    const startSignIndex = Math.floor((((inicio % 360) + 360) % 360) / 30);
+    const endSignIndex = Math.floor((((fim % 360) + 360) % 360) / 30);
+
+    // Marca todos os signos entre as cúspides
+    for (let j = startSignIndex; j !== endSignIndex; j = (j + 1) % 12) {
+      signosAtravessados.add(signos[j]);
+    }
+
+    // Inclui também o signo final do intervalo
+    signosAtravessados.add(signos[endSignIndex]);
+  }
+
+  const signosInterceptados = [...signosAtravessados].filter(
+    s => !signosNasCuspides.has(s)
+  );
 
   return {
     signosPresentes: [...signosAtravessados],
@@ -103,10 +104,10 @@ module.exports = {
   }
 };
 
-// Mock functions para teste local
+// MOCKS (substitua com as funções reais em produção)
 async function getPlanetaryPositions(params) {
   return {
-    geo: {} // Substitua pela sua lógica real
+    geo: {} // Substitua com sua lógica real
   };
 }
 
