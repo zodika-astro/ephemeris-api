@@ -1,133 +1,134 @@
-'use strict';
-
-const swisseph = require('swisseph');
-
-const signos = [
-  "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
-  "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
-];
-
-function grauParaSigno(grau) {
-  const index = Math.floor((grau % 360) / 30);
-  return signos[index];
-}
-
-function identificarSignosInterceptados(cuspides) {
-  const grausOrdenados = Object.values(cuspides).map(c => c.grau);
-  grausOrdenados.push(cuspides.casa1.grau + 360); // casa13 para fechar ciclo
-
-  const signosPresentes = new Set();
-  for (let i = 0; i < 12; i++) {
-    const inicio = grausOrdenados[i];
-    const fim = grausOrdenados[i + 1];
-    for (let g = inicio; g < fim; g++) {
-      signosPresentes.add(grauParaSigno(g));
-    }
-  }
-
-  const signosNasCuspides = new Set(
-    Object.values(cuspides).map(c => c.signo)
-  );
-
-  const signosInterceptados = [...signosPresentes].filter(s => !signosNasCuspides.has(s));
-
-  const mapaSignoParaCasas = {};
-  for (const [casa, { signo }] of Object.entries(cuspides)) {
-    if (!mapaSignoParaCasas[signo]) mapaSignoParaCasas[signo] = [];
-    mapaSignoParaCasas[signo].push(casa);
-  }
-
-  const signosComDuplaRegencia = Object.entries(mapaSignoParaCasas)
-    .filter(([_, casas]) => casas.length > 1)
-    .map(([signo]) => signo);
-
-  return {
-    signosPresentes: [...signosPresentes],
-    signosNasCuspides: [...signosNasCuspides],
-    signosInterceptados,
-    signosComDuplaRegencia
-  };
-}
-
-module.exports = {
-  compute: async function (reqBody) {
-    try {
-      const {
-        year, month, date,
-        hours, minutes, seconds,
-        latitude, longitude
-      } = reqBody;
-
-      const decimalHours = hours + minutes / 60 + seconds / 3600;
-      const jd = swisseph.swe_julday(
-        year, month, date, decimalHours, swisseph.SE_GREG_CAL
-      );
-
-      const cuspides = await new Promise((resolve, reject) => {
-        swisseph.swe_houses(jd, latitude, longitude, 'P', (res) => {
-          if (res.error || !res.house) {
-            reject(new Error("Erro ao calcular casas"));
-          } else {
-            const result = {};
-            for (let i = 0; i < 12; i++) {
-              const grau = res.house[i];
-              result[`casa${i + 1}`] = {
-                grau,
-                signo: grauParaSigno(grau)
-              };
+[
+    {
+        "statusCode": 200,
+        "message": "Ephemeris computed successfully",
+        "ephemerisQuery": {
+            "year": 1991,
+            "month": 5,
+            "date": 15,
+            "hours": 18,
+            "minutes": 40,
+            "seconds": 0,
+            "latitude": 50.93106,
+            "longitude": 5.33781,
+            "timezone": 2,
+            "config": {
+                "observation_point": "topocentric",
+                "ayanamsha": "tropical",
+                "language": "pt"
             }
-            resolve(result);
-          }
-        });
-      });
-
-      const planetas = {
-        sol: swisseph.SE_SUN,
-        lua: swisseph.SE_MOON,
-        mercurio: swisseph.SE_MERCURY,
-        venus: swisseph.SE_VENUS,
-        marte: swisseph.SE_MARS,
-        jupiter: swisseph.SE_JUPITER,
-        saturno: swisseph.SE_SATURN,
-        urano: swisseph.SE_URANUS,
-        netuno: swisseph.SE_NEPTUNE,
-        plutao: swisseph.SE_PLUTO
-      };
-
-      const ephemerides = { geo: {} };
-      const signosPlanetas = {};
-
-      for (const [nome, code] of Object.entries(planetas)) {
-        const eph = await new Promise((resolve, reject) => {
-          swisseph.swe_calc_ut(jd, code, 0, (res) => {
-            if (res.error) reject(res.error);
-            else resolve(res);
-          });
-        });
-        ephemerides.geo[nome] = eph.longitude;
-        signosPlanetas[nome] = grauParaSigno(eph.longitude);
-      }
-
-      const { signosPresentes, signosNasCuspides, signosInterceptados, signosComDuplaRegencia } =
-        identificarSignosInterceptados(cuspides);
-
-      return {
-        statusCode: 200,
-        message: "Ephemeris computed successfully",
-        ephemerisQuery: reqBody,
-        ephemerides,
-        signos: signosPlanetas,
-        casas: {
-          cuspides,
-          signosPresentes,
-          signosNasCuspides,
-          signosInterceptados,
-          signosComDuplaRegencia
+        },
+        "ephemerides": {
+            "geo": {
+                "sol": 54.4336654329311,
+                "lua": 76.60272657428585,
+                "mercurio": 28.660224037591448,
+                "venus": 97.46537829793125,
+                "marte": 113.7631817809697,
+                "jupiter": 126.67771753760584,
+                "saturno": 306.84057518996013,
+                "urano": 283.5105829330503,
+                "netuno": 286.57529054409895,
+                "plutao": 228.83285433012816
+            }
+        },
+        "signos": {
+            "sol": "Touro",
+            "lua": "Gêmeos",
+            "mercurio": "Áries",
+            "venus": "Câncer",
+            "marte": "Câncer",
+            "jupiter": "Leão",
+            "saturno": "Aquário",
+            "urano": "Capricórnio",
+            "netuno": "Capricórnio",
+            "plutao": "Escorpião"
+        },
+        "casas": {
+            "cuspides": {
+                "casa1": {
+                    "grau": 228.27128058985252,
+                    "signo": "Escorpião"
+                },
+                "casa2": {
+                    "grau": 258.3978539873197,
+                    "signo": "Sagitário"
+                },
+                "casa3": {
+                    "grau": 297.0051485896718,
+                    "signo": "Capricórnio"
+                },
+                "casa4": {
+                    "grau": 336.58306550715673,
+                    "signo": "Peixes"
+                },
+                "casa5": {
+                    "grau": 7.701741314720152,
+                    "signo": "Áries"
+                },
+                "casa6": {
+                    "grau": 30.605978727978368,
+                    "signo": "Touro"
+                },
+                "casa7": {
+                    "grau": 48.271280589852495,
+                    "signo": "Touro"
+                },
+                "casa8": {
+                    "grau": 78.3978539873197,
+                    "signo": "Gêmeos"
+                },
+                "casa9": {
+                    "grau": 117.00514858967182,
+                    "signo": "Câncer"
+                },
+                "casa10": {
+                    "grau": 156.58306550715673,
+                    "signo": "Virgem"
+                },
+                "casa11": {
+                    "grau": 187.70174131472018,
+                    "signo": "Libra"
+                },
+                "casa12": {
+                    "grau": 210.60597872797837,
+                    "signo": "Escorpião"
+                }
+            },
+            "signosPresentes": [
+                "Escorpião",
+                "Sagitário",
+                "Capricórnio",
+                "Aquário",
+                "Peixes",
+                "Áries",
+                "Touro",
+                "Gêmeos",
+                "Câncer",
+                "Leão",
+                "Virgem",
+                "Libra"
+            ],
+            "signosNasCuspides": [
+                "Escorpião",
+                "Sagitário",
+                "Capricórnio",
+                "Peixes",
+                "Áries",
+                "Touro",
+                "Gêmeos",
+                "Câncer",
+                "Virgem",
+                "Libra"
+            ],
+            "signosInterceptados": [
+                "Aquário",
+                "Leão"
+            ],
+            "signosComDuplaRegencia": [
+                "Escorpião",
+                "Touro"
+            ]
         }
-      };
-    } catch (err) {
-      console.error('🔥 Internal Ephemeris Error:', err);
-      throw err;
     }
-  }
-};
+]
