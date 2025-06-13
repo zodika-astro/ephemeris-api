@@ -42,17 +42,11 @@ module.exports = {
       } = reqBody;
 
       console.log('📦 Inputs recebidos:');
-      console.log('year:', year);
-      console.log('month:', month);
-      console.log('date:', date);
-      console.log('hours:', hours);
-      console.log('minutes:', minutes);
-      console.log('seconds:', seconds);
-      console.log('latitude:', latitude);
-      console.log('longitude:', longitude);
-      console.log('timezone:', timezone);
+      console.log({ year, month, date, hours, minutes, seconds, latitude, longitude, timezone });
 
-      const decimalHours = hours + minutes / 60 + seconds / 3600;
+      // Aplica timezone para obter a hora UTC
+      const utcHours = hours - timezone;
+      const decimalHours = utcHours + minutes / 60 + seconds / 3600;
 
       const jd = swisseph.swe_julday(
         year,
@@ -103,27 +97,24 @@ module.exports = {
         signosResultado[nome] = signo;
       }
 
-      // ✅ Cálculo das casas astrológicas com log de grau + signo
+      // Cálculo do Ascendente e casas (sistema Whole Sign)
       const casasSignos = await new Promise((resolve, reject) => {
-        swisseph.swe_houses(jd, latitude, longitude, 'W', (houses) => {
-          console.log('🏠 Resultado raw do swe_houses:', houses);
-
-          if (houses.error || !houses.house) {
-            reject(new Error("Erro ao calcular casas astrológicas"));
-          } else {
-            const resultado = {};
-            for (let i = 1; i <= 12; i++) {
-              const grau = houses.house[i - 1];
-              if (typeof grau !== 'number' || isNaN(grau)) {
-                reject(new Error(`Cúspide da casa ${i} está inválida.`));
-                return;
-              }
-              const signo = getSigno(grau);
-              console.log(`➡️ Casa ${i}: grau ${grau.toFixed(2)}° → ${signo}`);
-              resultado[`casa${i}`] = signo;
-            }
-            resolve(resultado);
+        swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
+          if (houses.error || !houses.ascendant) {
+            reject(new Error("Erro ao calcular Ascendente"));
+            return;
           }
+
+          const resultado = {};
+          const ascGrau = houses.ascendant;
+          const ascSignIndex = Math.floor(ascGrau / 30) % 12;
+
+          for (let i = 0; i < 12; i++) {
+            const signoIndex = (ascSignIndex + i) % 12;
+            resultado[`casa${i + 1}`] = signos[signoIndex];
+          }
+
+          resolve(resultado);
         });
       });
 
