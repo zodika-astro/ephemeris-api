@@ -105,7 +105,7 @@ module.exports = {
 
       // ✅ Cálculo das casas astrológicas com log de grau + signo
       const casasSignos = await new Promise((resolve, reject) => {
-        swisseph.swe_houses(jd, latitude, longitude, 'P', (houses) => {
+        swisseph.swe_houses(jd, latitude, longitude, 'W', (houses) => {
           console.log('🏠 Resultado raw do swe_houses:', houses);
 
           if (houses.error || !houses.house) {
