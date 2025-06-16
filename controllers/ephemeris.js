@@ -14,60 +14,67 @@ function grauParaSigno(grau) {
 
 function identificarSignosInterceptados(cuspides) {
   const graus = Object.values(cuspides).map(c => c.grau);
-  graus.push(cuspides.casa1.grau + 360); // fechar o ciclo
+  graus.push(cuspides.casa1.grau + 360); // fecha o ciclo
 
-  const signosPresentes = new Set();
-  for (let i = 0; i < 12; i++) {
-    const inicio = graus[i];
-    const fim = graus[i + 1];
-    for (let g = Math.floor(inicio); g < Math.floor(fim); g++) {
-      signosPresentes.add(grauParaSigno(g));
-    }
-  }
-
-  const signosNasCuspides = new Set(Object.values(cuspides).map(c => c.signo));
-  const signosInterceptados = [...signosPresentes].filter(s => !signosNasCuspides.has(s));
-
+  const signosPorCasa = [];
+  const cuspidesSet = new Set();
   const casasArray = [];
   const casasComInterceptacoes = [];
+  const signosComDuplaRegencia = [];
+
+  // coleta signos nas cúspides
+  Object.values(cuspides).forEach(c => cuspidesSet.add(c.signo));
 
   for (let i = 0; i < 12; i++) {
     const casaKey = `casa${i + 1}`;
-    const info = cuspides[casaKey];
+    const grauInicio = graus[i];
+    const grauFim = graus[i + 1];
+
+    const signosNaCasa = new Set();
+    for (let g = grauInicio; g < grauFim; g++) {
+      signosNaCasa.add(grauParaSigno(g));
+    }
+
+    signosPorCasa.push(Array.from(signosNaCasa));
+
+    const signoDaCuspide = grauParaSigno(grauInicio % 360);
+    const interceptado = false;
+
     casasArray.push({
       casa: i + 1,
-      grau: info.grau,
-      signo: info.signo,
-      interceptado: false
+      grau: cuspides[casaKey].grau,
+      signo: signoDaCuspide,
+      interceptado
     });
   }
 
-  // Verifica onde os signos interceptados caem
-  for (const signo of signosInterceptados) {
-    for (let i = 0; i < 12; i++) {
-      const inicio = graus[i];
-      const fim = graus[i + 1];
-      for (let g = Math.floor(inicio); g < Math.floor(fim); g++) {
-        if (grauParaSigno(g) === signo) {
-          casasComInterceptacoes.push({
-            casa: i + 1,
-            signoInterceptado: signo
-          });
-          break;
-        }
+  const todosSignosPresentes = new Set(signosPorCasa.flat());
+  const signosInterceptados = [...todosSignosPresentes].filter(signo => !cuspidesSet.has(signo));
+
+  // identificar as casas onde os signos interceptados aparecem
+  for (let i = 0; i < signosPorCasa.length; i++) {
+    for (const signo of signosPorCasa[i]) {
+      if (signosInterceptados.includes(signo)) {
+        casasComInterceptacoes.push({
+          casa: i + 1,
+          signoInterceptado: signo
+        });
       }
     }
   }
 
-  // Ajusta flag interceptado nas casas com interceptação
-  for (const { casa } of casasComInterceptacoes) {
-    const index = casasArray.findIndex(c => c.casa === casa);
-    if (index !== -1) casasArray[index].interceptado = true;
+  // marca cada casa como interceptada ou não
+  for (const casa of casasArray) {
+    casa.interceptado = signosInterceptados.includes(casa.signo);
   }
 
-  const signosComDuplaRegencia = signos.filter(signo =>
-    casasArray.filter(c => c.signo === signo).length > 1
-  );
+  // signos com dupla regência (em mais de uma cúspide)
+  for (const signo of signos) {
+    const count = casasArray.filter(c => c.signo === signo).length;
+    if (count > 1) {
+      signosComDuplaRegencia.push(signo);
+    }
+  }
 
   return {
     signosInterceptados,
