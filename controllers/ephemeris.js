@@ -35,21 +35,34 @@ const computePlanets = async (jd) => {
     plutao: swisseph.SE_PLUTO
   };
 
-  const flags = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
   const geo = {};
   const signos = {};
+  const flags = swisseph.SEFLG_SWIEPH;
 
   for (const [nome, id] of Object.entries(planetas)) {
-    const res = await new Promise((resolve) =>
+    // Posição atual
+    const atual = await new Promise(resolve =>
       swisseph.swe_calc_ut(jd, id, flags, resolve)
     );
-    geo[nome] = res.longitude;
-    signos[nome] = grauParaSigno(res.longitude);
-    signos[`${nome}_retrogrado`] = res.speed < 0;
+
+    // Posição futura (pequena variação no tempo)
+    const futuro = await new Promise(resolve =>
+      swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve)
+    );
+
+    const longitudeAtual = atual.longitude;
+    const longitudeFutura = futuro.longitude;
+
+    const retrogrado = longitudeFutura < longitudeAtual;
+
+    geo[nome] = longitudeAtual;
+    signos[nome] = grauParaSigno(longitudeAtual);
+    signos[`${nome}_retrogrado`] = retrogrado;
   }
 
   return { geo, signos };
 };
+
 
 const analyzeHouses = (cuspides) => {
   const signosNasCuspides = new Set(cuspides.map(c => grauParaSigno(c.grau)));
