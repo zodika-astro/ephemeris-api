@@ -88,13 +88,15 @@ async function computePlanetaryPositions(jd) {
         id,
         flags,
         (res) => {
-          // Proper retrograde detection
-          const isRetrograde = res.speed < 0;
+          console.log(`Planet: ${nome}`);
+          console.log(`Longitude: ${res.longitude}`);
+          console.log(`Speed: ${res.speed}`);
+          console.log(`Retrograde: ${res.speed < 0}`);
           
           resolve({
             longitude: res.longitude,
             speed: res.speed,
-            retrograde: isRetrograde
+            retrograde: res.speed < 0
           });
         }
       );
