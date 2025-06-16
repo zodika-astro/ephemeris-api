@@ -14,13 +14,18 @@ function grauParaSigno(grau) {
 
 function identificarSignosInterceptados(cuspides) {
   const graus = Object.values(cuspides).map(c => c.grau);
-  graus.push(cuspides.casa1.grau + 360); // fechar ciclo
+  graus.push(cuspides.casa1.grau + 360); // fechar o ciclo
+
+  const casasArray = Object.entries(cuspides).map(([key, { grau }], index) => ({
+    casa: index + 1,
+    grau,
+    signo: grauParaSigno(grau),
+    interceptado: false
+  }));
 
   const presentes = new Set();
-  const casasArray = [];
-  const signosComDuplaRegencia = [];
+  const casasComInterceptacoes = [];
 
-  // varredura por casa
   for (let i = 0; i < 12; i++) {
     const inicio = graus[i];
     const fim = graus[i + 1];
@@ -29,44 +34,36 @@ function identificarSignosInterceptados(cuspides) {
     }
   }
 
-  const cuspidesSet = new Set(Object.values(cuspides).map(c => c.signo));
+  const cuspidesSet = new Set(casasArray.map(c => c.signo));
   const interceptados = [...presentes].filter(s => !cuspidesSet.has(s));
 
-  // casas com signos interceptados
-  const casasComInterceptacoes = [];
-
   for (let i = 0; i < 12; i++) {
-    const casaKey = `casa${i + 1}`;
-    const info = cuspides[casaKey];
-    const interceptado = interceptados.includes(info.signo);
-    casasArray.push({
-      casa: i + 1,
-      grau: info.grau,
-      signo: info.signo,
-      interceptado
-    });
+    const inicio = graus[i];
+    const fim = graus[i + 1];
+    const casa = i + 1;
+    const signosNoTrecho = new Set();
 
-    if (interceptado) {
-      casasComInterceptacoes.push({
-        casa: i + 1,
-        signo: info.signo
-      });
+    for (let g = inicio; g < fim; g++) {
+      signosNoTrecho.add(grauParaSigno(g));
+    }
+
+    for (const signo of interceptados) {
+      if (signosNoTrecho.has(signo)) {
+        casasComInterceptacoes.push({ casa, signoInterceptado: signo });
+        casasArray[i].interceptado = true;
+      }
     }
   }
 
-  // signos com dupla regência (presentes em mais de uma casa)
-  for (const signo of signos) {
-    const count = casasArray.filter(c => c.signo === signo).length;
-    if (count > 1) {
-      signosComDuplaRegencia.push(signo);
-    }
-  }
+  const signosComDuplaRegencia = [...signos].filter(signo =>
+    casasArray.filter(c => c.signo === signo).length > 1
+  );
 
   return {
+    cuspides: casasArray,
     signosInterceptados: interceptados,
     signosComDuplaRegencia,
-    casasComInterceptacoes,
-    casasArray
+    casasComInterceptacoes
   };
 }
 
@@ -91,10 +88,7 @@ async function compute(reqBody) {
         const cuspides = {};
         for (let i = 0; i < 12; i++) {
           const grau = res.house[i];
-          cuspides[`casa${i + 1}`] = {
-            grau,
-            signo: grauParaSigno(grau)
-          };
+          cuspides[`casa${i + 1}`] = { grau };
         }
         resolve(cuspides);
       }
@@ -128,12 +122,7 @@ async function compute(reqBody) {
     signosPlanetas[nome] = grauParaSigno(pos);
   }
 
-  const {
-    signosInterceptados,
-    signosComDuplaRegencia,
-    casasComInterceptacoes,
-    casasArray
-  } = identificarSignosInterceptados(casas);
+  const casasInterpretadas = identificarSignosInterceptados(casas);
 
   return {
     statusCode: 200,
@@ -141,12 +130,7 @@ async function compute(reqBody) {
     ephemerisQuery: reqBody,
     ephemerides: { geo },
     signos: signosPlanetas,
-    casas: {
-      cuspides: casasArray,
-      signosInterceptados,
-      signosComDuplaRegencia,
-      casasComInterceptacoes
-    }
+    casas: casasInterpretadas
   };
 }
 
