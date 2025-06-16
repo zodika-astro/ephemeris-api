@@ -1,119 +1,154 @@
 'use strict';
-
 const swisseph = require('swisseph');
-swisseph.swe_set_ephe_path(__dirname + '/../ephe');
 
 const signos = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
   "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
 ];
 
-const grauParaSigno = (grau) => {
-  return signos[Math.floor(normalizarGrau(grau) / 30)];
-};
+function grauParaSigno(grau) {
+  const index = Math.floor((grau % 360 + 360) % 360 / 30);
+  return signos[index];
+}
 
-const normalizarGrau = (grau) => {
-  return ((grau % 360) + 360) % 360;
-};
+function identificarSignosInterceptados(cuspides) {
+  const arcos = cuspides.map((c, i) => {
+    const grauInicio = c.grau;
+    const grauFim = i < 11 ? cuspides[i + 1].grau : cuspides[0].grau + 360;
+    return {
+      casa: c.casa,
+      grauInicio,
+      grauFim,
+      signoCuspide: grauParaSigno(c.grau),
+    };
+  });
 
-const arcoContemSigno = (inicio, fim, signo) => {
-  let grauInicial = normalizarGrau(inicio);
-  let grauFinal = normalizarGrau(fim);
-
-  if (grauFinal < grauInicial) grauFinal += 360;
-
-  for (let g = grauInicial; g < grauFinal; g++) {
-    const idx = Math.floor(normalizarGrau(g) / 30);
-    if (signos[idx] === signo) return true;
-  }
-
-  return false;
-};
-
-const calcularCasas = (julianDayUT, latitude, longitude) => {
-  const casas = swisseph.swe_houses(julianDayUT, latitude, longitude, 'P');
-  return casas.house.slice(0, 12); // Casas 1 a 12
-};
-
-const identificarSignosCasas = (cuspides) => {
-  let casas = [];
-
-  for (let i = 0; i < 12; i++) {
-    const inicio = cuspides[i];
-    const fim = cuspides[(i + 1) % 12];
-
-    const signoInicio = grauParaSigno(inicio);
-    const signoFim = grauParaSigno(fim);
-
-    let signos = [signoInicio];
-    if (signoFim !== signoInicio) signos.push(signoFim);
-
-    casas.push({
-      casa: i + 1,
-      inicio,
-      fim,
-      signos
-    });
-  }
-
-  return casas;
-};
-
-const identificarInterceptacoes = (casas) => {
-  let usados = new Set();
-  casas.forEach(c => c.signos.forEach(s => usados.add(s)));
-
-  const interceptados = signos.filter(s => !usados.has(s));
+  const signosNasCuspides = new Set(arcos.map(a => a.signoCuspide));
   const casasComInterceptacoes = [];
+  const signosInterceptados = new Set();
 
-  interceptados.forEach(signo => {
-    casas.forEach(casa => {
-      if (arcoContemSigno(casa.inicio, casa.fim, signo)) {
-        casasComInterceptacoes.push({
-          casa: casa.casa,
-          signoInterceptado: signo
-        });
+  for (const arco of arcos) {
+    const signosNoArco = new Set();
+
+    for (let g = Math.floor(arco.grauInicio); g < arco.grauFim; g++) {
+      signosNoArco.add(grauParaSigno(g));
+    }
+
+    for (const signo of signosNoArco) {
+      if (!signosNasCuspides.has(signo)) {
+        // Só adiciona se ainda não está no resultado
+        const jáExiste = casasComInterceptacoes.some(c =>
+          c.casa === arco.casa && c.signoInterceptado === signo
+        );
+        if (!jáExiste) {
+          casasComInterceptacoes.push({
+            casa: arco.casa,
+            signoInterceptado: signo
+          });
+          signosInterceptados.add(signo);
+        }
       }
-    });
+    }
+  }
+
+  const signosComDuplaRegencia = signos.filter(signo =>
+    arcos.filter(a => a.signoCuspide === signo).length > 1
+  );
+
+  const casasArray = cuspides.map(c => {
+    const signo = grauParaSigno(c.grau);
+    const interceptado = casasComInterceptacoes.some(e => e.casa === c.casa && e.signoInterceptado === signo);
+    return {
+      casa: c.casa,
+      grau: c.grau,
+      signo,
+      interceptado
+    };
   });
 
   return {
-    signosInterceptados: interceptados,
-    casasComInterceptacoes
+    signosInterceptados: [...signosInterceptados],
+    signosComDuplaRegencia,
+    casasComInterceptacoes,
+    casasArray
   };
-};
+}
 
-async function compute(input) {
+async function compute(reqBody) {
   const {
     year, month, date,
     hours, minutes, seconds,
     latitude, longitude, timezone
-  } = input;
+  } = reqBody;
 
   const decimalHours = hours + minutes / 60 + seconds / 3600;
-  const jdUT = swisseph.swe_julday(year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL);
 
-  const cuspides = calcularCasas(jdUT, latitude, longitude);
-  const casasDetalhadas = identificarSignosCasas(cuspides);
-  const interceptacoes = identificarInterceptacoes(casasDetalhadas);
+  const jd = swisseph.swe_julday(
+    year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL
+  );
 
-  const signosComDuplaRegencia = casasDetalhadas
-    .map(c => c.signos[0])
-    .filter((v, i, a) => a.indexOf(v) !== i);
+  const casas = await new Promise((resolve, reject) => {
+    swisseph.swe_houses(jd, latitude, longitude, 'P', (res) => {
+      if (res.error || !res.house) {
+        reject(new Error("Erro ao calcular casas"));
+      } else {
+        const cuspides = [];
+        for (let i = 0; i < 12; i++) {
+          cuspides.push({
+            casa: i + 1,
+            grau: res.house[i]
+          });
+        }
+        resolve(cuspides);
+      }
+    });
+  });
 
-  const cuspidesDetalhadas = cuspides.map((grau, i) => ({
-    casa: i + 1,
-    grau: normalizarGrau(grau),
-    signo: grauParaSigno(grau),
-    interceptado: interceptacoes.casasComInterceptacoes.some(c => c.casa === i + 1)
-  }));
+  const planetas = {
+    sol: swisseph.SE_SUN,
+    lua: swisseph.SE_MOON,
+    mercurio: swisseph.SE_MERCURY,
+    venus: swisseph.SE_VENUS,
+    marte: swisseph.SE_MARS,
+    jupiter: swisseph.SE_JUPITER,
+    saturno: swisseph.SE_SATURN,
+    urano: swisseph.SE_URANUS,
+    netuno: swisseph.SE_NEPTUNE,
+    plutao: swisseph.SE_PLUTO
+  };
+
+  const geo = {};
+  const signosPlanetas = {};
+
+  for (const [nome, id] of Object.entries(planetas)) {
+    const pos = await new Promise((resolve) => {
+      swisseph.swe_calc_ut(jd, id, swisseph.SEFLG_SWIEPH, (res) => {
+        resolve(res.longitude);
+      });
+    });
+
+    geo[nome] = pos;
+    signosPlanetas[nome] = grauParaSigno(pos);
+  }
+
+  const {
+    signosInterceptados,
+    signosComDuplaRegencia,
+    casasComInterceptacoes,
+    casasArray
+  } = identificarSignosInterceptados(casas);
 
   return {
+    statusCode: 200,
+    message: "Ephemeris computed successfully",
+    ephemerisQuery: reqBody,
+    ephemerides: { geo },
+    signos: signosPlanetas,
     casas: {
-      cuspides: cuspidesDetalhadas,
-      signosInterceptados: interceptacoes.signosInterceptados,
-      casasComInterceptacoes: interceptacoes.casasComInterceptacoes,
-      signosComDuplaRegencia
+      cuspides: casasArray,
+      signosInterceptados,
+      signosComDuplaRegencia,
+      casasComInterceptacoes
     }
   };
 }
