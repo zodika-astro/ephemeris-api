@@ -22,7 +22,6 @@ const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
 };
 
 async function computePlanetaryPositions(jd) {
-  
   const planetas = {
     sol: swisseph.SE_SUN,
     lua: swisseph.SE_MOON,
@@ -133,7 +132,7 @@ const compute = async (reqBody) => {
 
     const houseSystem = config.house_system || 'P';
     const cuspides = await computeHouses(jd, latitude, longitude, houseSystem);
-    const { geo, signos: signosPlanetas } = await computePlanetaryPositions(jd);
+    const { geo, signos } = await computePlanets(jd);
     const analise = analyzeHouses(cuspides);
 
     return {
