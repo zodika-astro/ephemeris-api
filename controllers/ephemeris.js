@@ -12,67 +12,63 @@ function grauParaSigno(grau) {
   return signos[index];
 }
 
-function identificarSignosInterceptados(cuspides) {
-  const graus = Object.values(cuspides).map(c => c.grau);
-  graus.push(cuspides.casa1.grau + 360); // fecha o ciclo
+function identificarSignosInterceptados(cuspidesObj) {
+  const graus = Object.values(cuspidesObj).map(c => c.grau);
+  graus.push(cuspidesObj.casa1.grau + 360); // fechar o ciclo
 
-  const signosPorCasa = [];
-  const cuspidesSet = new Set();
-  const casasArray = [];
-  const casasComInterceptacoes = [];
-  const signosComDuplaRegencia = [];
-
-  // coleta signos nas cúspides
-  Object.values(cuspides).forEach(c => cuspidesSet.add(c.signo));
+  const signosCuspides = Object.values(cuspidesObj).map(c => c.signo);
+  const signosPresentes = new Set();
 
   for (let i = 0; i < 12; i++) {
-    const casaKey = `casa${i + 1}`;
-    const grauInicio = graus[i];
-    const grauFim = graus[i + 1];
-
-    const signosNaCasa = new Set();
-    for (let g = grauInicio; g < grauFim; g++) {
-      signosNaCasa.add(grauParaSigno(g));
+    const start = graus[i];
+    const end = graus[i + 1];
+    for (let g = start; g < end; g++) {
+      signosPresentes.add(grauParaSigno(g));
     }
+  }
 
-    signosPorCasa.push(Array.from(signosNaCasa));
+  const signosInterceptados = [...signosPresentes].filter(s => !signosCuspides.includes(s));
+  const signosComDuplaRegencia = signos.filter(s =>
+    signosCuspides.filter(c => c === s).length > 1
+  );
 
-    const signoDaCuspide = grauParaSigno(grauInicio % 360);
+  // Reconstruir casas array com info precisa
+  const casasArray = [];
+  const casasComInterceptacoes = [];
+
+  for (let i = 0; i < 12; i++) {
+    const casa = `casa${i + 1}`;
+    const grau = graus[i];
+    const grauSeguinte = graus[i + 1];
+    const signo = grauParaSigno(grau);
     const interceptado = false;
 
     casasArray.push({
       casa: i + 1,
-      grau: cuspides[casaKey].grau,
-      signo: signoDaCuspide,
+      grau,
+      signo,
       interceptado
     });
   }
 
-  const todosSignosPresentes = new Set(signosPorCasa.flat());
-  const signosInterceptados = [...todosSignosPresentes].filter(signo => !cuspidesSet.has(signo));
+  // Corrigir: detectar exatamente onde cada signo interceptado está
+  for (let s of signosInterceptados) {
+    for (let i = 0; i < 12; i++) {
+      const g1 = graus[i];
+      const g2 = graus[i + 1];
+      const arco = [];
 
-  // identificar as casas onde os signos interceptados aparecem
-  for (let i = 0; i < signosPorCasa.length; i++) {
-    for (const signo of signosPorCasa[i]) {
-      if (signosInterceptados.includes(signo)) {
+      for (let g = g1; g < g2; g++) {
+        arco.push(grauParaSigno(g));
+      }
+
+      if (arco.includes(s)) {
         casasComInterceptacoes.push({
           casa: i + 1,
-          signoInterceptado: signo
+          signoInterceptado: s
         });
+        break; // adicionar só uma vez
       }
-    }
-  }
-
-  // marca cada casa como interceptada ou não
-  for (const casa of casasArray) {
-    casa.interceptado = signosInterceptados.includes(casa.signo);
-  }
-
-  // signos com dupla regência (em mais de uma cúspide)
-  for (const signo of signos) {
-    const count = casasArray.filter(c => c.signo === signo).length;
-    if (count > 1) {
-      signosComDuplaRegencia.push(signo);
     }
   }
 
@@ -97,21 +93,19 @@ async function compute(reqBody) {
     year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL
   );
 
-  const casas = await new Promise((resolve, reject) => {
+  const cuspidesObj = await new Promise((resolve, reject) => {
     swisseph.swe_houses(jd, latitude, longitude, 'P', (res) => {
-      if (res.error || !res.house) {
-        reject(new Error("Erro ao calcular casas"));
-      } else {
-        const cuspides = {};
-        for (let i = 0; i < 12; i++) {
-          const grau = res.house[i];
-          cuspides[`casa${i + 1}`] = {
-            grau,
-            signo: grauParaSigno(grau)
-          };
-        }
-        resolve(cuspides);
+      if (res.error || !res.house) return reject(new Error("Erro ao calcular casas"));
+
+      const cuspides = {};
+      for (let i = 0; i < 12; i++) {
+        const grau = res.house[i];
+        cuspides[`casa${i + 1}`] = {
+          grau,
+          signo: grauParaSigno(grau)
+        };
       }
+      resolve(cuspides);
     });
   });
 
@@ -132,8 +126,8 @@ async function compute(reqBody) {
   const signosPlanetas = {};
 
   for (const [nome, id] of Object.entries(planetas)) {
-    const pos = await new Promise((resolve) => {
-      swisseph.swe_calc_ut(jd, id, swisseph.SEFLG_SWIEPH, (res) => {
+    const pos = await new Promise(resolve => {
+      swisseph.swe_calc_ut(jd, id, swisseph.SEFLG_SWIEPH, res => {
         resolve(res.longitude);
       });
     });
@@ -147,7 +141,7 @@ async function compute(reqBody) {
     signosComDuplaRegencia,
     casasComInterceptacoes,
     casasArray
-  } = identificarSignosInterceptados(casas);
+  } = identificarSignosInterceptados(cuspidesObj);
 
   return {
     statusCode: 200,
