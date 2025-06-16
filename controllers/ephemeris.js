@@ -43,23 +43,29 @@ const computePlanets = async (jd) => {
   const flags = swisseph.SEFLG_SWIEPH;
 
   for (const [nome, id] of Object.entries(planetas)) {
-    const atual = await new Promise(resolve =>
-      swisseph.swe_calc_ut(jd, id, flags, resolve)
-    );
+  const atual = await new Promise(resolve =>
+    swisseph.swe_calc_ut(jd, id, flags, resolve)
+  );
 
-    const futuro = await new Promise(resolve =>
-      swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve)
-    );
+  const futuro = await new Promise(resolve =>
+    swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve)
+  );
 
-    const longitudeAtual = atual.longitude;
-    const longitudeFutura = futuro.longitude;
+  const longitudeAtual = atual.longitude ?? atual.position?.[0];
+  const longitudeFutura = futuro.longitude ?? futuro.position?.[0];
 
-    const retrogrado = longitudeFutura < longitudeAtual;
-
-    geo[nome] = longitudeAtual;
-    signos[nome] = grauParaSigno(longitudeAtual);
-    signos[`${nome}_retrogrado`] = retrogrado;
+  if (longitudeAtual == null || longitudeFutura == null) {
+    console.warn(`⚠️ Não foi possível obter a longitude de ${nome}`);
+    continue;
   }
+
+  const retrogrado = longitudeFutura < longitudeAtual;
+
+  geo[nome] = longitudeAtual;
+  signos[nome] = grauParaSigno(longitudeAtual);
+  signos[`${nome}_retrogrado`] = retrogrado;
+}
+
 
   return { geo, signos };
 };
