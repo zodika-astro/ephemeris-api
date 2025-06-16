@@ -1,46 +1,27 @@
 'use strict';
 const swisseph = require('swisseph');
-
-// Initialize ephemeris path (important for accuracy)
 swisseph.swe_set_ephe_path(__dirname + '/ephe');
 
 const signos = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
-  "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes" 
+  "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
 ];
 
-function grauParaSigno(grau) {
+const grauParaSigno = (grau) => {
   const normalized = ((grau % 360) + 360) % 360;
-  const index = Math.floor(normalized / 30);
-  return signos[Math.min(index, 11)]; // Ensure we don't go beyond array bounds
-}
+  return signos[Math.floor(normalized / 30)];
+};
 
-async function computeHouses(timezone, lat, lng, houseSystem = 'P') {
+const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   return new Promise((resolve, reject) => {
-    swisseph.swe_houses_ex(
-      timezone,
-      swisseph.SEFLG_SWIEPH,
-      lat,
-      lng,
-      houseSystem,
-      (res) => {
-        if (res.error) {
-          reject(new Error(`House calculation error: ${res.error}`));
-          return;
-        }
-
-        const cuspides = res.house.slice(0, 12).map((cusp, i) => ({
-          casa: i + 1,
-          grau: cusp
-        }));
-
-        resolve(cuspides);
-      }
-    );
+    swisseph.swe_houses_ex(jd, swisseph.SEFLG_SWIEPH, lat, lng, houseSystem, (res) => {
+      if (res.error) return reject(new Error(`Erro nas casas: ${res.error}`));
+      resolve(res.house.slice(0, 12).map((grau, i) => ({ casa: i + 1, grau })));
+    });
   });
-}
+};
 
-async function computePlanetaryPositions(timezone) {
+const computePlanets = async (jd) => {
   const planetas = {
     sol: swisseph.SE_SUN,
     lua: swisseph.SE_MOON,
@@ -54,94 +35,71 @@ async function computePlanetaryPositions(timezone) {
     plutao: swisseph.SE_PLUTO
   };
 
-  const positions = {};
-  const signosPlanetas = {};
-
-  // We need SEFLG_SPEED to get the speed for retrograde detection
   const flags = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
+  const geo = {};
+  const signos = {};
 
   for (const [nome, id] of Object.entries(planetas)) {
-    const pos = await new Promise((resolve) => {
-      swisseph.swe_calc_ut(
-        timezone,
-        id,
-        flags,
-        (res) => {
-          console.log(`Planet: ${nome}`);
-          console.log(`Longitude: ${res.longitude}`);
-          console.log(`Speed: ${res.speed}`);
-          console.log(`Retrograde: ${res.speed < 0}`);
-          
-          resolve({
-            longitude: res.longitude,
-            speed: res.speed,
-            retrograde: res.speed < 0
-          });
-        }
-      );
-    });
-
-    positions[nome] = pos.longitude;
-    signosPlanetas[nome] = grauParaSigno(pos.longitude);
-    signosPlanetas[`${nome}_retrogrado`] = pos.retrograde;
+    const res = await new Promise((resolve) =>
+      swisseph.swe_calc_ut(jd, id, flags, resolve)
+    );
+    geo[nome] = res.longitude;
+    signos[nome] = grauParaSigno(res.longitude);
+    signos[`${nome}_retrogrado`] = res.speed < 0;
   }
 
-  return { geo: positions, signos: signosPlanetas };
-}
+  return { geo, signos };
+};
 
-function analyzeHouses(cuspides) {
+const analyzeHouses = (cuspides) => {
   const signosNasCuspides = new Set(cuspides.map(c => grauParaSigno(c.grau)));
   const casasComInterceptacoes = [];
   const signosInterceptados = new Set();
 
-  // Check for interceptions
   for (let i = 0; i < cuspides.length; i++) {
-    const current = cuspides[i];
-    const next = cuspides[(i + 1) % cuspides.length];
-    let startDegree = current.grau;
-    let endDegree = next.grau > current.grau ? next.grau : next.grau + 360;
+    const atual = cuspides[i];
+    const proxima = cuspides[(i + 1) % cuspides.length];
+    let inicio = atual.grau;
+    let fim = proxima.grau > inicio ? proxima.grau : proxima.grau + 360;
 
-    const signosNoArco = new Set();
-    for (let deg = startDegree; deg < endDegree; deg += 1) {
-      signosNoArco.add(grauParaSigno(deg));
+    const presentes = new Set();
+    for (let deg = inicio; deg < fim; deg++) {
+      presentes.add(grauParaSigno(deg));
     }
 
-    signosNoArco.forEach(signo => {
+    presentes.forEach(signo => {
       if (!signosNasCuspides.has(signo)) {
-        casasComInterceptacoes.push({
-          casa: current.casa,
-          signoInterceptado: signo
-        });
+        casasComInterceptacoes.push({ casa: atual.casa, signoInterceptado: signo });
         signosInterceptados.add(signo);
       }
     });
   }
 
-  // Check for duplicate ruled signs
-  const signCount = {};
+  const contagem = {};
   cuspides.forEach(c => {
     const signo = grauParaSigno(c.grau);
-    signCount[signo] = (signCount[signo] || 0) + 1;
+    contagem[signo] = (contagem[signo] || 0) + 1;
   });
 
-  const signosComDuplaRegencia = Object.entries(signCount)
+  const signosComDuplaRegencia = Object.entries(contagem)
     .filter(([_, count]) => count > 1)
     .map(([signo]) => signo);
 
   return {
     signosInterceptados: Array.from(signosInterceptados),
-    signosComDuplaRegencia,
     casasComInterceptacoes,
+    signosComDuplaRegencia,
     cuspides: cuspides.map(c => ({
       ...c,
       signo: grauParaSigno(c.grau),
-      interceptado: casasComInterceptacoes.some(i => 
-        i.casa === c.casa && i.signoInterceptado === grauParaSigno(c.grau))
+      interceptado: casasComInterceptacoes.some(
+        i => i.casa === c.casa && i.signoInterceptado === grauParaSigno(c.grau)
+      )
     }))
   };
-}
+};
 
-async function compute(reqBody) {
+const compute = async (reqBody) => {
   try {
     const {
       year, month, date,
@@ -150,48 +108,34 @@ async function compute(reqBody) {
       config = {}
     } = reqBody;
 
-    // Validate input
-    if (!year || !month || !date) {
-      throw new Error("Invalid date parameters");
-    }
-    
     const decimalHours = hours + minutes / 60 + seconds / 3600;
+    const jd = swisseph.swe_julday(year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL);
 
-    // Calculate houses with configured system (default Placidus)
     const houseSystem = config.house_system || 'P';
-    const cuspides = await computeHouses(timezone, latitude, longitude, houseSystem);
-
-    // Calculate planetary positions
-    const { geo, signos: signosPlanetas } = await computePlanetaryPositions(timezone);
-
-    // Analyze house data
-    const houseAnalysis = analyzeHouses(cuspides);
+    const cuspides = await computeHouses(jd, latitude, longitude, houseSystem);
+    const { geo, signos } = await computePlanets(jd);
+    const analise = analyzeHouses(cuspides);
 
     return {
       statusCode: 200,
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       ephemerides: { geo },
-      signos: signosPlanetas,
+      signos,
       casas: {
-        cuspides: houseAnalysis.cuspides,
-        signosInterceptados: houseAnalysis.signosInterceptados,
-        signosComDuplaRegencia: houseAnalysis.signosComDuplaRegencia,
-        casasComInterceptacoes: houseAnalysis.casasComInterceptacoes
-      },
-      config: {
-        house_system: houseSystem,
-        timezone_used: timezone,
+        cuspides: analise.cuspides,
+        signosInterceptados: analise.signosInterceptados,
+        casasComInterceptacoes: analise.casasComInterceptacoes,
+        signosComDuplaRegencia: analise.signosComDuplaRegencia
       }
     };
-  } catch (error) {
-    console.error("Ephemeris calculation error:", error);
+  } catch (err) {
+    console.error("Erro de cálculo:", err);
     return {
       statusCode: 500,
-      message: `Calculation error: ${error.message}`,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: `Erro no cálculo: ${err.message}`
     };
   }
-}
+};
 
 module.exports = { compute };
