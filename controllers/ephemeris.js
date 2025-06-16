@@ -35,7 +35,7 @@ async function computePlanets(jd) {
     plutao: swisseph.SE_PLUTO,
     nodo_verdadeiro: swisseph.SE_TRUE_NODE,
     lilith: swisseph.SE_MEAN_APOG,
-    quiron: swisseph.SE_CHIRON
+    quiron: 15
   };
 
   const geo = {};
