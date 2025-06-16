@@ -154,10 +154,7 @@ async function compute(reqBody) {
     if (!year || !month || !date) {
       throw new Error("Invalid date parameters");
     }
-
-    // Handle timezone and DST
-    const isDST = checkHistoricalDST(year, month, date, timezone);
-    const effectiveTimezone = isDST ? timezone + 1 : timezone;
+    
     const decimalHours = hours + minutes / 60 + seconds / 3600;
 
     // Calculate houses with configured system (default Placidus)
@@ -184,8 +181,7 @@ async function compute(reqBody) {
       },
       config: {
         house_system: houseSystem,
-        timezone_used: effectiveTimezone,
-        is_dst: isDST
+        timezone_used: timezone,
       }
     };
   } catch (error) {
