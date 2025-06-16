@@ -21,7 +21,7 @@ const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   });
 };
 
-const computePlanets = async (jd) => {
+async function computePlanetaryPositions(jd) {
   const planetas = {
     sol: swisseph.SE_SUN,
     lua: swisseph.SE_MOON,
@@ -34,41 +34,41 @@ const computePlanets = async (jd) => {
     netuno: swisseph.SE_NEPTUNE,
     plutao: swisseph.SE_PLUTO,
     nodo_verdadeiro: swisseph.SE_TRUE_NODE,
-    quiron: swisseph.SE_CHIRON,
-    lilith: swisseph.SE_MEAN_APOG
+    lilith: swisseph.SE_MEAN_APOG,
+    quiron: swisseph.SE_CHIRON
   };
-  
+
   const geo = {};
   const signos = {};
-  const flags = swisseph.SEFLG_SWIEPH;
+  const flags = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
 
   for (const [nome, id] of Object.entries(planetas)) {
-  const atual = await new Promise(resolve =>
-    swisseph.swe_calc_ut(jd, id, flags, resolve)
-  );
+    try {
+      const atual = await new Promise((resolve) =>
+        swisseph.swe_calc_ut(jd, id, flags, resolve)
+      );
+      const futuro = await new Promise((resolve) =>
+        swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve)
+      );
 
-  const futuro = await new Promise(resolve =>
-    swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve)
-  );
+      const longitudeAtual = atual.longitude ?? atual.position?.[0];
+      const longitudeFutura = futuro.longitude ?? futuro.position?.[0];
 
-  const longitudeAtual = atual.longitude ?? atual.position?.[0];
-  const longitudeFutura = futuro.longitude ?? futuro.position?.[0];
+      if (longitudeAtual == null || longitudeFutura == null) {
+        console.warn(`⚠️ Não foi possível obter posição para ${nome}`);
+        continue;
+      }
 
-  if (longitudeAtual == null || longitudeFutura == null) {
-    console.warn(`⚠️ Não foi possível obter a longitude de ${nome}`);
-    continue;
+      geo[nome] = longitudeAtual;
+      signos[nome] = grauParaSigno(longitudeAtual);
+      signos[`${nome}_retrogrado`] = longitudeFutura < longitudeAtual;
+    } catch (err) {
+      console.error(`❌ Erro ao calcular ${nome}:`, err.message);
+    }
   }
 
-  const retrogrado = longitudeFutura < longitudeAtual;
-
-  geo[nome] = longitudeAtual;
-  signos[nome] = grauParaSigno(longitudeAtual);
-  signos[`${nome}_retrogrado`] = retrogrado;
-}
-
-
   return { geo, signos };
-};
+}
 
 const analyzeHouses = (cuspides) => {
   const signosNasCuspides = new Set(cuspides.map(c => grauParaSigno(c.grau)));
