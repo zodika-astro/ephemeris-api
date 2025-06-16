@@ -78,17 +78,23 @@ async function computePlanetaryPositions(jd) {
   const positions = {};
   const signosPlanetas = {};
 
+  // We need SEFLG_SPEED to get the speed for retrograde detection
+  const flags = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
+
   for (const [nome, id] of Object.entries(planetas)) {
     const pos = await new Promise((resolve) => {
       swisseph.swe_calc_ut(
         jd,
         id,
-        swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED,
+        flags,
         (res) => {
+          // Proper retrograde detection
+          const isRetrograde = res.speed < 0;
+          
           resolve({
             longitude: res.longitude,
-            speed: res.speed, // Important for retrograde detection
-            retrograde: res.speed < 0
+            speed: res.speed,
+            retrograde: isRetrograde
           });
         }
       );
