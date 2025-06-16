@@ -32,20 +32,21 @@ const computePlanets = async (jd) => {
     saturno: swisseph.SE_SATURN,
     urano: swisseph.SE_URANUS,
     netuno: swisseph.SE_NEPTUNE,
-    plutao: swisseph.SE_PLUTO
+    plutao: swisseph.SE_PLUTO,
+    nodo_verdadeiro: swisseph.SE_TRUE_NODE,
+    quiron: swisseph.SE_CHIRON,
+    lilith: swisseph.SE_MEAN_APOG
   };
-
+  
   const geo = {};
   const signos = {};
   const flags = swisseph.SEFLG_SWIEPH;
 
   for (const [nome, id] of Object.entries(planetas)) {
-    // Posição atual
     const atual = await new Promise(resolve =>
       swisseph.swe_calc_ut(jd, id, flags, resolve)
     );
 
-    // Posição futura (pequena variação no tempo)
     const futuro = await new Promise(resolve =>
       swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve)
     );
@@ -62,7 +63,6 @@ const computePlanets = async (jd) => {
 
   return { geo, signos };
 };
-
 
 const analyzeHouses = (cuspides) => {
   const signosNasCuspides = new Set(cuspides.map(c => grauParaSigno(c.grau)));
