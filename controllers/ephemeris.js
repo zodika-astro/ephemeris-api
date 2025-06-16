@@ -6,29 +6,8 @@ swisseph.swe_set_ephe_path(__dirname + '/ephe');
 
 const signos = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
-  "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
+  "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes" 
 ];
-
-// Historical DST data for Belgium (simplified)
-const belgiumDST = {
-  1965: {
-    start: { month: 4, day: 18 }, // DST started April 18, 1965
-    end: { month: 9, day: 26 }    // DST ended September 26, 1965
-  }
-  // Add more years as needed
-};
-
-function checkHistoricalDST(year, month, date, timezone) {
-  if (timezone !== 1) return false; // Only applies to Brussels time
-  const dstData = belgiumDST[year];
-  if (!dstData) return false;
-  
-  const dstStart = new Date(year, dstData.start.month - 1, dstData.start.day);
-  const dstEnd = new Date(year, dstData.end.month - 1, dstData.end.day);
-  const currentDate = new Date(year, month - 1, date);
-  
-  return currentDate >= dstStart && currentDate <= dstEnd;
-}
 
 function grauParaSigno(grau) {
   const normalized = ((grau % 360) + 360) % 360;
@@ -180,11 +159,6 @@ async function compute(reqBody) {
     const isDST = checkHistoricalDST(year, month, date, timezone);
     const effectiveTimezone = isDST ? timezone + 1 : timezone;
     const decimalHours = hours + minutes / 60 + seconds / 3600;
-
-    // Calculate Julian Day with proper timezone adjustment
-    const jd = swisseph.swe_julday(
-      year, month, date, decimalHours - effectiveTimezone, swisseph.SE_GREG_CAL
-    );
 
     // Calculate houses with configured system (default Placidus)
     const houseSystem = config.house_system || 'P';
