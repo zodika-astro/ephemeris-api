@@ -12,71 +12,58 @@ function grauParaSigno(grau) {
   return signos[index];
 }
 
-function identificarSignosInterceptados(cuspidesObj) {
-  const graus = Object.values(cuspidesObj).map(c => c.grau);
-  graus.push(cuspidesObj.casa1.grau + 360); // fechar o ciclo
+function identificarInterceptacoes(cuspides) {
+  const graus = cuspides.map(c => c.grau);
+  graus.push(graus[0] + 360); // fecha o ciclo
 
-  const signosCuspides = Object.values(cuspidesObj).map(c => c.signo);
-  const signosPresentes = new Set();
-
-  for (let i = 0; i < 12; i++) {
-    const start = graus[i];
-    const end = graus[i + 1];
-    for (let g = start; g < end; g++) {
-      signosPresentes.add(grauParaSigno(g));
-    }
-  }
-
-  const signosInterceptados = [...signosPresentes].filter(s => !signosCuspides.includes(s));
-  const signosComDuplaRegencia = signos.filter(s =>
-    signosCuspides.filter(c => c === s).length > 1
-  );
-
-  // Reconstruir casas array com info precisa
-  const casasArray = [];
+  const cuspidesSet = new Set(cuspides.map(c => c.signo));
   const casasComInterceptacoes = [];
+  const signosInterceptados = new Set();
+  const signosComDuplaRegencia = [];
 
-  for (let i = 0; i < 12; i++) {
-    const casa = `casa${i + 1}`;
-    const grau = graus[i];
-    const grauSeguinte = graus[i + 1];
-    const signo = grauParaSigno(grau);
-    const interceptado = false;
-
-    casasArray.push({
-      casa: i + 1,
-      grau,
-      signo,
-      interceptado
-    });
+  // mapa da contagem de signos nas cúspides
+  const signoFrequencia = cuspides.reduce((acc, c) => {
+    acc[c.signo] = (acc[c.signo] || 0) + 1;
+    return acc;
+  }, {});
+  for (const [signo, count] of Object.entries(signoFrequencia)) {
+    if (count > 1) signosComDuplaRegencia.push(signo);
   }
 
-  // Corrigir: detectar exatamente onde cada signo interceptado está
-  for (let s of signosInterceptados) {
-    for (let i = 0; i < 12; i++) {
-      const g1 = graus[i];
-      const g2 = graus[i + 1];
-      const arco = [];
+  // percorre as 12 casas
+  for (let i = 0; i < 12; i++) {
+    const inicio = graus[i];
+    const fim = graus[i + 1];
+    const signosNaCasa = new Set();
 
-      for (let g = g1; g < g2; g++) {
-        arco.push(grauParaSigno(g));
-      }
+    for (let g = inicio; g < fim; g += 1) {
+      const signo = grauParaSigno(g);
+      signosNaCasa.add(signo);
+    }
 
-      if (arco.includes(s)) {
-        casasComInterceptacoes.push({
-          casa: i + 1,
-          signoInterceptado: s
-        });
-        break; // adicionar só uma vez
-      }
+    // remove o signo da cúspide (ele não é interceptado)
+    signosNaCasa.delete(cuspides[i].signo);
+
+    // se só um signo sobrar e ele não estiver em nenhuma cúspide
+    const interceptadosNaCasa = [...signosNaCasa].filter(s => !cuspidesSet.has(s));
+    if (interceptadosNaCasa.length === 1) {
+      const signo = interceptadosNaCasa[0];
+      cuspides[i].interceptado = true;
+      casasComInterceptacoes.push({
+        casa: cuspides[i].casa,
+        signoInterceptado: signo
+      });
+      signosInterceptados.add(signo);
+    } else {
+      cuspides[i].interceptado = false;
     }
   }
 
   return {
-    signosInterceptados,
+    signosInterceptados: [...signosInterceptados],
     signosComDuplaRegencia,
     casasComInterceptacoes,
-    casasArray
+    casasArray: cuspides
   };
 }
 
@@ -88,24 +75,25 @@ async function compute(reqBody) {
   } = reqBody;
 
   const decimalHours = hours + minutes / 60 + seconds / 3600;
+  const jd = swisseph.swe_julday(year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL);
 
-  const jd = swisseph.swe_julday(
-    year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL
-  );
-
-  const cuspidesObj = await new Promise((resolve, reject) => {
+  const cuspides = await new Promise((resolve, reject) => {
     swisseph.swe_houses(jd, latitude, longitude, 'P', (res) => {
-      if (res.error || !res.house) return reject(new Error("Erro ao calcular casas"));
-
-      const cuspides = {};
-      for (let i = 0; i < 12; i++) {
-        const grau = res.house[i];
-        cuspides[`casa${i + 1}`] = {
-          grau,
-          signo: grauParaSigno(grau)
-        };
+      if (res.error || !res.house) {
+        reject(new Error("Erro ao calcular casas"));
+      } else {
+        const output = [];
+        for (let i = 0; i < 12; i++) {
+          const grau = res.house[i];
+          output.push({
+            casa: i + 1,
+            grau,
+            signo: grauParaSigno(grau),
+            interceptado: false
+          });
+        }
+        resolve(output);
       }
-      resolve(cuspides);
     });
   });
 
@@ -141,7 +129,7 @@ async function compute(reqBody) {
     signosComDuplaRegencia,
     casasComInterceptacoes,
     casasArray
-  } = identificarSignosInterceptados(cuspidesObj);
+  } = identificarInterceptacoes(cuspides);
 
   return {
     statusCode: 200,
