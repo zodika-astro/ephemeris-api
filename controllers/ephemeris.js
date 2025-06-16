@@ -15,10 +15,10 @@ function grauParaSigno(grau) {
   return signos[Math.min(index, 11)]; // Ensure we don't go beyond array bounds
 }
 
-async function computeHouses(jd, lat, lng, houseSystem = 'P') {
+async function computeHouses(timezone, lat, lng, houseSystem = 'P') {
   return new Promise((resolve, reject) => {
     swisseph.swe_houses_ex(
-      jd,
+      timezone,
       swisseph.SEFLG_SWIEPH,
       lat,
       lng,
@@ -40,7 +40,7 @@ async function computeHouses(jd, lat, lng, houseSystem = 'P') {
   });
 }
 
-async function computePlanetaryPositions(jd) {
+async function computePlanetaryPositions(timezone) {
   const planetas = {
     sol: swisseph.SE_SUN,
     lua: swisseph.SE_MOON,
@@ -63,7 +63,7 @@ async function computePlanetaryPositions(jd) {
   for (const [nome, id] of Object.entries(planetas)) {
     const pos = await new Promise((resolve) => {
       swisseph.swe_calc_ut(
-        jd,
+        timezone,
         id,
         flags,
         (res) => {
@@ -159,10 +159,10 @@ async function compute(reqBody) {
 
     // Calculate houses with configured system (default Placidus)
     const houseSystem = config.house_system || 'P';
-    const cuspides = await computeHouses(jd, latitude, longitude, houseSystem);
+    const cuspides = await computeHouses(timezone, latitude, longitude, houseSystem);
 
     // Calculate planetary positions
-    const { geo, signos: signosPlanetas } = await computePlanetaryPositions(jd);
+    const { geo, signos: signosPlanetas } = await computePlanetaryPositions(timezone);
 
     // Analyze house data
     const houseAnalysis = analyzeHouses(cuspides);
