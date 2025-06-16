@@ -8,13 +8,8 @@ const signos = [
   "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
 ];
 
-const calcularCasas = (julianDayUT, latitude, longitude) => {
-  const casas = swisseph.swe_houses(julianDayUT, latitude, longitude, 'P');
-  return casas.house.slice(0, 12); // 0-11 = Casas 1 a 12
-};
-
 const grauParaSigno = (grau) => {
-  return signos[Math.floor(grau / 30)];
+  return signos[Math.floor(normalizarGrau(grau) / 30)];
 };
 
 const normalizarGrau = (grau) => {
@@ -22,54 +17,61 @@ const normalizarGrau = (grau) => {
 };
 
 const arcoContemSigno = (inicio, fim, signo) => {
-  let arco = [];
   let grauInicial = normalizarGrau(inicio);
   let grauFinal = normalizarGrau(fim);
 
   if (grauFinal < grauInicial) grauFinal += 360;
 
   for (let g = grauInicial; g < grauFinal; g++) {
-    arco.push(Math.floor(normalizarGrau(g) / 30));
+    const idx = Math.floor(normalizarGrau(g) / 30);
+    if (signos[idx] === signo) return true;
   }
 
-  return arco.includes(signos.indexOf(signo));
+  return false;
+};
+
+const calcularCasas = (julianDayUT, latitude, longitude) => {
+  const casas = swisseph.swe_houses(julianDayUT, latitude, longitude, 'P');
+  return casas.house.slice(0, 12); // Casas 1 a 12
 };
 
 const identificarSignosCasas = (cuspides) => {
   let casas = [];
+
   for (let i = 0; i < 12; i++) {
-    let inicio = cuspides[i];
-    let fim = cuspides[(i + 1) % 12];
+    const inicio = cuspides[i];
+    const fim = cuspides[(i + 1) % 12];
+
+    const signoInicio = grauParaSigno(inicio);
+    const signoFim = grauParaSigno(fim);
+
+    let signos = [signoInicio];
+    if (signoFim !== signoInicio) signos.push(signoFim);
+
     casas.push({
       casa: i + 1,
       inicio,
       fim,
-      signos: [],
+      signos
     });
-
-    let signoInicio = grauParaSigno(inicio);
-    let signoFim = grauParaSigno(fim);
-
-    casas[i].signos.push(signoInicio);
-    if (signoInicio !== signoFim) casas[i].signos.push(signoFim);
   }
 
   return casas;
 };
 
 const identificarInterceptacoes = (casas) => {
-  let todosSignos = new Set(signos);
-  casas.forEach(c => c.signos.forEach(s => todosSignos.delete(s)));
+  let usados = new Set();
+  casas.forEach(c => c.signos.forEach(s => usados.add(s)));
 
-  let interceptados = Array.from(todosSignos);
+  const interceptados = signos.filter(s => !usados.has(s));
+  const casasComInterceptacoes = [];
 
-  let casasComInterceptacoes = [];
   interceptados.forEach(signo => {
     casas.forEach(casa => {
       if (arcoContemSigno(casa.inicio, casa.fim, signo)) {
         casasComInterceptacoes.push({
           casa: casa.casa,
-          signoInterceptado: signo,
+          signoInterceptado: signo
         });
       }
     });
@@ -77,39 +79,43 @@ const identificarInterceptacoes = (casas) => {
 
   return {
     signosInterceptados: interceptados,
-    casasComInterceptacoes,
+    casasComInterceptacoes
   };
 };
 
-module.exports = {
-  calcularMapa: (input) => {
-    return new Promise((resolve, reject) => {
-      const {
-        year, month, date,
-        hours, minutes, seconds,
-        latitude, longitude, timezone
-      } = input;
+async function compute(input) {
+  const {
+    year, month, date,
+    hours, minutes, seconds,
+    latitude, longitude, timezone
+  } = input;
 
-      const julianDayUT = swisseph.swe_julday(year, month, date, hours + minutes / 60 + seconds / 3600 - timezone, swisseph.SE_GREG_CAL);
-      const cuspides = calcularCasas(julianDayUT, latitude, longitude);
-      const casasDetalhadas = identificarSignosCasas(cuspides);
-      const interceptacoes = identificarInterceptacoes(casasDetalhadas);
+  const decimalHours = hours + minutes / 60 + seconds / 3600;
+  const jdUT = swisseph.swe_julday(year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL);
 
-      resolve({
-        casas: {
-          cuspides: cuspides.map((grau, i) => ({
-            casa: i + 1,
-            grau: normalizarGrau(grau),
-            signo: grauParaSigno(grau),
-            interceptado: interceptacoes.casasComInterceptacoes.some(c => c.casa === i + 1)
-          })),
-          signosInterceptados: interceptacoes.signosInterceptados,
-          casasComInterceptacoes: interceptacoes.casasComInterceptacoes,
-          signosComDuplaRegencia: casasDetalhadas
-            .map(c => c.signos[0])
-            .filter((v, i, a) => a.indexOf(v) !== i) // Signos repetidos
-        }
-      });
-    });
-  }
-};
+  const cuspides = calcularCasas(jdUT, latitude, longitude);
+  const casasDetalhadas = identificarSignosCasas(cuspides);
+  const interceptacoes = identificarInterceptacoes(casasDetalhadas);
+
+  const signosComDuplaRegencia = casasDetalhadas
+    .map(c => c.signos[0])
+    .filter((v, i, a) => a.indexOf(v) !== i);
+
+  const cuspidesDetalhadas = cuspides.map((grau, i) => ({
+    casa: i + 1,
+    grau: normalizarGrau(grau),
+    signo: grauParaSigno(grau),
+    interceptado: interceptacoes.casasComInterceptacoes.some(c => c.casa === i + 1)
+  }));
+
+  return {
+    casas: {
+      cuspides: cuspidesDetalhadas,
+      signosInterceptados: interceptacoes.signosInterceptados,
+      casasComInterceptacoes: interceptacoes.casasComInterceptacoes,
+      signosComDuplaRegencia
+    }
+  };
+}
+
+module.exports = { compute };
