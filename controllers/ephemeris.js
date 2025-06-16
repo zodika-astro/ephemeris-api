@@ -7,59 +7,70 @@ const signos = [
 ];
 
 function grauParaSigno(grau) {
-  const index = Math.floor((grau % 360) / 30);
+  const index = Math.floor((grau % 360 + 360) % 360 / 30);
   return signos[index];
 }
 
 function identificarSignosInterceptados(cuspides) {
-  const graus = cuspides.map(c => c.grau);
-  graus.push(graus[0] + 360); // casa13
+  const arcos = cuspides.map((c, i) => {
+    const grauInicio = c.grau;
+    const grauFim = i < 11 ? cuspides[i + 1].grau : cuspides[0].grau + 360;
+    return {
+      casa: c.casa,
+      grauInicio,
+      grauFim,
+      signoCuspide: grauParaSigno(c.grau),
+    };
+  });
 
-  const signosPresentes = new Set();
-  const signosNasCuspides = new Set();
+  const signosNasCuspides = new Set(arcos.map(a => a.signoCuspide));
   const casasComInterceptacoes = [];
+  const signosInterceptados = new Set();
 
-  for (let i = 0; i < 12; i++) {
-    const inicio = graus[i];
-    const fim = graus[i + 1];
-    const casaSignos = new Set();
+  for (const arco of arcos) {
+    const signosNoArco = new Set();
 
-    for (let g = Math.floor(inicio); g < fim; g++) {
-      const signo = grauParaSigno(g);
-      signosPresentes.add(signo);
-      casaSignos.add(signo);
+    for (let g = Math.floor(arco.grauInicio); g < arco.grauFim; g++) {
+      signosNoArco.add(grauParaSigno(g));
     }
 
-    // pega signo da cúspide
-    const cuspideSigno = grauParaSigno(cuspides[i].grau);
-    signosNasCuspides.add(cuspideSigno);
-
-    cuspides[i].signo = cuspideSigno;
-    cuspides[i].interceptado = false;
-
-    // verifica se algum signo está no arco mas não está na cúspide
-    for (const signo of casaSignos) {
+    for (const signo of signosNoArco) {
       if (!signosNasCuspides.has(signo)) {
-        cuspides[i].interceptado = true;
-        casasComInterceptacoes.push({
-          casa: cuspides[i].casa,
-          signoInterceptado: signo
-        });
+        // Só adiciona se ainda não está no resultado
+        const jáExiste = casasComInterceptacoes.some(c =>
+          c.casa === arco.casa && c.signoInterceptado === signo
+        );
+        if (!jáExiste) {
+          casasComInterceptacoes.push({
+            casa: arco.casa,
+            signoInterceptado: signo
+          });
+          signosInterceptados.add(signo);
+        }
       }
     }
   }
 
-  const interceptados = [...signosPresentes].filter(s => !signosNasCuspides.has(s));
-
   const signosComDuplaRegencia = signos.filter(signo =>
-    cuspides.filter(c => c.signo === signo).length > 1
+    arcos.filter(a => a.signoCuspide === signo).length > 1
   );
 
+  const casasArray = cuspides.map(c => {
+    const signo = grauParaSigno(c.grau);
+    const interceptado = casasComInterceptacoes.some(e => e.casa === c.casa && e.signoInterceptado === signo);
+    return {
+      casa: c.casa,
+      grau: c.grau,
+      signo,
+      interceptado
+    };
+  });
+
   return {
-    signosInterceptados: interceptados,
+    signosInterceptados: [...signosInterceptados],
     signosComDuplaRegencia,
-    casasComInterceptacoes: casasComInterceptacoes,
-    casasArray: cuspides
+    casasComInterceptacoes,
+    casasArray
   };
 }
 
