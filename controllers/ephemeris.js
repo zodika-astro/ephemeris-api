@@ -1,6 +1,6 @@
 'use strict';
 const swisseph = require('swisseph');
-swisseph.swe_set_ephe_path(__dirname + '/ephe');
+//swisseph.swe_set_ephe_path(__dirname + '/ephe');
 
 const signos = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
