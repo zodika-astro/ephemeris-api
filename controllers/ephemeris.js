@@ -22,6 +22,7 @@ const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
 };
 
 async function computePlanetaryPositions(jd) {
+  
   const planetas = {
     sol: swisseph.SE_SUN,
     lua: swisseph.SE_MOON,
