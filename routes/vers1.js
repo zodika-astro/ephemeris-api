@@ -5,19 +5,19 @@ const EphemerisCntlr = require('../controllers/ephemeris'); // Import controller
 
 // Route for ephemeris calculations
 router.post('/ephemeris', async (req, res) => {
-  console.log('Ephemeris route called'); // Simplified log
+  console.log('Ephemeris route called');
 
   try {
-// Call the renamed function in controller
-const result = await EphemerisCntlr.computeChart(req.body);
+    // CHAME A FUNÇÃO 'compute' DO SEU CONTROLADOR
+    const result = await EphemerisCntlr.compute(req.body);
 
-// Send the response back
-res.status(result.statusCode).json(result);
+    // Send the response back
+    res.status(result.statusCode).json(result);
   } catch (error) {
-    console.error('Ephemeris route error:', error.message); 
+    console.error('Ephemeris route error:', error.message);
     res.status(500).json({
       statusCode: 500,
-      message: `Calculation failed: ${error.message}` 
+      message: `Calculation failed: ${error.message}`
     });
   }
 });
