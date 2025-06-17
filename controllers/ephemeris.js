@@ -1,6 +1,14 @@
 'use strict';
 const swisseph = require('swisseph');
-swisseph.swe_set_ephe_path(__dirname + '/ephe');
+const path = require('path'); // <<< Adicionada esta linha
+
+// --- ALTERAÇÃO PRINCIPAL AQUI ---
+// Corrige o caminho para a pasta 'ephe' que está na raiz do projeto
+// (__dirname é '.../controllers', '..' sobe para '.../', '/ephe' entra na pasta raiz 'ephe')
+const ephePath = path.join(__dirname, '..', 'ephe'); 
+swisseph.swe_set_ephe_path(ephePath);
+console.log('SwissEphemeris path set to:', ephePath); // <<< Adicionada para depuração
+
 
 const signos = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
