@@ -6,10 +6,10 @@ RUN apt-get update && apt-get install -y python3 build-essential && \
 
 WORKDIR /app
 COPY package*.json ./
-RUN chmod -R 755 /app/ephe 
 RUN npm install --omit=dev
 
 COPY . .
+RUN chmod -R 755 /app/ephe 
 EXPOSE 8080
 ENV BASIC_USER=${BASIC_USER} BASIC_PASS=${BASIC_PASS}
 CMD ["node", "app.js"]
