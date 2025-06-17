@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y python3 build-essential && \
 
 WORKDIR /app
 COPY package*.json ./
+RUN chmod -R 755 /app/ephe 
 RUN npm install --omit=dev
 
 COPY . .
