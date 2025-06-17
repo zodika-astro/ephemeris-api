@@ -22,6 +22,8 @@ const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   return new Promise((resolve, reject) => {
     swisseph.swe_houses_ex(jd, swisseph.SEFLG_SWIEPH, lat, lng, houseSystem, (res) => {
       if (res.error) return reject(new Error(`Erro nas casas: ${res.error}`));
+      // As cúspides são retornadas em ordem (casa 1, casa 2, ...).
+      // A cúspide da casa 10 é cuspides[9] e da casa 1 é cuspides[0].
       resolve(res.house.slice(0, 12).map((grau, i) => ({ casa: i + 1, grau })));
     });
   });
@@ -47,9 +49,8 @@ const determinarCasaAstrologica = (grauPlaneta, cuspides) => {
     return null;
 };
 
-// --- CÁLCULO DE ASPECTOS ASTROLÓGICOS COM AGRUPAMENTO E CASAS ---
+// --- CÁLCULO DE ASPECTOS ASTROLÓGICOS ---
 
-// Definição dos aspectos e seus ângulos ideais
 const ASPECTOS_DEFINICOES = [
     { nome: "conjuncao", grau: 0 },
     { nome: "sextil", grau: 60 },
@@ -58,25 +59,15 @@ const ASPECTOS_DEFINICOES = [
     { nome: "oposicao", grau: 180 }
 ];
 
-// Orbe padrão para os aspectos (agora 6 graus, conforme sua observação)
 const ORBE_PADRAO = 6; // Graus de tolerância
 
-// Lista de planetas a serem considerados para aspectos (deve corresponder às chaves em 'geo')
 const PLANETAS_PARA_ASPECTOS = [
     "sol", "lua", "mercurio", "venus", "marte", "jupiter", "saturno",
     "urano", "netuno", "plutao", "nodo_verdadeiro", "lilith", "quiron"
 ];
 
-/**
- * Calcula os aspectos astrológicos entre todos os pares de planetas.
- * A resposta é agrupada por tipo de aspecto e inclui a casa de cada planeta.
- * @param {Object} planetGeoPositions Um objeto com as posições (graus) de cada planeta (vindo de ephemerides.geo).
- * @param {Object} planetSignosData Um objeto com os dados completos de signo, retrogrado e casa de cada planeta (vindo de signos).
- * @param {number} [orb=ORBE_PADRAO] O orbe de tolerância para os aspectos.
- * @returns {Object} Um objeto onde as chaves são os tipos de aspecto e os valores são arrays de aspectos encontrados.
- */
 async function computeAspects(planetGeoPositions, planetSignosData, orb = ORBE_PADRAO) {
-    const aspectosAgrupados = { // <<< Novo formato de retorno: objeto agrupado
+    const aspectosAgrupados = {
         conjuncao: [],
         sextil: [],
         quadratura: [],
@@ -94,7 +85,6 @@ async function computeAspects(planetGeoPositions, planetSignosData, orb = ORBE_P
             const pos1 = planetGeoPositions[planeta1Nome];
             const pos2 = planetGeoPositions[planeta2Nome];
 
-            // Obter informações completas dos planetas para incluir a casa
             const infoPlaneta1 = planetSignosData[planeta1Nome];
             const infoPlaneta2 = planetSignosData[planeta2Nome];
 
@@ -114,7 +104,6 @@ async function computeAspects(planetGeoPositions, planetSignosData, orb = ORBE_P
                 const nomeAspecto = aspectoDef.nome;
 
                 if (diferencaAngular >= (grauIdeal - orb) && diferencaAngular <= (grauIdeal + orb)) {
-                    // Monta a descrição conforme o formato solicitado
                     const descricao = `${nomeAspecto.charAt(0).toUpperCase() + nomeAspecto.slice(1)} - ` +
                                       `${planeta1Nome.charAt(0).toUpperCase() + planeta1Nome.slice(1)} - ` +
                                       `casa ${infoPlaneta1.casa} x ` +
@@ -122,18 +111,18 @@ async function computeAspects(planetGeoPositions, planetSignosData, orb = ORBE_P
                                       `casa ${infoPlaneta2.casa}`;
 
                     aspectosAgrupados[nomeAspecto].push({
-                        planeta1: { nome: planeta1Nome, casa: infoPlaneta1.casa }, // <<< Inclui nome e casa
-                        planeta2: { nome: planeta2Nome, casa: infoPlaneta2.casa }, // <<< Inclui nome e casa
+                        planeta1: { nome: planeta1Nome, casa: infoPlaneta1.casa },
+                        planeta2: { nome: planeta2Nome, casa: infoPlaneta2.casa },
                         tipo: nomeAspecto,
                         grauExato: parseFloat(diferencaAngular.toFixed(4)),
                         orbAplicado: parseFloat(Math.abs(diferencaAngular - grauIdeal).toFixed(4)),
-                        descricao: descricao // <<< Novo campo de descrição formatada
+                        descricao: descricao
                     });
                 }
             }
         }
     }
-    return aspectosAgrupados; // <<< Retorna o objeto agrupado
+    return aspectosAgrupados;
 }
 
 
@@ -190,6 +179,126 @@ async function computePlanets(jd, cuspides) {
 
   return { geo, signos: signosData }; 
 }
+
+// --- NOVA FUNCIONALIDADE: ANÁLISE DE ELEMENTOS E QUALIDADES/MODALIDADES (com pontuação ponderada) ---
+
+// Mapeamentos de signos para elementos e qualidades
+const SIGNO_ELEMENTO_MAP = {
+    "Áries": "fogo", "Leão": "fogo", "Sagitário": "fogo",
+    "Touro": "terra", "Virgem": "terra", "Capricórnio": "terra",
+    "Gêmeos": "ar", "Libra": "ar", "Aquário": "ar",
+    "Câncer": "agua", "Escorpião": "agua", "Peixes": "agua"
+};
+
+const SIGNO_QUALIDADE_MAP = {
+    "Áries": "cardinal", "Câncer": "cardinal", "Libra": "cardinal", "Capricórnio": "cardinal",
+    "Touro": "fixa", "Leão": "fixa", "Escorpião": "fixa", "Aquário": "fixa",
+    "Gêmeos": "mutavel", "Virgem": "mutavel", "Sagitário": "mutavel", "Peixes": "mutavel"
+};
+
+// --- NOVAS REGRAS DE PONTUAÇÃO PONDERADA ---
+const PESO_POR_PONTO = {
+    // Grupo: Base da Individualidade (3 pontos cada)
+    sol: 3,
+    lua: 3,
+    ascendente: 3, // O Ascendente é a cúspide da casa 1
+    mc: 3,         // O Meio do Céu é a cúspide da casa 10
+
+    // Grupo: Vias de Expressão da Individualidade (2 pontos cada)
+    mercurio: 2,
+    venus: 2,
+    marte: 2,
+    jupiter: 2,
+
+    // Grupo: Tendências Geracionais (1 ponto cada)
+    saturno: 1,
+    urano: 1,
+    netuno: 1,
+    plutao: 1
+    
+    // Nodo Verdadeiro, Lilith, Quíron NÃO SÃO INCLUÍDOS na contagem de elementos/qualidades,
+    // pois não foram especificados nas regras de pontuação.
+};
+
+/**
+ * NOVOS LIMITES para determinar equilíbrio, excesso ou falta de elementos/qualidades.
+ * Baseado em uma soma total de 24 pontos.
+ */
+const LIMITES_ELEMENTOS_QUALIDADES = {
+    faltaMax: 3,        // 3 ou menos pontos = falta
+    equilibrioMax: 8    // Entre 4 e 8 pontos = equilíbrio
+                        // 9 ou mais pontos = excesso (pelo 'else' implícito)
+};
+
+/**
+ * Determina o status (falta, equilibrio, excesso) com base na contagem e limites.
+ * @param {number} count A contagem de pontos.
+ * @returns {string} O status ('falta', 'equilibrio', 'excesso').
+ */
+const getStatusByCount = (count) => {
+    if (count <= LIMITES_ELEMENTOS_QUALIDADES.faltaMax) {
+        return "falta";
+    } else if (count <= LIMITES_ELEMENTOS_QUALIDADES.equilibrioMax) {
+        return "equilibrio";
+    } else {
+        return "excesso";
+    }
+};
+
+/**
+ * Analisa os elementos e qualidades (modalidades) com base nas posições dos pontos astrológicos e sua pontuação ponderada.
+ * @param {Object} planetSignosData Dados dos planetas com seus signos (vindo de signos).
+ * @param {Array<Object>} cuspides Array de cúspides de casas (para Asc/MC).
+ * @returns {Object} Objeto contendo as análises de elementos e qualidades.
+ */
+async function analyzeElementalAndModalQualities(planetSignosData, cuspides) {
+    const elementCounts = { fogo: 0, terra: 0, ar: 0, agua: 0 };
+    const qualityCounts = { cardinal: 0, fixa: 0, mutavel: 0 };
+
+    // Mapeia os dados de cúspides para facilitar o acesso de Ascendente e MC como "pontos"
+    const pontosAdicionais = {
+        ascendente: { signo: grauParaSigno(cuspides[0]?.grau) },
+        mc: { signo: grauParaSigno(cuspides[9]?.grau) }
+    };
+
+    // Combina planetas e pontos adicionais para a iteração, considerando apenas aqueles com peso definido
+    const todosOsPontos = { ...planetSignosData, ...pontosAdicionais };
+
+    for (const pontoNome in todosOsPontos) {
+        // Verifica se o ponto tem um peso definido nas suas regras
+        if (PESO_POR_PONTO[pontoNome] !== undefined) {
+            const peso = PESO_POR_PONTO[pontoNome];
+            const signoDoPonto = todosOsPontos[pontoNome].signo;
+
+            if (SIGNO_ELEMENTO_MAP[signoDoPonto]) {
+                elementCounts[SIGNO_ELEMENTO_MAP[signoDoPonto]] += peso;
+            }
+            if (SIGNO_QUALIDADE_MAP[signoDoPonto]) {
+                qualityCounts[SIGNO_QUALIDADE_MAP[signoDoPonto]] += peso;
+            }
+        }
+    }
+
+    // Determinar o status (falta, equilibrio, excesso) para cada
+    const elementosResult = {};
+    for (const elemento in elementCounts) {
+        elementosResult[elemento] = {
+            contagem: elementCounts[elemento],
+            status: getStatusByCount(elementCounts[elemento])
+        };
+    }
+
+    const qualidadesResult = {};
+    for (const qualidade in qualityCounts) {
+        qualidadesResult[qualidade] = {
+            contagem: qualityCounts[qualidade],
+            status: getStatusByCount(qualityCounts[qualidade])
+        };
+    }
+
+    return { elementos: elementosResult, qualidades: qualidadesResult };
+}
+
 
 const analyzeHouses = (cuspides) => {
   const signosNasCuspides = new Set(cuspides.map(c => grauParaSigno(c.grau)));
@@ -254,11 +363,13 @@ const compute = async (reqBody) => {
     const houseSystem = config.house_system || 'P';
     const cuspides = await computeHouses(jd, latitude, longitude, houseSystem);
     
-    // Obter posições geocêntricas (geo) E os dados completos dos signos (com casas)
     const { geo, signos } = await computePlanets(jd, cuspides); 
 
-    // Chama a função de cálculo de aspectos, passando 'geo' e 'signos' (para as casas)
-    const aspectos = await computeAspects(geo, signos); // <<< Mudei a chamada aqui
+    const aspectos = await computeAspects(geo, signos); 
+
+    // --- CHAMADA ATUALIZADA PARA ANÁLISE DE ELEMENTOS E QUALIDADES ---
+    // Passamos 'signos' (para os planetas) e 'cuspides' (para Asc/MC)
+    const { elementos, qualidades } = await analyzeElementalAndModalQualities(signos, cuspides);
 
     const analise = analyzeHouses(cuspides);
 
@@ -274,7 +385,9 @@ const compute = async (reqBody) => {
         casasComInterceptacoes: analise.casasComInterceptacoes,
         signosComDuplaRegencia: analise.signosComDuplaRegencia
       },
-      aspectos // <<< Novo campo 'aspectos' na resposta final, agora agrupado
+      aspectos, 
+      elementos, 
+      qualidades 
     };
   } catch (err) {
     console.error("Erro de cálculo:", err);
