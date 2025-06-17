@@ -9,41 +9,42 @@ const helmet = require('helmet');
 
 const app = express();
 
-// Apply Helmet to secure HTTP headers
+// Security middleware
 app.use(helmet());
+app.disable('x-powered-by');
+app.use(express.json({ limit: '10kb' }));
+app.use(logger(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// Parse JSON bodies from requests
-app.use(express.json());
-
-// Log incoming requests
-app.use(logger('combined'));
-
-// Basic Authentication
-const BASIC_USER = process.env.BASIC_USER;
-const BASIC_PASS = process.env.BASIC_PASS;
-
-console.log('BASIC_USER:', BASIC_USER ? 'Set' : 'Not Set');
-console.log('BASIC_PASS:', BASIC_PASS ? 'Set' : 'Not Set');
+// Dual authentication support
+const authUsers = {};
+if (process.env.BASIC_USER && process.env.BASIC_PASS) {
+  authUsers[process.env.BASIC_USER] = process.env.BASIC_PASS;
+}
+// Add Make.com credentials if they differ
+authUsers['zodika'] = 'S3cr3tApi!';
 
 app.use(basicAuth({
-  users: { [BASIC_USER]: BASIC_PASS },
-  challenge: true
+  users: authUsers,
+  challenge: true,
+  unauthorizedResponse: { 
+    error: 'Unauthorized',
+    documentation: 'https://your-docs-url' 
+  }
 }));
 
-// Routing setup
+// Routes
 app.use('/', require('./routes/index'));
 app.use('/api', require('./routes/api'));
 
-// Final middleware for formatting responses
-app.use(responseHandler.handleResponse);
+// Error handling
 app.use(responseHandler.handleErrorResponse);
 
-// Start server
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Server start (Railway handles this in production)
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 8080;
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+}
 
-module.exports = {
-  app
-};
+module.exports = app;
