@@ -3,10 +3,9 @@ const swisseph = require('swisseph');
 const path = require('path');
 
 // Corrige o caminho para a pasta 'ephe' que está na raiz do projeto
-// (__dirname é '.../controllers', '..' sobe para '.../', '/ephe' entra na pasta raiz 'ephe')
 const ephePath = path.join(__dirname, '..', 'ephe');
 swisseph.swe_set_ephe_path(ephePath);
-console.log('SwissEphemeris path set to:', ephePath); // Mantido para sua depuração
+console.log('SwissEphemeris path set to:', ephePath);
 
 
 const signos = [
@@ -28,40 +27,117 @@ const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   });
 };
 
-/**
- * Determina em qual casa astrológica um grau (posição de planeta) se encontra.
- * @param {number} grauPlaneta O grau do planeta (0-360).
- * @param {Array<Object>} cuspides Um array de objetos de cúspides de casas (com 'grau' e 'casa').
- * @returns {number | null} O número da casa (1-12) ou null se não for encontrada (deve ser inatingível).
- */
 const determinarCasaAstrologica = (grauPlaneta, cuspides) => {
-    // Normaliza o grau do planeta para garantir que esteja entre 0 e 360
     const normalizedGrauPlaneta = ((grauPlaneta % 360) + 360) % 360;
 
     for (let i = 0; i < 12; i++) {
         const casaAtualCusp = cuspides[i].grau;
-        // A próxima cúspide é o limite superior da casa atual.
-        // Usa o operador modulo para lidar com a transição da casa 12 para a 1 (índice 0).
         const proximaCasaCusp = cuspides[(i + 1) % 12].grau; 
 
-        // Caso normal: a cúspide da casa atual é menor que a da próxima casa (sem cruzar o ponto 0/360)
         if (casaAtualCusp < proximaCasaCusp) {
             if (normalizedGrauPlaneta >= casaAtualCusp && normalizedGrauPlaneta < proximaCasaCusp) {
-                return i + 1; // Retorna o número da casa (1-12)
+                return i + 1;
             }
         } else {
-            // Caso onde a cúspide da casa atual cruza 0/360 graus (ex: casa 12 cusp > casa 1 cusp)
-            // Se o grau do planeta está entre a cúspide atual e 360, OU entre 0 e a próxima cúspide.
             if (normalizedGrauPlaneta >= casaAtualCusp || normalizedGrauPlaneta < proximaCasaCusp) {
-                return i + 1; // Retorna o número da casa (1-12)
+                return i + 1;
             }
         }
     }
-    return null; // Deve ser inatingível se as cúspides cobrem 360 graus corretamente
+    return null;
 };
 
+// --- CÁLCULO DE ASPECTOS ASTROLÓGICOS COM AGRUPAMENTO E CASAS ---
 
-async function computePlanets(jd, cuspides) { // <<< Adicionada 'cuspides' aqui
+// Definição dos aspectos e seus ângulos ideais
+const ASPECTOS_DEFINICOES = [
+    { nome: "conjuncao", grau: 0 },
+    { nome: "sextil", grau: 60 },
+    { nome: "quadratura", grau: 90 },
+    { nome: "trigono", grau: 120 },
+    { nome: "oposicao", grau: 180 }
+];
+
+// Orbe padrão para os aspectos (agora 6 graus, conforme sua observação)
+const ORBE_PADRAO = 6; // Graus de tolerância
+
+// Lista de planetas a serem considerados para aspectos (deve corresponder às chaves em 'geo')
+const PLANETAS_PARA_ASPECTOS = [
+    "sol", "lua", "mercurio", "venus", "marte", "jupiter", "saturno",
+    "urano", "netuno", "plutao", "nodo_verdadeiro", "lilith", "quiron"
+];
+
+/**
+ * Calcula os aspectos astrológicos entre todos os pares de planetas.
+ * A resposta é agrupada por tipo de aspecto e inclui a casa de cada planeta.
+ * @param {Object} planetGeoPositions Um objeto com as posições (graus) de cada planeta (vindo de ephemerides.geo).
+ * @param {Object} planetSignosData Um objeto com os dados completos de signo, retrogrado e casa de cada planeta (vindo de signos).
+ * @param {number} [orb=ORBE_PADRAO] O orbe de tolerância para os aspectos.
+ * @returns {Object} Um objeto onde as chaves são os tipos de aspecto e os valores são arrays de aspectos encontrados.
+ */
+async function computeAspects(planetGeoPositions, planetSignosData, orb = ORBE_PADRAO) {
+    const aspectosAgrupados = { // <<< Novo formato de retorno: objeto agrupado
+        conjuncao: [],
+        sextil: [],
+        quadratura: [],
+        trigono: [],
+        oposicao: []
+    };
+
+    const chavesPlanetas = Object.keys(planetGeoPositions).filter(key => PLANETAS_PARA_ASPECTOS.includes(key));
+
+    for (let i = 0; i < chavesPlanetas.length; i++) {
+        for (let j = i + 1; j < chavesPlanetas.length; j++) {
+            const planeta1Nome = chavesPlanetas[i];
+            const planeta2Nome = chavesPlanetas[j];
+
+            const pos1 = planetGeoPositions[planeta1Nome];
+            const pos2 = planetGeoPositions[planeta2Nome];
+
+            // Obter informações completas dos planetas para incluir a casa
+            const infoPlaneta1 = planetSignosData[planeta1Nome];
+            const infoPlaneta2 = planetSignosData[planeta2Nome];
+
+            if (pos1 === undefined || pos2 === undefined || !infoPlaneta1 || !infoPlaneta2) {
+                console.warn(`Posição ou informação inválida para ${planeta1Nome} ou ${planeta2Nome} ao calcular aspectos.`);
+                continue; 
+            }
+
+            let diferencaAngular = Math.abs(pos1 - pos2);
+
+            if (diferencaAngular > 180) {
+                diferencaAngular = 360 - diferencaAngular;
+            }
+
+            for (const aspectoDef of ASPECTOS_DEFINICOES) {
+                const grauIdeal = aspectoDef.grau;
+                const nomeAspecto = aspectoDef.nome;
+
+                if (diferencaAngular >= (grauIdeal - orb) && diferencaAngular <= (grauIdeal + orb)) {
+                    // Monta a descrição conforme o formato solicitado
+                    const descricao = `${nomeAspecto.charAt(0).toUpperCase() + nomeAspecto.slice(1)} - ` +
+                                      `${planeta1Nome.charAt(0).toUpperCase() + planeta1Nome.slice(1)} - ` +
+                                      `casa ${infoPlaneta1.casa} x ` +
+                                      `${planeta2Nome.charAt(0).toUpperCase() + planeta2Nome.slice(1)}, ` +
+                                      `casa ${infoPlaneta2.casa}`;
+
+                    aspectosAgrupados[nomeAspecto].push({
+                        planeta1: { nome: planeta1Nome, casa: infoPlaneta1.casa }, // <<< Inclui nome e casa
+                        planeta2: { nome: planeta2Nome, casa: infoPlaneta2.casa }, // <<< Inclui nome e casa
+                        tipo: nomeAspecto,
+                        grauExato: parseFloat(diferencaAngular.toFixed(4)),
+                        orbAplicado: parseFloat(Math.abs(diferencaAngular - grauIdeal).toFixed(4)),
+                        descricao: descricao // <<< Novo campo de descrição formatada
+                    });
+                }
+            }
+        }
+    }
+    return aspectosAgrupados; // <<< Retorna o objeto agrupado
+}
+
+
+async function computePlanets(jd, cuspides) { 
   const planetas = {
     sol: swisseph.SE_SUN,
     lua: swisseph.SE_MOON,
@@ -79,7 +155,7 @@ async function computePlanets(jd, cuspides) { // <<< Adicionada 'cuspides' aqui
   };
 
   const geo = {};
-  const signosData = {}; // Renomeado para evitar conflito com o array global 'signos'
+  const signosData = {}; 
   const flags = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
 
   for (const [nome, id] of Object.entries(planetas)) {
@@ -99,22 +175,20 @@ async function computePlanets(jd, cuspides) { // <<< Adicionada 'cuspides' aqui
         continue;
       }
 
-      // Calcula a casa astrológica do planeta
-      const casaAstrologica = determinarCasaAstrologica(longitudeAtual, cuspides); // <<< Chamada da nova função
+      const casaAstrologica = determinarCasaAstrologica(longitudeAtual, cuspides); 
 
       geo[nome] = longitudeAtual;
-      // Armazena as informações do planeta como um objeto aninhado
       signosData[nome] = { 
         signo: grauParaSigno(longitudeAtual),
         retrogrado: longitudeFutura < longitudeAtual,
-        casa: casaAstrologica // <<< Adicionada a casa aqui
+        casa: casaAstrologica 
       };
     } catch (err) {
       console.error(`❌ Erro ao calcular ${nome}:`, err.message);
     }
   }
 
-  return { geo, signos: signosData }; // <<< Retorna 'signosData' como 'signos'
+  return { geo, signos: signosData }; 
 }
 
 const analyzeHouses = (cuspides) => {
@@ -180,8 +254,12 @@ const compute = async (reqBody) => {
     const houseSystem = config.house_system || 'P';
     const cuspides = await computeHouses(jd, latitude, longitude, houseSystem);
     
-    // Passa 'cuspides' para 'computePlanets'
-    const { geo, signos } = await computePlanets(jd, cuspides); // <<< Adicionada 'cuspides' aqui
+    // Obter posições geocêntricas (geo) E os dados completos dos signos (com casas)
+    const { geo, signos } = await computePlanets(jd, cuspides); 
+
+    // Chama a função de cálculo de aspectos, passando 'geo' e 'signos' (para as casas)
+    const aspectos = await computeAspects(geo, signos); // <<< Mudei a chamada aqui
+
     const analise = analyzeHouses(cuspides);
 
     return {
@@ -189,13 +267,14 @@ const compute = async (reqBody) => {
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       ephemerides: { geo },
-      signos, // 'signos' agora é o objeto com as informações de signo, retrogrado e casa
+      signos, 
       casas: {
         cuspides: analise.cuspides,
         signosInterceptados: analise.signosInterceptados,
         casasComInterceptacoes: analise.casasComInterceptacoes,
         signosComDuplaRegencia: analise.signosComDuplaRegencia
-      }
+      },
+      aspectos // <<< Novo campo 'aspectos' na resposta final, agora agrupado
     };
   } catch (err) {
     console.error("Erro de cálculo:", err);
