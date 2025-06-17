@@ -79,9 +79,10 @@ const ASPECT_DEFINITIONS = [
 
 const DEFAULT_ORB = 6; // Degrees of tolerance
 
+// Translated planet names
 const PLANETS_FOR_ASPECTS = [
-    "sol", "lua", "mercurio", "venus", "marte", "jupiter", "saturno",
-    "urano", "netuno", "plutao", "nodo_verdadeiro", "lilith", "quiron"
+    "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
+    "uranus", "neptune", "pluto", "trueNode", "lilith", "chiron"
 ];
 
 /**
@@ -114,7 +115,7 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
             const infoPlanet2 = planetSignData[planet2Name];
 
             if (pos1 === undefined || pos2 === undefined || !infoPlanet1 || !infoPlanet2) {
-                console.warn(`⚠️ Invalid position or info for ${planet1Name} or ${planet2Name} when computing aspects.`);
+                console.warn('Invalid position or info for ' + planet1Name + ' or ' + planet2Name + ' when computing aspects.');
                 continue;
             }
 
@@ -132,13 +133,13 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
                 if (angularDifference >= (idealDegree - orb) && angularDifference <= (idealDegree + orb)) {
                     const description = `${aspectName.charAt(0).toUpperCase() + aspectName.slice(1)} - ` +
                                         `${planet1Name.charAt(0).toUpperCase() + planet1Name.slice(1)} - ` +
-                                        `house ${infoPlanet1.casa} x ` +
+                                        `house ${infoPlanet1.house} x ` +
                                         `${planet2Name.charAt(0).toUpperCase() + planet2Name.slice(1)}, ` +
-                                        `house ${infoPlanet2.casa}`;
+                                        `house ${infoPlanet2.house}`;
 
                     groupedAspects[aspectName].push({
-                        planet1: { name: planet1Name, house: infoPlanet1.casa },
-                        planet2: { name: planet2Name, house: infoPlanet2.casa },
+                        planet1: { name: planet1Name, house: infoPlanet1.house },
+                        planet2: { name: planet2Name, house: infoPlanet2.house },
                         type: aspectName,
                         exactDegree: parseFloat(angularDifference.toFixed(4)),
                         appliedOrb: parseFloat(Math.abs(angularDifference - idealDegree).toFixed(4)),
@@ -158,20 +159,21 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
  * @returns {Promise<Object>} An object containing geographical positions and sign data for planets.
  */
 async function computePlanets(jd, cusps) {
+  // Translated planet names mapping to Swiss Ephemeris IDs
   const planetsMap = {
-    sol: swisseph.SE_SUN,
-    lua: swisseph.SE_MOON,
-    mercurio: swisseph.SE_MERCURY,
+    sun: swisseph.SE_SUN,
+    moon: swisseph.SE_MOON,
+    mercury: swisseph.SE_MERCURY,
     venus: swisseph.SE_VENUS,
-    marte: swisseph.SE_MARS,
+    mars: swisseph.SE_MARS,
     jupiter: swisseph.SE_JUPITER,
-    saturno: swisseph.SE_SATURN,
-    urano: swisseph.SE_URANUS,
-    netuno: swisseph.SE_NEPTUNE,
-    plutao: swisseph.SE_PLUTO,
-    nodo_verdadeiro: swisseph.SE_TRUE_NODE,
+    saturn: swisseph.SE_SATURN,
+    uranus: swisseph.SE_URANUS,
+    neptune: swisseph.SE_NEPTUNE,
+    pluto: swisseph.SE_PLUTO,
+    trueNode: swisseph.SE_TRUE_NODE, // Formerly nodo_verdadeiro
     lilith: swisseph.SE_MEAN_APOG,
-    quiron: swisseph.SE_CHIRON
+    chiron: swisseph.SE_CHIRON
   };
 
   const geoPositions = {};
@@ -194,7 +196,7 @@ async function computePlanets(jd, cusps) {
       const futureLongitude = future.longitude ?? future.position?.[0];
 
       if (currentLongitude == null || futureLongitude == null) {
-        console.warn(`⚠️ Could not get position for ${name}.`);
+        console.warn('Could not get position for ' + name + '.');
         continue;
       }
 
@@ -207,7 +209,7 @@ async function computePlanets(jd, cusps) {
         house: astrologicalHouse
       };
     } catch (err) {
-      console.error(`❌ Error calculating ${name}:`, err.message);
+      console.error('Error calculating ' + name + ': ' + err.message);
     }
   }
 
@@ -233,22 +235,22 @@ const SIGN_QUALITY_MAP = {
 // --- NEW WEIGHTED SCORING RULES ---
 const WEIGHT_PER_POINT = {
     // Group: Individuality Base (3 points each)
-    sol: 3,
-    lua: 3,
-    ascendente: 3, // Ascendant is the 1st house cusp
-    mc: 3,         // Midheaven (MC) is the 10th house cusp
+    sun: 3,         // Formerly sol
+    moon: 3,        // Formerly lua
+    ascendant: 3,   // Ascendant is the 1st house cusp, formerly ascendente
+    mc: 3,          // Midheaven (MC) is the 10th house cusp
 
     // Group: Individuality Expression Channels (2 points each)
-    mercurio: 2,
+    mercury: 2,     // Formerly mercurio
     venus: 2,
-    marte: 2,
+    mars: 2,        // Formerly marte
     jupiter: 2,
 
     // Group: Generational Tendencies (1 point each)
-    saturno: 1,
-    urano: 1,
-    netuno: 1,
-    plutao: 1
+    saturn: 1,      // Formerly saturno
+    uranus: 1,      // Formerly urano
+    neptune: 1,     // Formerly netuno
+    pluto: 1        // Formerly plutao
 
     // True Node, Lilith, Chiron are NOT included in elemental/quality counts
     // as per specified scoring rules.
@@ -286,7 +288,7 @@ async function analyzeElementalAndModalQualities(planetSignData, cusps) {
 
     // Map cusp data to facilitate access for Ascendant and MC as "points"
     const additionalPoints = {
-        ascendente: { sign: degreeToSign(cusps[0]?.degree) },
+        ascendant: { sign: degreeToSign(cusps[0]?.degree) }, // Formerly ascendente
         mc: { sign: degreeToSign(cusps[9]?.degree) }
     };
 
