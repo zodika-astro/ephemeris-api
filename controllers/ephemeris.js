@@ -131,18 +131,17 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
                 const aspectName = aspectDef.name;
 
                 if (angularDifference >= (idealDegree - orb) && angularDifference <= (idealDegree + orb)) {
+                    // Include sign in the description and in the planet objects
                     const description = `${aspectName.charAt(0).toUpperCase() + aspectName.slice(1)} - ` +
-                                        `${planet1Name.charAt(0).toUpperCase() + planet1Name.slice(1)} - ` +
+                                        `${planet1Name.charAt(0).toUpperCase() + planet1Name.slice(1)} (${infoPlanet1.sign}) - ` +
                                         `house ${infoPlanet1.house} x ` +
-                                        `${planet2Name.charAt(0).toUpperCase() + planet2Name.slice(1)}, ` +
+                                        `${planet2Name.charAt(0).toUpperCase() + planet2Name.slice(1)} (${infoPlanet2.sign}), ` +
                                         `house ${infoPlanet2.house}`;
 
                     groupedAspects[aspectName].push({
-                        planet1: { name: planet1Name, house: infoPlanet1.house },
-                        planet2: { name: planet2Name, house: infoPlanet2.house },
-                        type: aspectName,
-                        exactDegree: parseFloat(angularDifference.toFixed(4)),
-                        appliedOrb: parseFloat(Math.abs(angularDifference - idealDegree).toFixed(4)),
+                        // Removed 'type', 'exactDegree', 'appliedOrb' from the output
+                        planet1: { name: planet1Name, sign: infoPlanet1.sign, house: infoPlanet1.house },
+                        planet2: { name: planet2Name, sign: infoPlanet2.sign, house: infoPlanet2.house },
                         description: description
                     });
                 }
@@ -157,7 +156,7 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
  * @param {number} jd - Julian Day number.
  * @param {Array<Object>} cusps - Array of house cusps.
  * @returns {Promise<Object>} An object containing geographical positions and sign data for planets.
- */
+*/
 async function computePlanets(jd, cusps) {
   // Translated planet names mapping to Swiss Ephemeris IDs
   const planetsMap = {
@@ -171,7 +170,7 @@ async function computePlanets(jd, cusps) {
     uranus: swisseph.SE_URANUS,
     neptune: swisseph.SE_NEPTUNE,
     pluto: swisseph.SE_PLUTO,
-    trueNode: swisseph.SE_TRUE_NODE, // Formerly nodo_verdadeiro
+    trueNode: swisseph.SE_TRUE_NODE,
     lilith: swisseph.SE_MEAN_APOG,
     chiron: swisseph.SE_CHIRON
   };
@@ -235,22 +234,22 @@ const SIGN_QUALITY_MAP = {
 // --- NEW WEIGHTED SCORING RULES ---
 const WEIGHT_PER_POINT = {
     // Group: Individuality Base (3 points each)
-    sun: 3,         // Formerly sol
-    moon: 3,        // Formerly lua
-    ascendant: 3,   // Ascendant is the 1st house cusp, formerly ascendente
-    mc: 3,          // Midheaven (MC) is the 10th house cusp
+    sun: 3,
+    moon: 3,
+    ascendant: 3,
+    mc: 3,
 
     // Group: Individuality Expression Channels (2 points each)
-    mercury: 2,     // Formerly mercurio
+    mercury: 2,
     venus: 2,
-    mars: 2,        // Formerly marte
+    mars: 2,
     jupiter: 2,
 
     // Group: Generational Tendencies (1 point each)
-    saturn: 1,      // Formerly saturno
-    uranus: 1,      // Formerly urano
-    neptune: 1,     // Formerly netuno
-    pluto: 1        // Formerly plutao
+    saturn: 1,
+    uranus: 1,
+    neptune: 1,
+    pluto: 1
 
     // True Node, Lilith, Chiron are NOT included in elemental/quality counts
     // as per specified scoring rules.
@@ -288,7 +287,7 @@ async function analyzeElementalAndModalQualities(planetSignData, cusps) {
 
     // Map cusp data to facilitate access for Ascendant and MC as "points"
     const additionalPoints = {
-        ascendant: { sign: degreeToSign(cusps[0]?.degree) }, // Formerly ascendente
+        ascendant: { sign: degreeToSign(cusps[0]?.degree) },
         mc: { sign: degreeToSign(cusps[9]?.degree) }
     };
 
@@ -355,7 +354,6 @@ const analyzeHouses = (cusps) => {
         }
     }
 
-
     signsPresentInHouse.forEach(sign => {
       // If a sign is present within the house but doesn't rule any cusp of this house, it's intercepted.
       // This logic is a common approximation. True interception requires checking if it's "enclosed".
@@ -382,15 +380,10 @@ const analyzeHouses = (cusps) => {
     interceptedSigns: Array.from(interceptedSigns),
     housesWithInterceptedSigns,
     signsWithDoubleRulership,
+    // Modified cusps output: removed 'degree' and 'isInterceptedSign'
     cusps: cusps.map(c => ({
-      ...c,
-      sign: degreeToSign(c.degree),
-      // Mark cusps whose signs are part of an intercepted house (conceptual)
-      // This "intercepted" flag on the cusp itself is a simplification.
-      // A sign is intercepted if it's completely contained within a house without ruling a cusp.
-      isInterceptedSign: housesWithInterceptedSigns.some(
-        i => i.house === c.house && i.interceptedSign === degreeToSign(c.degree)
-      )
+      house: c.house,
+      sign: degreeToSign(c.degree)
     }))
   };
 };
@@ -429,8 +422,10 @@ const compute = async (reqBody) => {
     const houseSystem = config.house_system || 'P';
     const cusps = await computeHouses(jd, latitude, longitude, houseSystem);
 
+    // geo (geographical positions) is needed for aspect calculations but will not be in the final output
     const { geo, signs } = await computePlanets(jd, cusps);
 
+    // aspects are computed using geo positions and sign data
     const aspects = await computeAspects(geo, signs);
 
     // Analyze elemental and modal qualities using weighted scoring
@@ -442,7 +437,7 @@ const compute = async (reqBody) => {
       statusCode: 200,
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
-      ephemerides: { geo }, // Geo positions of planets
+      // ephemerides: { geo }, // Removed as requested
       signs,                 // Sign and house data for planets
       houses: {
         cusps: analysis.cusps,
