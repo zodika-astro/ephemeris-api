@@ -1,40 +1,51 @@
-var express = require('express');
-var logger = require('morgan');
-var responseHandler = require('./common/responseHandlers');
-var basicAuth = require('express-basic-auth');
+const express = require('express');
+const logger = require('morgan');
+const responseHandler = require('./common/responseHandlers');
+const basicAuth = require('express-basic-auth');
+const helmet = require('helmet'); // Import Helmet middleware
 
-var app = express();
+const app = express();
 
-// ✅ Middleware para interpretar JSON no corpo das requisições
+// Apply Helmet to secure HTTP headers.
+// This helps protect the application from various web vulnerabilities.
+app.use(helmet()); 
+
+// Middleware to parse JSON bodies from incoming requests.
 app.use(express.json());
 
-// ✅ Logger
+// HTTP request logger middleware. 'combined' is a standard Apache combined log format.
 app.use(logger('combined'));
 
-// ✅ Autenticação básica
-var USER = process.env.BASIC_USER;
-var PASS = process.env.BASIC_PASS;
-console.log('🔐 BASIC_USER:', USER);
-console.log('🔐 BASIC_PASS:', PASS);
+// Basic Authentication configuration.
+// Retrieves credentials from environment variables for security.
+const BASIC_USER = process.env.BASIC_USER;
+const BASIC_PASS = process.env.BASIC_PASS;
 
+// Log credentials (for debugging/verification, be cautious in production logs).
+console.log('BASIC_USER:', BASIC_USER);
+console.log('BASIC_PASS:', BASIC_PASS);
+
+// Apply basic authentication to all incoming requests.
 app.use(basicAuth({
-  users: { [USER]: PASS },
-  challenge: true
+  users: { [BASIC_USER]: BASIC_PASS }, // Dynamically sets username and password
+  challenge: true // Sends 'WWW-Authenticate' header, prompting browser for credentials
 }));
 
-// ✅ Inicia servidor na porta esperada pelo Railway
+// Start the server on the port expected by the hosting environment (e.g., Railway).
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
-// ✅ Rotas principais
+// Main API routes.
+// The root route ('/') usually serves basic info or redirects.
+// '/api' serves the core API endpoints.
 app.use('/', require('./routes/index'));
 app.use('/api', require('./routes/api'));
 
-// ✅ Tratamento global de respostas (res.locals)
+// Global response handling middleware.
+// This ensures consistent response formats and error handling across the application.
 app.use(responseHandler.handleResponse);
 app.use(responseHandler.handleErrorResponse);
 
 module.exports = app;
-
