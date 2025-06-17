@@ -1,5 +1,20 @@
 'use strict';
+require('dotenv').config();
+>>>>>>> 2847106 (add APIKey to /api/secure-ephemeris)
 const express = require('express');
+
+// Middleware to verify API key
+function verifyApiKey(req, res, next) {
+  const userKey = req.header('X-API-KEY');
+  const serverKey = process.env.API_KEY;
+
+  if (userKey && userKey === serverKey) {
+    next(); // API key matches
+  } else {
+    res.status(403).json({ error: 'Forbidden. Invalid or missing API key.' });
+  }
+}
+
 const logger = require('morgan');
 const responseHandler = require('./common/responseHandlers');
 const basicAuth = require('express-basic-auth');
@@ -49,4 +64,8 @@ app.use('/api', require('./routes/api'));
 app.use(responseHandler.handleResponse);
 app.use(responseHandler.handleErrorResponse);
 
-module.exports = app;
+module.exports = {
+  app,
+  verifyApiKey
+};
+

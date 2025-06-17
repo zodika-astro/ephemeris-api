@@ -7,12 +7,7 @@ const router = express.Router();
 const InfoController = require('../common/info'); // Renamed for clarity
 const compression = require('compression'); // Import compression middleware
 const NodeCache = require('node-cache'); // Import node-cache for in-memory caching
-
-// Initialize cache with a TTL (Time To Live) of 600 seconds (10 minutes)
-const apiCache = new NodeCache({ stdTTL: 600 });
-
-// Enable Gzip compression for all responses served by this router.
-router.use(compression());
+const { verifyApiKey } = require('../app');
 
 // Route to get general API information.
 router.get('/info', (req, res, next) => {
@@ -40,6 +35,15 @@ router.get('/info', (req, res, next) => {
 // Route to check the API's health status.
 router.get('/health', (req, res, next) => {
   const cacheKey = 'apiHealth'; // Unique key for caching this response
+
+// Protected route
+router.get('/secure-ephemeris', verifyApiKey, (req, res, next) => {
+  res.locals.status = 200;
+  res.locals.message = 'Access granted. Valid API key!';
+  res.locals.results = { data: 'Ephemeris data only for authorized clients.' };
+  next();
+});
+
 
   // Try to retrieve data from cache first
   const cachedResponse = apiCache.get(cacheKey);
