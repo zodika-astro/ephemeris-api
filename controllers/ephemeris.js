@@ -1,13 +1,12 @@
 'use strict';
 const swisseph = require('swisseph');
-const path = require('path'); // <<< Adicionada esta linha
+const path = require('path');
 
-// --- ALTERAÇÃO PRINCIPAL AQUI ---
 // Corrige o caminho para a pasta 'ephe' que está na raiz do projeto
 // (__dirname é '.../controllers', '..' sobe para '.../', '/ephe' entra na pasta raiz 'ephe')
-const ephePath = path.join(__dirname, '..', 'ephe'); 
+const ephePath = path.join(__dirname, '..', 'ephe');
 swisseph.swe_set_ephe_path(ephePath);
-console.log('SwissEphemeris path set to:', ephePath); // <<< Adicionada para depuração
+console.log('SwissEphemeris path set to:', ephePath); // Mantido para sua depuração
 
 
 const signos = [
@@ -29,7 +28,40 @@ const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   });
 };
 
-async function computePlanets(jd) {
+/**
+ * Determina em qual casa astrológica um grau (posição de planeta) se encontra.
+ * @param {number} grauPlaneta O grau do planeta (0-360).
+ * @param {Array<Object>} cuspides Um array de objetos de cúspides de casas (com 'grau' e 'casa').
+ * @returns {number | null} O número da casa (1-12) ou null se não for encontrada (deve ser inatingível).
+ */
+const determinarCasaAstrologica = (grauPlaneta, cuspides) => {
+    // Normaliza o grau do planeta para garantir que esteja entre 0 e 360
+    const normalizedGrauPlaneta = ((grauPlaneta % 360) + 360) % 360;
+
+    for (let i = 0; i < 12; i++) {
+        const casaAtualCusp = cuspides[i].grau;
+        // A próxima cúspide é o limite superior da casa atual.
+        // Usa o operador modulo para lidar com a transição da casa 12 para a 1 (índice 0).
+        const proximaCasaCusp = cuspides[(i + 1) % 12].grau; 
+
+        // Caso normal: a cúspide da casa atual é menor que a da próxima casa (sem cruzar o ponto 0/360)
+        if (casaAtualCusp < proximaCasaCusp) {
+            if (normalizedGrauPlaneta >= casaAtualCusp && normalizedGrauPlaneta < proximaCasaCusp) {
+                return i + 1; // Retorna o número da casa (1-12)
+            }
+        } else {
+            // Caso onde a cúspide da casa atual cruza 0/360 graus (ex: casa 12 cusp > casa 1 cusp)
+            // Se o grau do planeta está entre a cúspide atual e 360, OU entre 0 e a próxima cúspide.
+            if (normalizedGrauPlaneta >= casaAtualCusp || normalizedGrauPlaneta < proximaCasaCusp) {
+                return i + 1; // Retorna o número da casa (1-12)
+            }
+        }
+    }
+    return null; // Deve ser inatingível se as cúspides cobrem 360 graus corretamente
+};
+
+
+async function computePlanets(jd, cuspides) { // <<< Adicionada 'cuspides' aqui
   const planetas = {
     sol: swisseph.SE_SUN,
     lua: swisseph.SE_MOON,
@@ -47,7 +79,7 @@ async function computePlanets(jd) {
   };
 
   const geo = {};
-  const signos = {};
+  const signosData = {}; // Renomeado para evitar conflito com o array global 'signos'
   const flags = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
 
   for (const [nome, id] of Object.entries(planetas)) {
@@ -67,15 +99,22 @@ async function computePlanets(jd) {
         continue;
       }
 
+      // Calcula a casa astrológica do planeta
+      const casaAstrologica = determinarCasaAstrologica(longitudeAtual, cuspides); // <<< Chamada da nova função
+
       geo[nome] = longitudeAtual;
-      signos[nome] = grauParaSigno(longitudeAtual);
-      signos[`${nome}_retrogrado`] = longitudeFutura < longitudeAtual;
+      // Armazena as informações do planeta como um objeto aninhado
+      signosData[nome] = { 
+        signo: grauParaSigno(longitudeAtual),
+        retrogrado: longitudeFutura < longitudeAtual,
+        casa: casaAstrologica // <<< Adicionada a casa aqui
+      };
     } catch (err) {
       console.error(`❌ Erro ao calcular ${nome}:`, err.message);
     }
   }
 
-  return { geo, signos };
+  return { geo, signos: signosData }; // <<< Retorna 'signosData' como 'signos'
 }
 
 const analyzeHouses = (cuspides) => {
@@ -140,7 +179,9 @@ const compute = async (reqBody) => {
 
     const houseSystem = config.house_system || 'P';
     const cuspides = await computeHouses(jd, latitude, longitude, houseSystem);
-    const { geo, signos } = await computePlanets(jd);
+    
+    // Passa 'cuspides' para 'computePlanets'
+    const { geo, signos } = await computePlanets(jd, cuspides); // <<< Adicionada 'cuspides' aqui
     const analise = analyzeHouses(cuspides);
 
     return {
@@ -148,7 +189,7 @@ const compute = async (reqBody) => {
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       ephemerides: { geo },
-      signos,
+      signos, // 'signos' agora é o objeto com as informações de signo, retrogrado e casa
       casas: {
         cuspides: analise.cuspides,
         signosInterceptados: analise.signosInterceptados,
