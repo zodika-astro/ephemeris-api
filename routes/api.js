@@ -7,9 +7,9 @@ const router = express.Router();
 const InfoController = require('../common/info');
 const compression = require('compression');
 const NodeCache = require('node-cache');
-const { verifyApiKey } = require('../app');
+const { verifyApiKey } = require('../middleware/auth');
 
-const apiCache = new NodeCache({ stdTTL: 600 }); // Faltava criar o cache aqui!
+const apiCache = new NodeCache({ stdTTL: 600 });
 
 router.use(compression());
 
@@ -65,8 +65,4 @@ router.get('/health', (req, res, next) => {
 // Mounts version 1 routes under /api/v1.
 router.use('/v1', require('./vers1.js'));
 
-module.exports = {
-  app,
-  verifyApiKey
-};
-
+module.exports = router;
