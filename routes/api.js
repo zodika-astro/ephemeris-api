@@ -65,4 +65,8 @@ router.get('/health', (req, res, next) => {
 // Mounts version 1 routes under /api/v1.
 router.use('/v1', require('./vers1.js'));
 
-module.exports = router;
+module.exports = {
+  app,
+  verifyApiKey
+};
+
