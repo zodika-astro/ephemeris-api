@@ -32,20 +32,33 @@ router.get('/info', (req, res, next) => {
   next();
 });
 
-// Route to check the API's health status.
-router.get('/health', (req, res, next) => {
-  const cacheKey = 'apiHealth'; // Unique key for caching this response
-
-// Protected route
 router.get('/secure-ephemeris', verifyApiKey, (req, res, next) => {
+  console.log('🔐 secure-ephemeris route hit');
   res.locals.status = 200;
   res.locals.message = 'Access granted. Valid API key!';
   res.locals.results = { data: 'Ephemeris data only for authorized clients.' };
   next();
 });
 
+router.get('/health', (req, res, next) => {
+  const cacheKey = 'apiHealth';
+  const cachedResponse = apiCache.get(cacheKey);
+  if (cachedResponse) {
+    res.locals.status = 200;
+    res.locals.message = 'Ephemeris API health status successfully retrieved from cache.';
+    res.locals.results = cachedResponse;
+    return next();
+  }
 
-  // Try to retrieve data from cache first
+  const healthData = InfoController.health();
+  apiCache.set(cacheKey, healthData);
+
+  res.locals.status = 200;
+  res.locals.message = 'Ephemeris API health status successfully retrieved.';
+  res.locals.results = healthData;
+  next();
+});
+
   const cachedResponse = apiCache.get(cacheKey);
   if (cachedResponse) {
     res.locals.status = 200;
