@@ -264,7 +264,7 @@ const getStatusByCount = (count) => {
     // New limits based on a total sum of 24 points.
     const LACK_MAX = 3;     // 3 or fewer points = lack
     const BALANCE_MAX = 8;  // Between 4 and 8 points = balance
-                              // 9 or more points = excess (by implicit 'else')
+                            // 9 or more points = excess (by implicit 'else')
 
     if (count <= LACK_MAX) {
         return "lack";
@@ -438,7 +438,7 @@ const compute = async (reqBody) => {
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       // ephemerides: { geo }, // Removed as requested
-      signs,                 // Sign and house data for planets
+      signs,                  // Sign and house data for planets
       houses: {
         cusps: analysis.cusps,
         housesWithInterceptedSigns: analysis.housesWithInterceptedSigns,
