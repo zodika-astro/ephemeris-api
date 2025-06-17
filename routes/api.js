@@ -1,19 +1,21 @@
 'use strict';
-// Log when this API route file is entered.
+
 console.log('Entered API route file (routes/api.js)');
 
 const express = require('express');
 const router = express.Router();
-const InfoController = require('../common/info'); // Renamed for clarity
-const compression = require('compression'); // Import compression middleware
-const NodeCache = require('node-cache'); // Import node-cache for in-memory caching
+const InfoController = require('../common/info');
+const compression = require('compression');
+const NodeCache = require('node-cache');
 const { verifyApiKey } = require('../app');
 
-// Route to get general API information.
-router.get('/info', (req, res, next) => {
-  const cacheKey = 'apiInfo'; // Unique key for caching this response
+const apiCache = new NodeCache({ stdTTL: 600 }); // Faltava criar o cache aqui!
 
-  // Try to retrieve data from cache first
+router.use(compression());
+
+// Public route
+router.get('/info', (req, res, next) => {
+  const cacheKey = 'apiInfo';
   const cachedResponse = apiCache.get(cacheKey);
   if (cachedResponse) {
     res.locals.status = 200;
@@ -22,9 +24,8 @@ router.get('/info', (req, res, next) => {
     return next();
   }
 
-  // If not in cache, fetch data, store it, and then send
   const infoData = InfoController.info();
-  apiCache.set(cacheKey, infoData); // Store the fetched data in cache
+  apiCache.set(cacheKey, infoData);
 
   res.locals.status = 200;
   res.locals.message = 'Ephemeris API info successfully retrieved.';
@@ -32,6 +33,7 @@ router.get('/info', (req, res, next) => {
   next();
 });
 
+// Protected route
 router.get('/secure-ephemeris', verifyApiKey, (req, res, next) => {
   console.log('🔐 secure-ephemeris route hit');
   res.locals.status = 200;
@@ -40,6 +42,7 @@ router.get('/secure-ephemeris', verifyApiKey, (req, res, next) => {
   next();
 });
 
+// Public route
 router.get('/health', (req, res, next) => {
   const cacheKey = 'apiHealth';
   const cachedResponse = apiCache.get(cacheKey);
@@ -52,24 +55,6 @@ router.get('/health', (req, res, next) => {
 
   const healthData = InfoController.health();
   apiCache.set(cacheKey, healthData);
-
-  res.locals.status = 200;
-  res.locals.message = 'Ephemeris API health status successfully retrieved.';
-  res.locals.results = healthData;
-  next();
-});
-
-  const cachedResponse = apiCache.get(cacheKey);
-  if (cachedResponse) {
-    res.locals.status = 200;
-    res.locals.message = 'Ephemeris API health status successfully retrieved from cache.';
-    res.locals.results = cachedResponse;
-    return next();
-  }
-
-  // If not in cache, fetch data, store it, and then send
-  const healthData = InfoController.health();
-  apiCache.set(cacheKey, healthData); // Store the fetched data in cache
 
   res.locals.status = 200;
   res.locals.message = 'Ephemeris API health status successfully retrieved.';
