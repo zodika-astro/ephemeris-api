@@ -7,8 +7,7 @@
     "name": "Lawrence L Hovind"
   },
   "scripts": {
-    "start": "nodemon ./app.js",
-    "postinstall": "node scripts/download-ephe.js"
+    "start": "nodemon ./app.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
