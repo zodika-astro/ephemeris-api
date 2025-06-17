@@ -1,3 +1,4 @@
+'use strict';
 const express = require('express');
 const logger = require('morgan');
 const responseHandler = require('./common/responseHandlers');
@@ -6,14 +7,13 @@ const helmet = require('helmet'); // Import Helmet middleware
 
 const app = express();
 
-// Apply Helmet to secure HTTP headers.
-// This helps protect the application from various web vulnerabilities.
-app.use(helmet()); 
+// Apply Helmet to secure HTTP headers, protecting against common web vulnerabilities.
+app.use(helmet());
 
 // Middleware to parse JSON bodies from incoming requests.
 app.use(express.json());
 
-// HTTP request logger middleware. 'combined' is a standard Apache combined log format.
+// HTTP request logger middleware. 'combined' is a standard Apache log format.
 app.use(logger('combined'));
 
 // Basic Authentication configuration.
@@ -21,9 +21,10 @@ app.use(logger('combined'));
 const BASIC_USER = process.env.BASIC_USER;
 const BASIC_PASS = process.env.BASIC_PASS;
 
-// Log credentials (for debugging/verification, be cautious in production logs).
-console.log('BASIC_USER:', BASIC_USER);
-console.log('BASIC_PASS:', BASIC_PASS);
+// Log credentials (for debugging/verification, be cautious in production).
+// In production, consider removing or obscuring these logs.
+console.log('BASIC_USER:', BASIC_USER ? 'Set' : 'Not Set');
+console.log('BASIC_PASS:', BASIC_PASS ? 'Set' : 'Not Set');
 
 // Apply basic authentication to all incoming requests.
 app.use(basicAuth({
@@ -44,7 +45,7 @@ app.use('/', require('./routes/index'));
 app.use('/api', require('./routes/api'));
 
 // Global response handling middleware.
-// This ensures consistent response formats and error handling across the application.
+// Ensures consistent response formats and error handling across the application.
 app.use(responseHandler.handleResponse);
 app.use(responseHandler.handleErrorResponse);
 
