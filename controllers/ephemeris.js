@@ -4,23 +4,23 @@ const path = require('path');
 
 // Set Swiss Ephemeris path to 'ephe' directory at project root.
 const ephePath = path.join(__dirname, '..', 'ephe');
-swisseph.swe_set_ephe-path(ephePath); // Changed to swe_set-ephe-path
+swisseph.swe_set_ephe_path(ephePath); // Corrected: removed hyphen
 console.log('Swiss Ephemeris path set:', ephePath);
 
 
-const zodiac-signs = [ // Renamed
+const zodiacSigns = [ // Corrected to camelCase
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem",
   "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"
 ];
 
 // Get zodiac sign from degree.
-const degree-to-sign = (degree) => { // Renamed
+const degreeToSign = (degree) => { // Corrected to camelCase
   const normalized = ((degree % 360) + 360) % 360;
-  return zodiac-signs[Math.floor(normalized / 30)]; // Using new const name
+  return zodiacSigns[Math.floor(normalized / 30)]; // Using correct const name
 };
 
 // Calculate house cusps.
-const get-houses = (jd, lat, lng, houseSystem = 'P') => { // Renamed
+const getHouses = (jd, lat, lng, houseSystem = 'P') => { // Corrected to camelCase
   return new Promise((resolve, reject) => {
     swisseph.swe_houses_ex(jd, swisseph.SEFLG_SWIEPH, lat, lng, houseSystem, (res) => {
       if (res.error) return reject(new Error(`House calc error: ${res.error}`));
@@ -52,7 +52,7 @@ const determinarCasaAstrologica = (grauPlaneta, cuspides) => {
 
 // --- ASTROLOGICAL ASPECTS CALCULATION ---
 
-const aspect-defs = [ // Renamed
+const aspectDefs = [ // Corrected to camelCase
     { name: "conjuncao", degree: 0 },
     { name: "sextil", degree: 60 },
     { name: "quadratura", degree: 90 },
@@ -60,15 +60,15 @@ const aspect-defs = [ // Renamed
     { name: "oposicao", degree: 180 }
 ];
 
-const default-orb = 6; // Renamed
+const defaultOrb = 6; // Corrected to camelCase
 
-const planets-for-aspects = [ // Renamed
+const planetsForAspects = [ // Corrected to camelCase
     "sol", "lua", "mercurio", "venus", "marte", "jupiter", "saturno",
     "urano", "netuno", "plutao", "nodo_verdadeiro", "lilith", "quiron"
 ];
 
-async function get-aspects(planet-geo-pos, planet-data, orb = default-orb) { // Renamed
-    const grouped-aspects = { // Renamed
+async function getAspects(planetGeoPos, planetData, orb = defaultOrb) { // Corrected to camelCase
+    const groupedAspects = { // Corrected to camelCase
         conjuncao: [],
         sextil: [],
         quadratura: [],
@@ -76,59 +76,59 @@ async function get-aspects(planet-geo-pos, planet-data, orb = default-orb) { // 
         oposicao: []
     };
 
-    const planet-keys = Object.keys(planet-geo-pos).filter(key => planets-for-aspects.includes(key)); // Renamed
+    const planetKeys = Object.keys(planetGeoPos).filter(key => planetsForAspects.includes(key)); // Corrected to camelCase
 
-    for (let i = 0; i < planet-keys.length; i++) {
-        for (let j = i + 1; j < planet-keys.length; j++) {
-            const planet1-name = planet-keys[i]; // Renamed
-            const planet2-name = planet-keys[j]; // Renamed
+    for (let i = 0; i < planetKeys.length; i++) {
+        for (let j = i + 1; j < planetKeys.length; j++) {
+            const planet1Name = planetKeys[i]; // Corrected to camelCase
+            const planet2Name = planetKeys[j]; // Corrected to camelCase
 
-            const pos1-deg = planet-geo-pos[planet1-name]; // Renamed
-            const pos2-deg = planet-geo-pos[planet2-name]; // Renamed
+            const pos1Deg = planetGeoPos[planet1Name]; // Corrected to camelCase
+            const pos2Deg = planetGeoPos[planet2Name]; // Corrected to camelCase
 
-            const planet1-info = planet-data[planet1-name]; // Renamed
-            const planet2-info = planet-data[planet2-name]; // Renamed
+            const planet1Info = planetData[planet1Name]; // Corrected to camelCase
+            const planet2Info = planetData[planet2Name]; // Corrected to camelCase
 
-            if (pos1-deg === undefined || pos2-deg === undefined || !planet1-info || !planet2-info) {
-                console.warn(`Aspect calc warn: data missing for ${planet1-name} or ${planet2-name}.`);
+            if (pos1Deg === undefined || pos2Deg === undefined || !planet1Info || !planet2Info) {
+                console.warn(`Aspect calc warn: data missing for ${planet1Name} or ${planet2Name}.`);
                 continue;
             }
 
-            let angular-diff = Math.abs(pos1-deg - pos2-deg); // Renamed
+            let angularDiff = Math.abs(pos1Deg - pos2Deg); // Corrected to camelCase
 
-            if (angular-diff > 180) {
-                angular-diff = 360 - angular-diff;
+            if (angularDiff > 180) {
+                angularDiff = 360 - angularDiff;
             }
 
-            for (const aspect-def of aspect-defs) { // Renamed
-                const ideal-degree = aspect-def.degree; // Renamed
-                const aspect-name = aspect-def.name; // Renamed
+            for (const aspectDef of aspectDefs) { // Corrected to camelCase
+                const idealDegree = aspectDef.degree; // Corrected to camelCase
+                const aspectName = aspectDef.name; // Corrected to camelCase
 
-                if (angular-diff >= (ideal-degree - orb) && angular-diff <= (ideal-degree + orb)) {
-                    const description = `${aspect-name.charAt(0).toUpperCase() + aspect-name.slice(1)} - ` +
-                                        `${planet1-name.charAt(0).toUpperCase() + planet1-name.slice(1)} - ` +
-                                        `house ${planet1-info.house} x ` +
-                                        `${planet2-name.charAt(0).toUpperCase() + planet2-name.slice(1)}, ` +
-                                        `house ${planet2-info.house}`;
+                if (angularDiff >= (idealDegree - orb) && angularDiff <= (idealDegree + orb)) {
+                    const description = `${aspectName.charAt(0).toUpperCase() + aspectName.slice(1)} - ` +
+                                        `${planet1Name.charAt(0).toUpperCase() + planet1Name.slice(1)} - ` +
+                                        `house ${planet1Info.house} x ` +
+                                        `${planet2Name.charAt(0).toUpperCase() + planet2Name.slice(1)}, ` +
+                                        `house ${planet2Info.house}`;
 
-                    grouped-aspects[aspect-name].push({ // Renamed
-                        planet1: { name: planet1-name, house: planet1-info.house }, // Renamed
-                        planet2: { name: planet2-name, house: planet2-info.house }, // Renamed
-                        type: aspect-name, // Renamed
-                        exactDegree: parseFloat(angular-diff.toFixed(4)), // Renamed
-                        appliedOrb: parseFloat(Math.abs(angular-diff - ideal-degree).toFixed(4)), // Renamed
+                    groupedAspects[aspectName].push({ // Corrected to camelCase
+                        planet1: { name: planet1Name, house: planet1Info.house }, // Corrected to camelCase
+                        planet2: { name: planet2Name, house: planet2Info.house }, // Corrected to camelCase
+                        type: aspectName,
+                        exactDegree: parseFloat(angularDiff.toFixed(4)), // Corrected to camelCase
+                        appliedOrb: parseFloat(Math.abs(angularDiff - idealDegree).toFixed(4)), // Corrected to camelCase
                         description: description
                     });
                 }
             }
         }
     }
-    return grouped-aspects; // Renamed
+    return groupedAspects; // Corrected to camelCase
 }
 
 
-async function get-planets(jd, cusps) { // Renamed
-  const planet-map = { // Renamed
+async function getPlanets(jd, cusps) { // Corrected to camelCase
+  const planetMap = { // Corrected to camelCase
     sol: swisseph.SE_SUN,
     lua: swisseph.SE_MOON,
     mercurio: swisseph.SE_MERCURY,
@@ -144,11 +144,11 @@ async function get-planets(jd, cusps) { // Renamed
     quiron: swisseph.SE_CHIRON
   };
 
-  const geo-pos = {}; // Renamed
-  const planet-data = {}; // Renamed
+  const geoPositions = {}; // Corrected to camelCase
+  const planetData = {}; // Corrected to camelCase
   const flags = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
 
-  for (const [name, id] of Object.entries(planet-map)) { // Renamed
+  for (const [name, id] of Object.entries(planetMap)) { // Corrected to camelCase
     try {
       const current = await new Promise((resolve) =>
         swisseph.swe_calc_ut(jd, id, flags, resolve)
@@ -157,34 +157,34 @@ async function get-planets(jd, cusps) { // Renamed
         swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve)
       );
 
-      const current-long = current.longitude ?? current.position?.[0]; // Renamed
-      const future-long = future.longitude ?? future.position?.[0]; // Renamed
+      const currentLong = current.longitude ?? current.position?.[0]; // Corrected to camelCase
+      const futureLong = future.longitude ?? future.position?.[0]; // Corrected to camelCase
 
-      if (current-long == null || future-long == null) {
-        console.warn(`Planet pos warn: ${name}.`); // Shortened message
+      if (currentLong == null || futureLong == null) {
+        console.warn(`Planet pos warn: ${name}.`);
         continue;
       }
 
-      const astrological-house = determinarCasaAstrologica(current-long, cusps); // Renamed
+      const astrologicalHouse = determinarCasaAstrologica(currentLong, cusps); // Corrected to camelCase
 
-      geo-pos[name] = current-long; // Renamed
-      planet-data[name] = { // Renamed
-        sign: degree-to-sign(current-long), // Renamed
-        retrograde: future-long < current-long, // Renamed
-        house: astrological-house // Renamed
+      geoPositions[name] = currentLong; // Corrected to camelCase
+      planetData[name] = { // Corrected to camelCase
+        sign: degreeToSign(currentLong), // Corrected to camelCase
+        retrograde: futureLong < currentLong, // Corrected to camelCase
+        house: astrologicalHouse // Corrected to camelCase
       };
     } catch (err) {
-      console.error(`Planet calc error: ${name}.`); // Shortened message
+      console.error(`Planet calc error: ${name}.`);
     }
   }
 
-  return { geo: geo-pos, data: planet-data }; // Renamed
+  return { geo: geoPositions, data: planetData }; // Corrected to camelCase
 }
 
 // --- ELEMENTAL AND MODAL QUALITIES ANALYSIS ---
 
 // Map zodiac signs to elements.
-const sign-elem-map = { // Renamed
+const signElementMap = { // Corrected to camelCase
     "Áries": "fogo", "Leão": "fogo", "Sagitário": "fogo",
     "Touro": "terra", "Virgem": "terra", "Capricórnio": "terra",
     "Gêmeos": "ar", "Libra": "ar", "Aquário": "ar",
@@ -192,14 +192,14 @@ const sign-elem-map = { // Renamed
 };
 
 // Map zodiac signs to qualities (modalities).
-const sign-qual-map = { // Renamed
+const signQualityMap = { // Corrected to camelCase
     "Áries": "cardinal", "Câncer": "cardinal", "Libra": "cardinal", "Capricórnio": "cardinal",
     "Touro": "fixa", "Leão": "fixa", "Escorpião": "fixa", "Aquário": "fixa",
     "Gêmeos": "mutavel", "Virgem": "mutavel", "Sagitário": "mutavel", "Peixes": "mutavel"
 };
 
 // --- WEIGHTED SCORING RULES ---
-const point-weights = { // Renamed
+const pointWeights = { // Corrected to camelCase
     // Core Individuality (3 pts each)
     sol: 3,
     lua: 3,
@@ -224,9 +224,9 @@ const point-weights = { // Renamed
  * Defines thresholds for deficiency, balance, or excess of elements/qualities.
  * Based on a total sum of 24 points.
  */
-const elem-qual-limits = { // Renamed
-    deficiency-max: 3,  // Renamed
-    balance-max: 8      // Renamed
+const elementQualityLimits = { // Corrected to camelCase
+    deficiencyMax: 3,  // Corrected to camelCase
+    balanceMax: 8      // Corrected to camelCase
 };
 
 /**
@@ -234,10 +234,10 @@ const elem-qual-limits = { // Renamed
  * @param {number} count The point count.
  * @returns {string} The status ('deficiency', 'balance', 'excess').
  */
-const get-status = (count) => { // Renamed
-    if (count <= elem-qual-limits.deficiency-max) {
+const getStatus = (count) => { // Corrected to camelCase
+    if (count <= elementQualityLimits.deficiencyMax) {
         return "deficiency";
-    } else if (count <= elem-qual-limits.balance-max) {
+    } else if (count <= elementQualityLimits.balanceMax) {
         return "balance";
     } else {
         return "excess";
@@ -246,57 +246,55 @@ const get-status = (count) => { // Renamed
 
 /**
  * Analyzes elemental and modal qualities from astrological point data.
- * @param {Object} planet-data Planet data including their signs.
+ * @param {Object} planetData Planet data including their signs.
  * @param {Array<Object>} cusps Array of house cusps (for Asc/MC).
  * @returns {Object} Object containing element and quality analysis.
  */
-async function analyze-elements-qual(planet-data, cusps) { // Renamed
-    const element-counts = { fogo: 0, terra: 0, ar: 0, agua: 0 }; // Renamed
-    const quality-counts = { cardinal: 0, fixa: 0, mutavel: 0 }; // Renamed
+async function analyzeElementsAndQualities(planetData, cusps) { // Corrected to camelCase
+    const elementCounts = { fogo: 0, terra: 0, ar: 0, agua: 0 }; // Corrected to camelCase
+    const qualityCounts = { cardinal: 0, fixa: 0, mutavel: 0 }; // Corrected to camelCase
 
     // Map cusp data for Ascendant and Midheaven as "points".
-    const add-points = { // Renamed
-        ascendente: { sign: degree-to-sign(cusps[0]?.degree) }, // Renamed
-        mc: { sign: degree-to-sign(cusps[9]?.degree) } // Renamed
+    const additionalPoints = { // Corrected to camelCase
+        ascendente: { sign: degreeToSign(cusps[0]?.degree) }, // Corrected to camelCase
+        mc: { sign: degreeToSign(cusps[9]?.degree) } // Corrected to camelCase
     };
 
     // Combine all points for iteration, considering only those with defined weights.
-    const all-points = { ...planet-data, ...add-points }; // Renamed
+    const allPoints = { ...planetData, ...additionalPoints }; // Corrected to camelCase
 
-    for (const point-name in all-points) { // Renamed
+    for (const pointName in allPoints) { // Corrected to camelCase
         // Check if point has defined weight.
-        if (point-weights[point-name] !== undefined) { // Renamed
-            const weight = point-weights[point-name]; // Renamed
-            const point-sign = all-points[point-name].sign; // Renamed
+        if (pointWeights[pointName] !== undefined) { // Corrected to camelCase
+            const weight = pointWeights[pointName]; // Corrected to camelCase
+            const pointSign = allPoints[pointName].sign; // Corrected to camelCase
 
-            if (sign-elem-map[point-sign]) { // Renamed
-                element-counts[sign-elem-map[point-sign]] += weight; // Renamed
+            if (signElementMap[pointSign]) { // Corrected to camelCase
+                elementCounts[signElementMap[pointSign]] += weight; // Corrected to camelCase
             }
-            if (sign-qual-map[point-sign]) { // Renamed
-                quality-counts[sign-qual-map[point-sign]] += weight; // Renamed
+            if (signQualityMap[pointSign]) { // Corrected to camelCase
+                qualityCounts[signQualityMap[pointSign]] += weight; // Corrected to camelCase
             }
         }
     }
 
     // Determine status (deficiency, balance, excess) for each element.
-    const element-results = {}; // Renamed
-    for (const element in element-counts) {
-        element-results[element] = {
-            count: element-counts[element],
-            status: get-status(element-counts[element]) // Renamed
+    const elementResults = {}; // Corrected to camelCase
+    for (const element in elementCounts) {
+        elementResults[element] = {
+            count: elementCounts[element],
+            status: getStatus(elementCounts[element]) // Corrected to camelCase
         };
     }
 
     // Determine status (deficiency, balance, excess) for each quality.
-    const quality-results = {}; // Renamed
-    for (const quality in quality-counts) {
-        quality-results[quality] = {
-            count: quality-counts[quality],
-            status: get-status(quality-counts[quality]) // Renamed
+    const qualityResults = {}; // Corrected to camelCase
+    for (const quality in qualityCounts) {
+        qualityResults[quality] = {
+            count: qualityCounts[quality],
+            status: getStatus(qualityCounts[quality]) // Corrected to camelCase
         };
     }
 
-    return { elements: element-results, qualities: quality-results }; // Renamed
+    return { elements: elementResults, qualities: qualityResults }; // Corrected to camelCase
 }
-
-// Restante do código (analyzeHouses e compute) será na próxima parte.
