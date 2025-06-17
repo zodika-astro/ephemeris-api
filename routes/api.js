@@ -14,55 +14,54 @@ const apiCache = new NodeCache({ stdTTL: 600 });
 router.use(compression());
 
 // Public route
-router.get('/info', (req, res, next) => {
+router.get('/info', (req, res) => {
   const cacheKey = 'apiInfo';
   const cachedResponse = apiCache.get(cacheKey);
   if (cachedResponse) {
-    res.locals.status = 200;
-    res.locals.message = 'Ephemeris API info successfully retrieved from cache.';
-    res.locals.results = cachedResponse;
-    return next();
+    return res.status(200).json({
+      message: 'Ephemeris API info successfully retrieved from cache.',
+      results: cachedResponse
+    });
   }
 
   const infoData = InfoController.info();
   apiCache.set(cacheKey, infoData);
 
-  res.locals.status = 200;
-  res.locals.message = 'Ephemeris API info successfully retrieved.';
-  res.locals.results = infoData;
-  next();
+  res.status(200).json({
+    message: 'Ephemeris API info successfully retrieved.',
+    results: infoData
+  });
 });
 
 // Protected route
-router.get('/secure-ephemeris', verifyApiKey, (req, res, next) => {
+router.get('/secure-ephemeris', verifyApiKey, (req, res) => {
   console.log('🔐 secure-ephemeris route hit');
-  res.locals.status = 200;
-  res.locals.message = 'Access granted. Valid API key!';
-  res.locals.results = { data: 'Ephemeris data only for authorized clients.' };
-  next();
+  res.status(200).json({
+    message: 'Access granted. Valid API key!',
+    results: { data: 'Ephemeris data only for authorized clients.' }
+  });
 });
 
 // Public route
-router.get('/health', (req, res, next) => {
+router.get('/health', (req, res) => {
   const cacheKey = 'apiHealth';
   const cachedResponse = apiCache.get(cacheKey);
   if (cachedResponse) {
-    res.locals.status = 200;
-    res.locals.message = 'Ephemeris API health status successfully retrieved from cache.';
-    res.locals.results = cachedResponse;
-    return next();
+    return res.status(200).json({
+      message: 'Ephemeris API health status successfully retrieved from cache.',
+      results: cachedResponse
+    });
   }
 
   const healthData = InfoController.health();
   apiCache.set(cacheKey, healthData);
 
-  res.locals.status = 200;
-  res.locals.message = 'Ephemeris API health status successfully retrieved.';
-  res.locals.results = healthData;
-  next();
+  res.status(200).json({
+    message: 'Ephemeris API health status successfully retrieved.',
+    results: healthData
+  });
 });
 
-// Mounts version 1 routes under /api/v1.
 router.use('/v1', require('./vers1.js'));
 
 module.exports = router;
