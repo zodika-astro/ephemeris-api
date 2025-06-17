@@ -441,7 +441,6 @@ const compute = async (reqBody) => {
       signs,                 // Sign and house data for planets
       houses: {
         cusps: analysis.cusps,
-        interceptedSigns: analysis.interceptedSigns,
         housesWithInterceptedSigns: analysis.housesWithInterceptedSigns,
         signsWithDoubleRulership: analysis.signsWithDoubleRulership
       },
