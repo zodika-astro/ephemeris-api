@@ -1,11 +1,11 @@
-# Dependências e builds
+# dependences e builds
 node_modules/
 dist/
 build/
 *.exe
 *.dll
 
-# Variáveis de ambiente e credenciais
+# variables
 .env
 *.env
 .env-*
@@ -17,7 +17,7 @@ build/
 .env.test
 .env.staging
 
-# Arquivos de configuração sensíveis
+# sensitive
 config/credentials*
 **/secrets/
 **/*.secret
@@ -26,7 +26,7 @@ config/credentials*
 **/*.cert
 **/*.pem
 
-# Logs e arquivos temporários
+# logs and temp
 *.log
 logs/
 npm-debug.log*
@@ -35,7 +35,7 @@ yarn-error.log*
 *.tmp
 *.temp
 
-# IDEs e editores
+# IDEs e edits
 .vscode/
 .idea/
 *.swp
@@ -43,7 +43,7 @@ yarn-error.log*
 *.sublime-workspace
 *.sublime-project
 
-# Sistema e miscelânea
+# system
 .DS_Store
 Thumbs.db
 *.http
