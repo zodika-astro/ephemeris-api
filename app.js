@@ -1,6 +1,5 @@
 'use strict';
 require('dotenv').config();
->>>>>>> 2847106 (add APIKey to /api/secure-ephemeris)
 const express = require('express');
 
 // Middleware to verify API key
