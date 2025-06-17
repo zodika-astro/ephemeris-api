@@ -1,25 +1,23 @@
+'use strict';
 const express = require('express');
 const router = express.Router();
-const EphemerisCntlr = require('../controllers/ephemeris');
+const EphemerisCntlr = require('../controllers/ephemeris'); // Import your controller
 
-// Rota principal da API de efemérides
+// Route for ephemeris calculations
 router.post('/ephemeris', async (req, res) => {
+  console.log('Ephemeris route called'); // Simplified log
+
   try {
-    console.log('✅ /ephemeris route called');
+    // Call the renamed function in your controller
+    const result = await EphemerisCntlr.computeChart(req.body);
 
-    // Chamada do controlador com os dados do corpo da requisição
-    const result = await EphemerisCntlr.compute(req.body);
-
-    // Retorno bem-sucedido
-    res.status(200).json(result);
+    // Send the response back
+    res.status(result.statusCode).json(result);
   } catch (error) {
-    console.error('❌ Error in /ephemeris route:', error);
-
-    // Retorno de erro com mensagem clara
+    console.error('Ephemeris route error:', error.message); // Simplified error log
     res.status(500).json({
       statusCode: 500,
-      message: 'Internal Server Error',
-      error: error?.message || 'Erro desconhecido'
+      message: `Calculation failed: ${error.message}` // User-friendly error message
     });
   }
 });
