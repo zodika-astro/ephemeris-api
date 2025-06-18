@@ -38,15 +38,6 @@ router.get('/info', (req, res) => {
 
 // Protected endpoints
 router.post('/ephemeris-data', verifyApiKey, EphemerisController.compute);
-  res.json({
-    message: 'Secure ephemeris data',
-    results: {
-      data: 'Sensitive ephemeris data',
-      accessedAt: new Date().toISOString(),
-      client: req.client
-    }
-  });
-});
 
 // Health check (public)
 router.get('/health', (req, res) => {
