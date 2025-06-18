@@ -1,70 +1,54 @@
 'use strict';
-// Log when this API route file is entered.
-console.log('Entered API route file (routes/api.js)');
 
 const express = require('express');
 const router = express.Router();
-const InfoController = require('../common/info'); // Renamed for clarity
-const compression = require('compression'); // Import compression middleware
-const NodeCache = require('node-cache'); // Import node-cache for in-memory caching
-const { verifyApiKey } = require('../app');
+const InfoController = require('../common/info');
+const compression = require('compression');
+const NodeCache = require('node-cache');
+const { verifyApiKey } = require('../middleware/auth');
+const path = require('path');
 
-// Route to get general API information.
-router.get('/info', (req, res, next) => {
-  const cacheKey = 'apiInfo'; // Unique key for caching this response
+const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
 
-  // Try to retrieve data from cache first
+// Middleware
+router.use(compression());
+
+// Public endpoints
+router.get('/info', (req, res) => {
+  const cacheKey = 'apiInfo';
   const cachedResponse = apiCache.get(cacheKey);
+  
   if (cachedResponse) {
-    res.locals.status = 200;
-    res.locals.message = 'Ephemeris API info successfully retrieved from cache.';
-    res.locals.results = cachedResponse;
-    return next();
+    return res.json({
+      message: 'Cached API info',
+      results: cachedResponse,
+      cached: true
+    });
   }
 
-  // If not in cache, fetch data, store it, and then send
   const infoData = InfoController.info();
-  apiCache.set(cacheKey, infoData); // Store the fetched data in cache
+  apiCache.set(cacheKey, infoData);
 
-  res.locals.status = 200;
-  res.locals.message = 'Ephemeris API info successfully retrieved.';
-  res.locals.results = infoData;
-  next();
+  res.json({
+    message: 'Live API info',
+    results: infoData,
+    cached: false
+  });
 });
 
-// Route to check the API's health status.
-router.get('/health', (req, res, next) => {
-  const cacheKey = 'apiHealth'; // Unique key for caching this response
+// Protected endpoints
+const EphemerisController = require(path.resolve(__dirname, '..', 'controllers', 'ephemeris'));
 
-// Protected route
-router.get('/secure-ephemeris', verifyApiKey, (req, res, next) => {
-  res.locals.status = 200;
-  res.locals.message = 'Access granted. Valid API key!';
-  res.locals.results = { data: 'Ephemeris data only for authorized clients.' };
-  next();
+// Health check (public)
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
-
-  // Try to retrieve data from cache first
-  const cachedResponse = apiCache.get(cacheKey);
-  if (cachedResponse) {
-    res.locals.status = 200;
-    res.locals.message = 'Ephemeris API health status successfully retrieved from cache.';
-    res.locals.results = cachedResponse;
-    return next();
-  }
-
-  // If not in cache, fetch data, store it, and then send
-  const healthData = InfoController.health();
-  apiCache.set(cacheKey, healthData); // Store the fetched data in cache
-
-  res.locals.status = 200;
-  res.locals.message = 'Ephemeris API health status successfully retrieved.';
-  res.locals.results = healthData;
-  next();
-});
-
-// Mounts version 1 routes under /api/v1.
-router.use('/v1', require('./vers1.js'));
+// Versioned API
+router.use('/v1', require('./vers1'));
 
 module.exports = router;

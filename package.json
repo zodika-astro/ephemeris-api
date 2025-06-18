@@ -21,7 +21,9 @@
     "helmet": "^8.1.0",
     "morgan": "~1.9.1",
     "node-cache": "^5.1.2",
-    "swisseph": "^0.5.17"
+    "swisseph": "^0.5.17",
+    "dotenv": "^16.3.1"
+
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

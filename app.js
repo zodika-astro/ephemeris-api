@@ -1,71 +1,57 @@
 'use strict';
+
 require('dotenv').config();
->>>>>>> 2847106 (add APIKey to /api/secure-ephemeris)
 const express = require('express');
-
-// Middleware to verify API key
-function verifyApiKey(req, res, next) {
-  const userKey = req.header('X-API-KEY');
-  const serverKey = process.env.API_KEY;
-
-  if (userKey && userKey === serverKey) {
-    next(); // API key matches
-  } else {
-    res.status(403).json({ error: 'Forbidden. Invalid or missing API key.' });
-  }
-}
-
 const logger = require('morgan');
 const responseHandler = require('./common/responseHandlers');
 const basicAuth = require('express-basic-auth');
-const helmet = require('helmet'); // Import Helmet middleware
-
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const app = express();
 
-// Apply Helmet to secure HTTP headers, protecting against common web vulnerabilities.
-app.use(helmet());
-
-// Middleware to parse JSON bodies from incoming requests.
-app.use(express.json());
-
-// HTTP request logger middleware. 'combined' is a standard Apache log format.
-app.use(logger('combined'));
-
-// Basic Authentication configuration.
-// Retrieves credentials from environment variables for security.
-const BASIC_USER = process.env.BASIC_USER;
-const BASIC_PASS = process.env.BASIC_PASS;
-
-// Log credentials (for debugging/verification, be cautious in production).
-// In production, consider removing or obscuring these logs.
-console.log('BASIC_USER:', BASIC_USER ? 'Set' : 'Not Set');
-console.log('BASIC_PASS:', BASIC_PASS ? 'Set' : 'Not Set');
-
-// Apply basic authentication to all incoming requests.
-app.use(basicAuth({
-  users: { [BASIC_USER]: BASIC_PASS }, // Dynamically sets username and password
-  challenge: true // Sends 'WWW-Authenticate' header, prompting browser for credentials
-}));
-
-// Start the server on the port expected by the hosting environment (e.g., Railway).
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// express rate limit
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
+  message: "Muitas requisições deste IP, por favor, tente novamente após 15 minutos.",
+  headers: true, 
 });
 
-// Main API routes.
-// The root route ('/') usually serves basic info or redirects.
-// '/api' serves the core API endpoints.
+// Security middleware
+app.use(helmet());
+app.disable('x-powered-by');
+app.use(express.json({ limit: '10kb' }));
+app.use(apiLimiter);
+app.use(logger(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+// Dual authentication support
+const authUsers = {};
+if (process.env.BASIC_USER && process.env.BASIC_PASS) {
+  authUsers[process.env.BASIC_USER] = process.env.BASIC_PASS;
+}
+
+app.use(basicAuth({
+  users: authUsers,
+  challenge: true,
+  unauthorizedResponse: { 
+    error: 'Unauthorized',
+    documentation: 'https://your-docs-url' 
+  }
+}));
+
+// Routes
 app.use('/', require('./routes/index'));
 app.use('/api', require('./routes/api'));
 
-// Global response handling middleware.
-// Ensures consistent response formats and error handling across the application.
-app.use(responseHandler.handleResponse);
+// Error handling
 app.use(responseHandler.handleErrorResponse);
 
-module.exports = {
-  app,
-  verifyApiKey
-};
+// Server start (Railway handles this in production)
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 8080;
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+}
 
+module.exports = app;

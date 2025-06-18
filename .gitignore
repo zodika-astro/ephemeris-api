@@ -1,11 +1,57 @@
-node_modules
+# dependences e builds
+node_modules/
+dist/
+build/
+*.exe
+*.dll
+
+# variables
 .env
-.env-dev
-.env-qa
-.env-prod
-.http
-.DS_Store
-.vscode
-.idea
-log
+*.env
+.env-*
+.env.local
+.env.*.local
+.env[abc].*
+.env.production
+.env.development
+.env.test
+.env.staging
+
+# sensitive
+config/credentials*
+**/secrets/
+**/*.secret
+**/*.key
+**/*.token
+**/*.cert
+**/*.pem
+
+# logs and temp
 *.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tmp
+*.temp
+
+# IDEs e edits
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# system
+.DS_Store
+Thumbs.db
+*.http
+.ssh/
+.cache/
+dump.rdb
+*.pid
+
+# Test coverage
+coverage/
+.nyc_output/
