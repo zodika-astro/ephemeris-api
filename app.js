@@ -20,8 +20,6 @@ const authUsers = {};
 if (process.env.BASIC_USER && process.env.BASIC_PASS) {
   authUsers[process.env.BASIC_USER] = process.env.BASIC_PASS;
 }
-// Add Make.com credentials if they differ
-authUsers['zodika'] = 'S3cr3tApi!';
 
 app.use(basicAuth({
   users: authUsers,
