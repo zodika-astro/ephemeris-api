@@ -6,7 +6,6 @@ const InfoController = require('../common/info');
 const compression = require('compression');
 const NodeCache = require('node-cache');
 const { verifyApiKey } = require('../middleware/auth');
-const EphemerisController = require('../controller/ephemeris');
 const path = require('path');
 
 const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
