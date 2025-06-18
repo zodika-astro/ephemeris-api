@@ -6,13 +6,22 @@ const logger = require('morgan');
 const responseHandler = require('./common/responseHandlers');
 const basicAuth = require('express-basic-auth');
 const helmet = require('helmet');
-
+const rateLimit = require('express-rate-limit');
 const app = express();
+
+// express rate limit
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
+  message: "Muitas requisições deste IP, por favor, tente novamente após 15 minutos.",
+  headers: true, 
+});
 
 // Security middleware
 app.use(helmet());
 app.disable('x-powered-by');
 app.use(express.json({ limit: '10kb' }));
+app.use(apiLimiter);
 app.use(logger(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // Dual authentication support
