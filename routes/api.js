@@ -7,6 +7,7 @@ const compression = require('compression');
 const NodeCache = require('node-cache');
 const { verifyApiKey } = require('../middleware/auth');
 const EphemerisController = require('../controller/ephemeris');
+const path = require('path');
 
 const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
 
@@ -37,7 +38,7 @@ router.get('/info', (req, res) => {
 });
 
 // Protected endpoints
-router.post('/ephemeris-data', verifyApiKey, EphemerisController.compute);
+const EphemerisController = require(path.resolve(__dirname, '..', 'controllers', 'ephemeris'));
 
 // Health check (public)
 router.get('/health', (req, res) => {
