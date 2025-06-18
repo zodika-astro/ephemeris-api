@@ -6,6 +6,7 @@ const InfoController = require('../common/info');
 const compression = require('compression');
 const NodeCache = require('node-cache');
 const { verifyApiKey } = require('../middleware/auth');
+const EphemerisController = require('../controller/ephemeris');
 
 const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
 
@@ -36,7 +37,7 @@ router.get('/info', (req, res) => {
 });
 
 // Protected endpoints
-router.get('/secure-ephemeris', verifyApiKey, (req, res) => {
+router.post('/ephemeris-data', verifyApiKey, EphemerisController.compute);
   res.json({
     message: 'Secure ephemeris data',
     results: {
