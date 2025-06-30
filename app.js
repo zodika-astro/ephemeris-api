@@ -1,8 +1,10 @@
 'use strict';
 
+const logger = require('./logger');
+
 require('dotenv').config();
 const express = require('express');
-const logger = require('morgan');
+const morgan = require('morgan');
 const responseHandler = require('./common/responseHandlers');
 const basicAuth = require('express-basic-auth');
 const helmet = require('helmet');
@@ -52,7 +54,8 @@ app.use(responseHandler.handleErrorResponse);
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 8080;
   app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+
   });
 }
 
