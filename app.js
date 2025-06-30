@@ -23,6 +23,8 @@ app.disable('x-powered-by');
 app.use(express.json({ limit: '10kb' }));
 app.use(apiLimiter);
 app.use(logger(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use('/health', require('./routes/health'));
+
 
 // Dual authentication support
 const authUsers = {};
