@@ -2,10 +2,14 @@ const { createCanvas, registerFont } = require('canvas');
 const fs = require('fs');
 const path = require('path');
 
-// Register fonts
-registerFont(path.join(__dirname, '../fonts/Inter-Bold.ttf'), { family: 'Inter', weight: 'bold' });
-registerFont(path.join(__dirname, '../fonts/Inter-Regular.ttf'), { family: 'Inter', weight: 'regular' });
-registerFont(path.join(__dirname, '../fonts/NotoSansSymbols-Regular.ttf'), { family: 'Noto Sans Symbols' });
+// Register fonts (fallback to system fonts if custom fonts fail)
+try {
+  registerFont(path.join(__dirname, '../fonts/Inter-Bold.ttf'), { family: 'Inter', weight: 'bold' });
+  registerFont(path.join(__dirname, '../fonts/Inter-Regular.ttf'), { family: 'Inter', weight: 'regular' });
+  registerFont(path.join(__dirname, '../fonts/NotoSansSymbols-Regular.ttf'), { family: 'Noto Sans Symbols' });
+} catch (e) {
+  console.log('Using system fonts as fallback');
+}
 
 const width = 1536;
 const height = 1536;
@@ -67,65 +71,68 @@ for (let i = 0; i < 12; i++) {
   ctx.stroke();
 }
 
-// Zodiac signs with symbols
+// Zodiac signs in CORRECT ORDER (counter-clockwise)
 const signs = [
-  { name: 'ÁRIES', symbol: '♈', startDeg: 0 },    { name: 'TOURO', symbol: '♉', startDeg: 30 },
-  { name: 'GÊMEOS', symbol: '♊', startDeg: 60 },  { name: 'CÂNCER', symbol: '♋', startDeg: 90 },
-  { name: 'LEÃO', symbol: '♌', startDeg: 120 },   { name: 'VIRGEM', symbol: '♍', startDeg: 150 },
-  { name: 'LIBRA', symbol: '♎', startDeg: 180 },  { name: 'ESCORPIÃO', symbol: '♏', startDeg: 210 },
-  { name: 'SAGITÁRIO', symbol: '♐', startDeg: 240 }, { name: 'CAPRICÓRNIO', symbol: '♑', startDeg: 270 },
-  { name: 'AQUÁRIO', symbol: '♒', startDeg: 300 }, { name: 'PEIXES', symbol: '♓', startDeg: 330 }
+  { name: 'ÁRIES', symbol: 'A', startDeg: 0 },    // Fallback to 'A' if symbol doesn't work
+  { name: 'TOURO', symbol: 'T', startDeg: 330 },  // Fallback to 'T'
+  { name: 'GÊMEOS', symbol: 'G', startDeg: 300 }, // Fallback to 'G'
+  { name: 'CÂNCER', symbol: 'C', startDeg: 270 },
+  { name: 'LEÃO', symbol: 'L', startDeg: 240 },
+  { name: 'VIRGEM', symbol: 'V', startDeg: 210 },
+  { name: 'LIBRA', symbol: 'L', startDeg: 180 },
+  { name: 'ESCORPIÃO', symbol: 'E', startDeg: 150 },
+  { name: 'SAGITÁRIO', symbol: 'S', startDeg: 120 },
+  { name: 'CAPRICÓRNIO', symbol: 'C', startDeg: 90 },
+  { name: 'AQUÁRIO', symbol: 'A', startDeg: 60 },
+  { name: 'PEIXES', symbol: 'P', startDeg: 30 }
 ];
 
 ctx.fillStyle = textColor;
 ctx.textAlign = 'center';
 ctx.textBaseline = 'middle';
 
+// Function to draw curved text
+function drawCurvedText(text, radius, angle) {
+  const letters = text.split('');
+  const centerAngle = (angle - 90) * Math.PI / 180;
+  const letterSpacing = 10;
+  
+  letters.forEach((letter, i) => {
+    const charAngle = centerAngle + (i - (letters.length - 1) / 2) * (letterSpacing / radius);
+    const x = centerX + radius * Math.cos(charAngle);
+    const y = centerY + radius * Math.sin(charAngle);
+    
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(charAngle + Math.PI / 2);
+    ctx.font = 'bold 24px Inter';
+    ctx.fillText(letter, 0, 0);
+    ctx.restore();
+  });
+}
+
 // Draw zodiac signs in the outer ring
 signs.forEach((sign, i) => {
   const middleAngleDeg = sign.startDeg + 15;
-  const angle = middleAngleDeg * Math.PI / 180;
   
-  // Symbol position
-  const symbolRadius = radius - 50;
-  const xSymbol = centerX + symbolRadius * Math.cos(angle);
-  const ySymbol = centerY + symbolRadius * Math.sin(angle);
-  
-  // Sign name position
-  const nameRadius = radius - 100;
-  const xName = centerX + nameRadius * Math.cos(angle);
-  const yName = centerY + nameRadius * Math.sin(angle);
-  
-  // Degree markings (every 5 degrees)
-  for (let deg = sign.startDeg; deg < sign.startDeg + 30; deg += 5) {
-    const degAngle = deg * Math.PI / 180;
-    const outerX = centerX + (radius - 20) * Math.cos(degAngle);
-    const outerY = centerY + (radius - 20) * Math.sin(degAngle);
-    const innerX = centerX + (radius - 30) * Math.cos(degAngle);
-    const innerY = centerY + (radius - 30) * Math.sin(degAngle);
-    
-    ctx.beginPath();
-    ctx.moveTo(outerX, outerY);
-    ctx.lineTo(innerX, innerY);
-    ctx.stroke();
-    
-    // Label every 10 degrees
-    if (deg % 10 === 0) {
-      const labelX = centerX + (radius - 60) * Math.cos(degAngle);
-      const labelY = centerY + (radius - 60) * Math.sin(degAngle);
-      
-      ctx.font = '14px Inter';
-      ctx.fillText(deg.toString(), labelX, labelY);
-    }
+  // Try symbol first, fallback to letter if symbol fails
+  try {
+    ctx.font = 'bold 48px "Noto Sans Symbols"';
+    const symbolRadius = radius - 50;
+    const xSymbol = centerX + symbolRadius * Math.cos(middleAngleDeg * Math.PI / 180);
+    const ySymbol = centerY + symbolRadius * Math.sin(middleAngleDeg * Math.PI / 180);
+    ctx.fillText(sign.symbol, xSymbol, ySymbol);
+  } catch (e) {
+    ctx.font = 'bold 48px Inter';
+    const symbolRadius = radius - 50;
+    const xSymbol = centerX + symbolRadius * Math.cos(middleAngleDeg * Math.PI / 180);
+    const ySymbol = centerY + symbolRadius * Math.sin(middleAngleDeg * Math.PI / 180);
+    ctx.fillText(sign.symbol, xSymbol, ySymbol);
   }
   
-  // Draw sign symbol
-  ctx.font = 'bold 48px "Noto Sans Symbols"';
-  ctx.fillText(sign.symbol, xSymbol, ySymbol);
-  
-  // Draw sign name
-  ctx.font = 'bold 24px Inter';
-  ctx.fillText(sign.name, xName, yName);
+  // Draw curved sign name
+  const nameRadius = radius - 100;
+  drawCurvedText(sign.name, nameRadius, middleAngleDeg);
 });
 
 // House numbers (1-12)
@@ -141,60 +148,12 @@ for (let i = 0; i < 12; i++) {
   ctx.fillText((i + 1).toString(), x, y);
 }
 
-// Planetary positions (example data - replace with actual positions)
-const planets = [
-  { symbol: '☉', name: 'Sun', position: 45, house: 2 },
-  { symbol: '☽', name: 'Moon', position: 120, house: 4 },
-  { symbol: '☿', name: 'Mercury', position: 30, house: 1 },
-  { symbol: '♀', name: 'Venus', position: 75, house: 3 },
-  { symbol: '♂', name: 'Mars', position: 210, house: 7 },
-  { symbol: '♃', name: 'Jupiter', position: 300, house: 10 },
-  { symbol: '♄', name: 'Saturn', position: 180, house: 6 },
-  { symbol: '♅', name: 'Uranus', position: 240, house: 8 },
-  { symbol: '♆', name: 'Neptune', position: 330, house: 11 },
-  { symbol: '♇', name: 'Pluto', position: 270, house: 9 }
-];
-
-// Draw planets in the inner circle
-planets.forEach(planet => {
-  const angle = planet.position * Math.PI / 180;
-  const planetRadius = radius * 0.4;
-  
-  const x = centerX + planetRadius * Math.cos(angle);
-  const y = centerY + planetRadius * Math.sin(angle);
-  
-  // Draw planet symbol
-  ctx.font = 'bold 36px "Noto Sans Symbols"';
-  ctx.fillStyle = accentColor;
-  ctx.fillText(planet.symbol, x, y);
-  
-  // Draw planet name and degree
-  ctx.font = '14px Inter';
-  ctx.fillStyle = textColor;
-  ctx.fillText(`${planet.name} ${planet.position}°`, x, y + 30);
-});
-
-// Chart information in the center
+// Center text (ZODIKA and website)
 ctx.fillStyle = textColor;
-ctx.font = 'bold 24px Inter';
-ctx.fillText('ASTRO DIENST', centerX, centerY - 40);
-ctx.font = '18px Inter';
-ctx.fillText('www.astro.com', centerX, centerY);
-
-// House cusps (example data - replace with actual cusps)
-ctx.font = '14px Inter';
-for (let i = 0; i < 12; i++) {
-  const angleDeg = i * 30;
-  const angle = angleDeg * Math.PI / 180;
-  const cuspRadius = radius * 0.75;
-  
-  const x = centerX + cuspRadius * Math.cos(angle);
-  const y = centerY + cuspRadius * Math.sin(angle);
-  
-  // Example cusp degrees - replace with actual values
-  const cuspDegree = (i * 30 + 15) % 360;
-  ctx.fillText(`${cuspDegree}°`, x, y);
-}
+ctx.font = 'bold 36px Inter';
+ctx.fillText('ZODIKA', centerX, centerY - 30);
+ctx.font = '24px Inter';
+ctx.fillText('www.zodika.com.br', centerX, centerY + 30);
 
 // Save image
 const outputPath = path.join(__dirname, '../chart-preview.png');
