@@ -1,8 +1,8 @@
 'use strict';
 
-const logger = require('./logger');
-
+const logger = require('./logger'); 
 require('dotenv').config();
+
 const express = require('express');
 const morgan = require('morgan');
 const responseHandler = require('./common/responseHandlers');
@@ -13,10 +13,10 @@ const app = express();
 
 // express rate limit
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 100, 
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: "Muitas requisições deste IP, por favor, tente novamente após 15 minutos.",
-  headers: true, 
+  headers: true,
 });
 
 // Security middleware
@@ -24,9 +24,8 @@ app.use(helmet());
 app.disable('x-powered-by');
 app.use(express.json({ limit: '10kb' }));
 app.use(apiLimiter);
-app.use(logger(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use('/health', require('./routes/health'));
-
 
 // Dual authentication support
 const authUsers = {};
@@ -37,9 +36,9 @@ if (process.env.BASIC_USER && process.env.BASIC_PASS) {
 app.use(basicAuth({
   users: authUsers,
   challenge: true,
-  unauthorizedResponse: { 
+  unauthorizedResponse: {
     error: 'Unauthorized',
-    documentation: 'https://your-docs-url' 
+    documentation: 'https://your-docs-url'
   }
 }));
 
@@ -55,7 +54,6 @@ if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 8080;
   app.listen(PORT, () => {
     logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-
   });
 }
 
