@@ -1,11 +1,13 @@
 'use strict';
 const swisseph = require('swisseph');
 const path = require('path');
+const logger = require('../logger');
 
 // Correctly set the path to the 'ephe' folder, located at the project root.
 const ephePath = path.join(__dirname, '..', 'ephe');
 swisseph.swe_set_ephe_path(ephePath);
-console.log('Swiss Ephemeris path set to:', ephePath);
+logger.info(`Swiss Ephemeris path set to: ${ephePath}`);
+
 
 // Astrological signs in order
 const signs = [
@@ -115,7 +117,7 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
             const infoPlanet2 = planetSignData[planet2Name];
 
             if (pos1 === undefined || pos2 === undefined || !infoPlanet1 || !infoPlanet2) {
-                console.warn('Invalid position or info for ' + planet1Name + ' or ' + planet2Name + ' when computing aspects.');
+                logger.warn(`Invalid position or info for ${planet1Name} or ${planet2Name} when computing aspects.`);
                 continue;
             }
 
@@ -209,6 +211,7 @@ async function computePlanets(jd, cusps) {
       };
     } catch (err) {
       console.error('Error calculating ' + name + ': ' + err.message);
+
     }
   }
 
@@ -449,7 +452,7 @@ const compute = async (reqBody) => {
       qualities
     };
   } catch (err) {
-    console.error("Calculation error:", err);
+  logger.error(`Calculation error: ${err.message}`);
     return {
       statusCode: 500,
       message: `Calculation failed: ${err.message}`
