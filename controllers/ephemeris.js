@@ -310,12 +310,16 @@ const analyzeHouses = (cusps) => {
     .filter(([, count]) => count > 1)
     .map(([sign]) => sign);
 
-  return {
-    interceptedSigns: Array.from(interceptedSigns),
-    housesWithInterceptedSigns,
-    signsWithDoubleRulership,
-    cusps: cusps.map(c => ({ house: c.house, sign: degreeToSign(c.degree) }))
-  };
+return {
+  interceptedSigns: Array.from(interceptedSigns),
+  housesWithInterceptedSigns,
+  signsWithDoubleRulership,
+  cusps: cusps.map(c => ({
+    house: c.house,
+    sign: degreeToSign(c.degree),
+    degree: c.degree 
+  }))
+};
 };
 
 // --- Main Computation Function ---
