@@ -1,14 +1,17 @@
 'use strict';
-// Log when the ephemeris version 1 route file is entered.
-console.log('Entered ephemeris route (routes/vers1.js)');
 
 const express = require('express');
 const router = express.Router();
-const EphemerisController = require('../controllers/ephemeris'); // Import controller
+const EphemerisController = require('../controllers/ephemeris'); // Your existing ephemeris controller
+const { generateNatalChartImage } = require('../controllers/generateChartImage'); // The new chart image generator
+const logger = require('../logger'); // Import the logger for consistent logging
 
-// Route for ephemeris calculations (POST request)
+// Log when the ephemeris version 1 route file is entered.
+logger.info('Entered ephemeris route (routes/vers1.js)');
+
+// Existing Route for ephemeris calculations (POST request)
 router.post('/ephemeris', async (req, res) => {
-  console.log('Ephemeris calculation route called');
+  logger.info('Ephemeris calculation route called'); // Using logger for consistency
 
   try {
     // Call the 'compute' function from the EphemerisController
@@ -18,10 +21,45 @@ router.post('/ephemeris', async (req, res) => {
     res.status(result.statusCode).json(result);
   } catch (error) {
     // Log the error and send a 500 (Internal Server Error) response
-    console.error('Ephemeris calculation route error:', error.message);
+    logger.error(`Ephemeris calculation route error: ${error.message}`); // Using logger for consistency
     res.status(500).json({
       statusCode: 500,
       message: `Calculation failed: ${error.message}`
+    });
+  }
+});
+
+// NEW: Endpoint to generate and return the natal chart image
+router.post('/ephemeris/chart-image', async (req, res) => {
+  logger.info('Chart image generation route called'); // Log new endpoint call
+
+  try {
+    // 1. Calculate the astrological data using your existing compute function
+    const chartData = await EphemerisController.compute(req.body);
+
+    // 2. Check if the calculation was successful
+    if (chartData.statusCode !== 200) {
+      // If there's an error in calculation, return the original error message
+      logger.warn(`Chart image generation failed due to ephemeris calculation error: ${chartData.message}`);
+      return res.status(chartData.statusCode).json(chartData);
+    }
+
+    // 3. Use the calculated data to generate the image buffer
+    const imageBuffer = await generateNatalChartImage(chartData);
+
+    // 4. Send the image as an HTTP response
+    res.writeHead(200, {
+      'Content-Type': 'image/png', // Set content type to PNG
+      'Content-Length': imageBuffer.length // Inform the client about the image size
+    });
+    res.end(imageBuffer); // Send the image buffer
+
+  } catch (error) {
+    // Log any errors during the image generation process
+    logger.error(`API chart image generation error: ${error.message}`);
+    res.status(500).json({
+      statusCode: 500,
+      message: `Chart image generation failed: ${error.message}`
     });
   }
 });
