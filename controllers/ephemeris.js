@@ -187,7 +187,6 @@ async function computePlanets(jd, cusps) {
       const current = await new Promise((resolve) =>
         swisseph.swe_calc_ut(jd, id, flags, resolve)
       );
-      // Calculate future position for retrograde check (a small step forward in time)
       const future = await new Promise((resolve) =>
         swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve)
       );
@@ -218,9 +217,6 @@ async function computePlanets(jd, cusps) {
   return { geo: geoPositions, signs: signData };
 }
 
-// --- NEW FUNCTIONALITY: ELEMENTAL AND QUALITIES/MODALITIES ANALYSIS (with weighted scoring) ---
-
-// Mappings of signs to elements and qualities
 const SIGN_ELEMENT_MAP = {
     "Aries": "fire", "Leo": "fire", "Sagittarius": "fire",
     "Taurus": "earth", "Virgo": "earth", "Capricorn": "earth",
@@ -234,28 +230,22 @@ const SIGN_QUALITY_MAP = {
     "Gemini": "mutable", "Virgo": "mutable", "Sagittarius": "mutable", "Pisces": "mutable"
 };
 
-// --- NEW WEIGHTED SCORING RULES ---
 const WEIGHT_PER_POINT = {
-    // Group: Individuality Base (3 points each)
+
     sun: 3,
     moon: 3,
     ascendant: 3,
     mc: 3,
 
-    // Group: Individuality Expression Channels (2 points each)
     mercury: 2,
     venus: 2,
     mars: 2,
     jupiter: 2,
 
-    // Group: Generational Tendencies (1 point each)
     saturn: 1,
     uranus: 1,
     neptune: 1,
     pluto: 1
-
-    // True Node, Lilith, Chiron are NOT included in elemental/quality counts
-    // as per specified scoring rules.
 };
 
 /**
@@ -264,11 +254,8 @@ const WEIGHT_PER_POINT = {
  * @returns {string} The status ('lack', 'balance', 'excess').
  */
 const getStatusByCount = (count) => {
-    // New limits based on a total sum of 24 points.
-    const LACK_MAX = 3;     // 3 or fewer points = lack
-    const BALANCE_MAX = 8;  // Between 4 and 8 points = balance
-                            // 9 or more points = excess (by implicit 'else')
-
+    const LACK_MAX = 3;    
+    const BALANCE_MAX = 8;                       
     if (count <= LACK_MAX) {
         return "lack";
     } else if (count <= BALANCE_MAX) {
@@ -287,14 +274,11 @@ const getStatusByCount = (count) => {
 async function analyzeElementalAndModalQualities(planetSignData, cusps) {
     const elementCounts = { fire: 0, earth: 0, air: 0, water: 0 };
     const qualityCounts = { cardinal: 0, fixed: 0, mutable: 0 };
-
-    // Map cusp data to facilitate access for Ascendant and MC as "points"
     const additionalPoints = {
         ascendant: { sign: degreeToSign(cusps[0]?.degree) },
         mc: { sign: degreeToSign(cusps[9]?.degree) }
     };
 
-    // Combine planets and additional points, considering only those with defined weights
     const allPoints = { ...planetSignData, ...additionalPoints };
 
     for (const pointName in allPoints) {
@@ -349,8 +333,6 @@ const analyzeHouses = (cusps) => {
     let endDegree = nextCusp.degree > startDegree ? nextCusp.degree : nextCusp.degree + 360;
 
     const signsPresentInHouse = new Set();
-    // Iterate through degrees to find all signs within the house span
-    // (This simplified check assumes continuous house spans and might need refinement for edge cases)
     for (let deg = Math.floor(startDegree); deg <= Math.ceil(endDegree); deg++) {
         if (deg >= startDegree && deg < endDegree) { // Ensure degree is within the span
              signsPresentInHouse.add(degreeToSign(deg % 360));
@@ -358,9 +340,6 @@ const analyzeHouses = (cusps) => {
     }
 
     signsPresentInHouse.forEach(sign => {
-      // If a sign is present within the house but doesn't rule any cusp of this house, it's intercepted.
-      // This logic is a common approximation. True interception requires checking if it's "enclosed".
-      // For more robust interception detection, a more complex algorithm comparing house spans and sign spans is needed.
       if (!signsOnCusps.has(sign)) {
         housesWithInterceptedSigns.push({ house: currentCusp.house, interceptedSign: sign });
         interceptedSigns.add(sign);
@@ -383,7 +362,6 @@ const analyzeHouses = (cusps) => {
     interceptedSigns: Array.from(interceptedSigns),
     housesWithInterceptedSigns,
     signsWithDoubleRulership,
-    // Modified cusps output: removed 'degree' and 'isInterceptedSign'
     cusps: cusps.map(c => ({
       house: c.house,
       sign: degreeToSign(c.degree)
@@ -416,16 +394,14 @@ const compute = async (reqBody) => {
       config = {}
     } = reqBody;
 
-    // Calculate Julian Day (JD) from local time, adjusting for timezone.
-    // timezone is subtracted because swe_julday expects local time and
-    // the timezone parameter essentially converts it to UT (Universal Time)
+    // Calculate Julian Day (JD) 
     const decimalHours = hours + minutes / 60 + seconds / 3600;
     const jd = swisseph.swe_julday(year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL);
 
     const houseSystem = config.house_system || 'P';
     const cusps = await computeHouses(jd, latitude, longitude, houseSystem);
 
-    // geo (geographical positions) is needed for aspect calculations but will not be in the final output
+    // geo (geographical positions)
     const { geo, signs } = await computePlanets(jd, cusps);
 
     // aspects are computed using geo positions and sign data
@@ -440,7 +416,7 @@ const compute = async (reqBody) => {
       statusCode: 200,
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
-      // ephemerides: { geo }, // Removed as requested
+      geo,
       signs,                  // Sign and house data for planets
       houses: {
         cusps: analysis.cusps,
@@ -461,4 +437,3 @@ const compute = async (reqBody) => {
 };
 
 module.exports = { compute };
-
