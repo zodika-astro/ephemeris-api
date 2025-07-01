@@ -105,7 +105,6 @@ async function generateNatalChartImage(ephemerisData) {
     const aspectsData = ephemerisData?.aspects || {};
 
     // Desenha a base do mapa (círculos, signos, casas, etc.)
-    // ... (todo o código de desenho da base permanece o mesmo) ...
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, width, height);
     ctx.beginPath();
@@ -198,12 +197,12 @@ async function generateNatalChartImage(ephemerisData) {
     });
 
     // ==================================================================
-    // INÍCIO DA LÓGICA DE POSICIONAMENTO DE PLANETAS (VERSÃO 2)
+    // INÍCIO DA LÓGICA DE POSICIONAMENTO DE PLANETAS (VERSÃO 3)
     // ==================================================================
 
-    // 1. Prepara os dados e identifica os clusters de planetas
     const planets = Object.entries(planetPositions).sort((a, b) => a[1] - b[1]);
-    const collisionThreshold = 12; // Limite em graus para considerar um cluster
+    // **AJUSTE**: Limiar reduzido para evitar agrupar planetas que não estão sobrepostos.
+    const collisionThreshold = 8; 
     const clusters = [];
 
     if (planets.length > 0) {
@@ -235,14 +234,13 @@ async function generateNatalChartImage(ephemerisData) {
         }
     }
 
-    // 2. Desenha os planetas, tratando clusters e planetas isolados
     const placed = [];
     const baseRadius = planetZoneInner + (planetZoneOuter - planetZoneInner) / 2;
     const radialStep = 28;
     const textLineHeight = 18;
 
     clusters.forEach(cluster => {
-        // Caso 1: Planeta isolado (volta à lógica original e simples)
+        // Caso 1: Planeta isolado (usa a lógica original, simples e eficaz)
         if (cluster.length === 1) {
             const [name, deg] = cluster[0];
             const angleRad = toChartCoords(deg);
@@ -268,11 +266,10 @@ async function generateNatalChartImage(ephemerisData) {
 
             placed.push({ x, y, degree: deg, name, angleRad });
 
-        } else { // Caso 2: Cluster de planetas
+        } else { // Caso 2: Cluster de planetas (lógica aprimorada)
             const totalRadialSpread = (cluster.length - 1) * radialStep;
             const initialRadius = baseRadius - totalRadialSpread / 2;
 
-            // Desenha os símbolos primeiro, com espaçamento radial
             cluster.forEach(([name, deg], index) => {
                 const radius = initialRadius + index * radialStep;
                 const angleRad = toChartCoords(deg);
@@ -294,10 +291,10 @@ async function generateNatalChartImage(ephemerisData) {
                 placed.push({ x, y, degree: deg, name, angleRad });
             });
 
-            // Agora, desenha os nomes em uma lista vertical organizada
             const avgDeg = cluster.reduce((sum, p) => sum + p[1], 0) / cluster.length;
             const avgAngleRad = toChartCoords(avgDeg);
-            const textRadius = baseRadius + totalRadialSpread / 2 + 55;
+            // **AJUSTE**: O raio para o texto agora se baseia no raio do último símbolo do cluster.
+            const textRadius = initialRadius + totalRadialSpread + 45;
             const textAnchorX = centerX + textRadius * Math.cos(avgAngleRad);
             let textAnchorY = centerY + textRadius * Math.sin(avgAngleRad);
             
@@ -322,12 +319,12 @@ async function generateNatalChartImage(ephemerisData) {
             });
         }
     });
-
+    
     // ==================================================================
-    // FIM DA LÓGICA DE POSICIONAMENTO DE PLANETAS (VERSÃO 2)
+    // FIM DA LÓGICA DE POSICIONAMENTO DE PLANETAS
     // ==================================================================
 
-    // Linhas de aspectos
+    // Linhas de aspectos (desenhadas ANTES do texto central)
     for (const aspectType in aspectsData) {
         const style = aspectStyles[aspectType];
         if (!style || style.color === null) continue;
@@ -350,7 +347,9 @@ async function generateNatalChartImage(ephemerisData) {
         });
     }
 
-    // Texto central
+    // **CORREÇÃO**: Texto central desenhado por último para ficar sobre tudo.
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillStyle = centerTextColor;
     ctx.font = 'bold 32px Inter';
     ctx.fillText('MAPA NATAL', centerX, centerY - 25);
