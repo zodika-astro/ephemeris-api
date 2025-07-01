@@ -163,7 +163,7 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.translate(x, y);
     ctx.rotate(angleRad + Math.PI/2);
     ctx.textAlign = 'left';
-    ctx.fillText(label, -5, 0);
+    ctx.fillText(label, 5, 0);
     ctx.restore();
   });
 
