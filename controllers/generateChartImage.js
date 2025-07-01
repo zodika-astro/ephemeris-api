@@ -80,8 +80,6 @@ const signs = ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libr
 const signSymbols = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
 
 function toChartCoords(degree) {
-    // Converte graus astrológicos (0 Áries = 0) para radianos do canvas (0 = direita)
-    // e inverte a direção para anti-horário.
     return degToRad(360 - degree);
 }
 
@@ -106,35 +104,30 @@ async function generateNatalChartImage(ephemerisData) {
     const houseCusps = Array.isArray(ephemerisData?.houses?.cusps) ? ephemerisData.houses.cusps : [];
     const aspectsData = ephemerisData?.aspects || {};
 
-    // Fundo
+    // Desenha a base do mapa (círculos, signos, casas, etc.)
+    // ... (todo o código de desenho da base permanece o mesmo) ...
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, width, height);
     ctx.beginPath();
     ctx.fillStyle = backgroundColor;
     ctx.arc(centerX, centerY, innerRadius - 5, 0, 2 * Math.PI);
     ctx.fill();
-
-    // Círculos principais
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRingInnerRadius, 0, 2 * Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI); ctx.stroke();
-
-    // Linhas das casas e números
     houseCusps.forEach((cusp, index) => {
         const angleRad = toChartCoords(cusp.degree);
         const xInner = centerX + innerRadius * Math.cos(angleRad);
         const yInner = centerY + innerRadius * Math.sin(angleRad);
         const xZodiacInner = centerX + zodiacRingInnerRadius * Math.cos(angleRad);
         const yZodiacInner = centerY + zodiacRingInnerRadius * Math.sin(angleRad);
-
         ctx.beginPath();
         ctx.moveTo(xInner, yInner);
         ctx.lineTo(xZodiacInner, yZodiacInner);
         ctx.stroke();
         drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12);
-
         const nextIndex = (index + 1) % houseCusps.length;
         const nextCusp = houseCusps[nextIndex];
         let midDegree = (cusp.degree + nextCusp.degree) / 2;
@@ -142,7 +135,6 @@ async function generateNatalChartImage(ephemerisData) {
             midDegree = (cusp.degree + nextCusp.degree + 360) / 2;
             if (midDegree >= 360) midDegree -= 360;
         }
-
         const r = zodiacRingInnerRadius - 40;
         const x = centerX + r * Math.cos(toChartCoords(midDegree));
         const y = centerY + r * Math.sin(toChartCoords(midDegree));
@@ -152,8 +144,6 @@ async function generateNatalChartImage(ephemerisData) {
         ctx.textBaseline = 'middle';
         ctx.fillText((index + 1).toString(), x, y);
     });
-
-    // Graus nas cúspides
     ctx.font = 'bold 16px Inter';
     ctx.fillStyle = '#5A2A00';
     houseCusps.forEach((cusp) => {
@@ -171,8 +161,6 @@ async function generateNatalChartImage(ephemerisData) {
         ctx.fillText(label, 5, 0);
         ctx.restore();
     });
-
-    // Divisões dos signos
     ctx.strokeStyle = signDivisionColor;
     ctx.lineWidth = 1.2;
     ctx.setLineDash([8, 6]);
@@ -188,8 +176,6 @@ async function generateNatalChartImage(ephemerisData) {
         ctx.stroke();
     }
     ctx.setLineDash([]);
-
-    // Nomes dos signos
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = signColor;
@@ -212,76 +198,12 @@ async function generateNatalChartImage(ephemerisData) {
     });
 
     // ==================================================================
-    // INÍCIO DA NOVA LÓGICA DE POSICIONAMENTO DE PLANETAS
+    // INÍCIO DA LÓGICA DE POSICIONAMENTO DE PLANETAS (VERSÃO 2)
     // ==================================================================
-    
-    // Função auxiliar para desenhar um planeta e seu nome
-    const drawPlanetAndLabel = (name, deg, radius, clusterInfo = null) => {
-        const angleRad = toChartCoords(deg);
-        const x = centerX + radius * Math.cos(angleRad);
-        const y = centerY + radius * Math.sin(angleRad);
-
-        // Desenha o símbolo do planeta
-        const symbol = planetSymbols[name];
-        const fontSize = useSymbolaFont ? 52 : 32;
-        ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
-        ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
-        ctx.beginPath();
-        ctx.arc(x, y, fontSize / 1.6, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = symbolColor;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
-
-        // Desenha o nome do planeta
-        ctx.fillStyle = textColor;
-        ctx.font = 'bold 16px Inter';
-
-        // Posição base do texto (radialmente para fora)
-        const dirX = x - centerX;
-        const dirY = y - centerY;
-        const len = Math.sqrt(dirX * dirX + dirY * dirY);
-        const normX = dirX / len;
-        const normY = dirY / len;
-        const textOffset = 40;
-        let textX = x + normX * textOffset;
-        let textY = y + normY * textOffset;
-
-        // Se o planeta estiver em um cluster, aplica um desvio tangencial
-        if (clusterInfo) {
-            const { avgAngleRad, planetIndex, clusterSize } = clusterInfo;
-            const perpX = -Math.sin(avgAngleRad); // Vetor perpendicular ao ângulo médio
-            const perpY = Math.cos(avgAngleRad);
-            const spread = 22; // Espaçamento entre os textos
-            const initialOffset = -(clusterSize - 1) / 2 * spread;
-            const tangentialOffset = initialOffset + planetIndex * spread;
-
-            textX += perpX * tangentialOffset;
-            textY += perpY * tangentialOffset;
-        }
-
-        // Ajusta o alinhamento do texto para melhor legibilidade
-        const finalDirX = textX - centerX;
-        if (Math.abs(finalDirX) < width * 0.1) {
-            ctx.textAlign = 'center';
-        } else if (finalDirX > 0) {
-            ctx.textAlign = 'left';
-            textX += 5;
-        } else {
-            ctx.textAlign = 'right';
-            textX -= 5;
-        }
-        ctx.textBaseline = 'middle';
-        ctx.fillText(planetNames[name] || name, textX, textY);
-        
-        return { x, y, degree: deg, name, angleRad };
-    };
 
     // 1. Prepara os dados e identifica os clusters de planetas
     const planets = Object.entries(planetPositions).sort((a, b) => a[1] - b[1]);
-    const collisionThreshold = 10; // Limite em graus para considerar um cluster
+    const collisionThreshold = 12; // Limite em graus para considerar um cluster
     const clusters = [];
 
     if (planets.length > 0) {
@@ -301,7 +223,6 @@ async function generateNatalChartImage(ephemerisData) {
         }
         clusters.push(currentCluster);
 
-        // Verifica se o último e o primeiro planeta formam um cluster (ex: 358° e 2°)
         if (clusters.length > 1) {
             const firstPlanetDeg = clusters[0][0][1];
             const lastPlanet = clusters[clusters.length - 1];
@@ -314,37 +235,99 @@ async function generateNatalChartImage(ephemerisData) {
         }
     }
 
-    // 2. Desenha os planetas, tratando cada cluster
+    // 2. Desenha os planetas, tratando clusters e planetas isolados
     const placed = [];
     const baseRadius = planetZoneInner + (planetZoneOuter - planetZoneInner) / 2;
-    const radialStep = 28; // Espaçamento radial para símbolos em um cluster
+    const radialStep = 28;
+    const textLineHeight = 18;
 
     clusters.forEach(cluster => {
-        const isClustered = cluster.length > 1;
-        
-        const clusterInfo = isClustered ? {
-            avgAngleRad: toChartCoords(cluster.reduce((sum, p) => sum + p[1], 0) / cluster.length),
-            clusterSize: cluster.length,
-            planetIndex: 0
-        } : null;
+        // Caso 1: Planeta isolado (volta à lógica original e simples)
+        if (cluster.length === 1) {
+            const [name, deg] = cluster[0];
+            const angleRad = toChartCoords(deg);
+            const radius = baseRadius;
+            const x = centerX + radius * Math.cos(angleRad);
+            const y = centerY + radius * Math.sin(angleRad);
 
-        const totalRadialSpread = isClustered ? (cluster.length - 1) * radialStep : 0;
-        let currentRadius = baseRadius - totalRadialSpread / 2;
+            const symbol = planetSymbols[name];
+            const fontSize = useSymbolaFont ? 52 : 32;
+            ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
+            ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
+            ctx.beginPath();
+            ctx.arc(x, y, fontSize / 1.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = symbolColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
 
-        cluster.forEach(([name, deg], index) => {
-            const radius = currentRadius + index * radialStep;
-            if (clusterInfo) {
-                clusterInfo.planetIndex = index;
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 16px Inter';
+            ctx.fillText(planetNames[name] || name, x, y + 38);
+
+            placed.push({ x, y, degree: deg, name, angleRad });
+
+        } else { // Caso 2: Cluster de planetas
+            const totalRadialSpread = (cluster.length - 1) * radialStep;
+            const initialRadius = baseRadius - totalRadialSpread / 2;
+
+            // Desenha os símbolos primeiro, com espaçamento radial
+            cluster.forEach(([name, deg], index) => {
+                const radius = initialRadius + index * radialStep;
+                const angleRad = toChartCoords(deg);
+                const x = centerX + radius * Math.cos(angleRad);
+                const y = centerY + radius * Math.sin(angleRad);
+
+                const symbol = planetSymbols[name];
+                const fontSize = useSymbolaFont ? 52 : 32;
+                ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
+                ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
+                ctx.beginPath();
+                ctx.arc(x, y, fontSize / 1.6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = symbolColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
+
+                placed.push({ x, y, degree: deg, name, angleRad });
+            });
+
+            // Agora, desenha os nomes em uma lista vertical organizada
+            const avgDeg = cluster.reduce((sum, p) => sum + p[1], 0) / cluster.length;
+            const avgAngleRad = toChartCoords(avgDeg);
+            const textRadius = baseRadius + totalRadialSpread / 2 + 55;
+            const textAnchorX = centerX + textRadius * Math.cos(avgAngleRad);
+            let textAnchorY = centerY + textRadius * Math.sin(avgAngleRad);
+            
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 16px Inter';
+
+            if (Math.abs(textAnchorX - centerX) < width * 0.1) {
+                ctx.textAlign = 'center';
+            } else if (textAnchorX > centerX) {
+                ctx.textAlign = 'left';
+            } else {
+                ctx.textAlign = 'right';
             }
-            const placedPlanet = drawPlanetAndLabel(name, deg, radius, clusterInfo);
-            placed.push(placedPlanet);
-        });
+            
+            const totalTextHeight = (cluster.length - 1) * textLineHeight;
+            textAnchorY -= totalTextHeight / 2;
+
+            cluster.forEach(([name], index) => {
+                const yPos = textAnchorY + index * textLineHeight;
+                ctx.fillText(planetNames[name] || name, textAnchorX, yPos);
+            });
+        }
     });
+
     // ==================================================================
-    // FIM DA NOVA LÓGICA DE POSICIONAMENTO DE PLANETAS
+    // FIM DA LÓGICA DE POSICIONAMENTO DE PLANETAS (VERSÃO 2)
     // ==================================================================
 
-    // Linhas de aspectos (deve funcionar como antes, usando as posições de 'placed')
+    // Linhas de aspectos
     for (const aspectType in aspectsData) {
         const style = aspectStyles[aspectType];
         if (!style || style.color === null) continue;
