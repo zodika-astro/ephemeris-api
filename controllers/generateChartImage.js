@@ -116,7 +116,7 @@ signos.forEach(signo => {
   const nameRadius = radius - 120;
   const nameAngle = angleDeg - 90;
   const letters = signo.nome.split('');
-  const letterSpacing = 12;
+  const letterSpacing = 16; // <- atualizado aqui
 
   letters.forEach((letter, i) => {
     const letterAngle = nameAngle * Math.PI / 180 + (i - (letters.length - 1) / 2) * (letterSpacing / nameRadius);
@@ -125,7 +125,7 @@ signos.forEach(signo => {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(letterAngle + Math.PI / 2);
-    ctx.font = 'bold 28px Inter'; // ⬅ aumento do tamanho da fonte aqui
+    ctx.font = 'bold 32px Inter'; // <- fonte maior
     ctx.fillText(letter, 0, 0);
     ctx.restore();
   });
