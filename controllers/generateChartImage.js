@@ -23,21 +23,6 @@ try {
   console.warn('Registro de fontes falhou, usando fallback:', e.message);
 }
 
-// Agora prossiga com createCanvas e o resto do código...
-
-const { createCanvas, registerFont } = require('canvas');
-const fs = require('fs');
-const path = require('path');
-
-// Configuração de fontes com fallback
-try {
-  registerFont(path.join(__dirname, '../fonts/Inter-Bold.ttf'), { family: 'Inter', weight: 'bold' });
-  registerFont(path.join(__dirname, '../fonts/Inter-Regular.ttf'), { family: 'Inter' });
-  registerFont(path.join(__dirname, '../fonts/NotoSansSymbols-Regular.ttf'), { family: 'Noto Sans Symbols' });
-} catch (e) {
-  console.log('Usando fontes do sistema como fallback');
-}
-
 const width = 1536;
 const height = 1536;
 const centerX = width / 2;
