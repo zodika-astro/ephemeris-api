@@ -12,18 +12,20 @@ if (!fs.existsSync(interFontPath)) {
 }
 try {
   registerFont(interFontPath, { family: 'Inter', weight: 'bold' });
+  registerFont(interFontPath.replace('-Bold', '-Regular'), { family: 'Inter', weight: 'normal' }); // Register regular for degrees
 } catch (e) {
   logger.warn('Error registering Inter font:', e.message);
 }
 
-// Path to Symbola font for astrological symbols
-const symbolaFontPath = path.join(__dirname, '../fonts/symbola.ttf'); // Using Symbola.ttf
+// Path to Symbola font for astrological symbols (planets only)
+const symbolaFontPath = path.join(__dirname, '../fonts/symbola.ttf');
+let useSymbolaFont = false; // Flag to check if Symbola is available
 if (!fs.existsSync(symbolaFontPath)) {
-  logger.error(`Symbola font not found: ${symbolaFontPath}. Please ensure the font file exists.`);
-  // Fallback to text names if font is missing
+  logger.error(`Symbola font not found: ${symbolaFontPath}. Planet symbols will use text names.`);
 } else {
   try {
     registerFont(symbolaFontPath, { family: 'Symbola' });
+    useSymbolaFont = true;
   } catch (e) {
     logger.warn('Error registering Symbola font:', e.message);
   }
@@ -34,10 +36,11 @@ const width = 1536;
 const height = 1536;
 const centerX = width / 2;
 const centerY = height / 2;
-const outerRadius = 700; // Outer circle of the chart
-const zodiacRadius = outerRadius * 0.9; // Radius for sign names/degrees
-const planetOrbitRadius = outerRadius * 0.5; // Radius for planet positions
-const innerRadius = outerRadius * 0.2; // Innermost circle radius
+const outerRadius = 600; // Adjusted outer radius to match reference more closely
+const zodiacRingOuterRadius = outerRadius; // Outer edge of the zodiac degree ring
+const zodiacRingInnerRadius = outerRadius * 0.85; // Inner edge of the zodiac degree ring (thinner ring)
+const planetOrbitRadius = outerRadius * 0.45; // Radius for planet positions (adjusted to be more central)
+const innerRadius = outerRadius * 0.15; // Innermost circle radius (smaller central circle)
 
 const backgroundColor = '#FFFBF4';
 const lineColor = '#29281E';
@@ -45,12 +48,9 @@ const textColor = '#29281E';
 const cuspNumberColor = '#555555'; // Color for house numbers
 
 // Astrological symbols mapping (Unicode characters for Symbola font)
-// These are common Unicode values for astrological symbols.
-// If Symbola doesn't render them, you might need to find alternative Unicode points
-// or a different font.
 const planetSymbols = {
   sun: '\u2609',        // ☉
-  moon: '\u263D',       // ☽ (or \u263E for waning crescent)
+  moon: '\u263D',       // ☽
   mercury: '\u263F',    // ☿
   venus: '\u2640',      // ♀
   mars: '\u2642',       // ♂
@@ -60,32 +60,17 @@ const planetSymbols = {
   neptune: '\u2646',    // ♆
   pluto: '\u2647',      // ♇
   trueNode: '\u260A',   // ☊ (North Node)
-  lilith: '\u262D',     // ☍ (Black Moon Lilith - common symbol, might vary)
+  lilith: '\u262D',     // ☍ (Black Moon Lilith)
   chiron: '\u26B7'      // ⚷
 };
 
-const signSymbols = {
-  Aries: '\u2648',      // ♈
-  Taurus: '\u2649',     // ♉
-  Gemini: '\u264A',     // ♊
-  Cancer: '\u264B',     // ♋
-  Leo: '\u264C',        // ♌
-  Virgo: '\u264D',      // ♍
-  Libra: '\u264E',      // ♎
-  Scorpio: '\u264F',    // ♏
-  Sagittarius: '\u2650',// ♐
-  Capricorn: '\u2651',  // ♑
-  Aquarius: '\u2652',   // ♒
-  Pisces: '\u2653'      // ♓
-};
-
-// Aspect colors (for drawing lines) based on user's request
-const aspectColors = {
-  conjunction: null,      // No line for conjunction
-  opposition: '#FF0000',  // Red bold
-  square: '#FF4500',      // Orange-red (slightly less bold than pure red)
-  sextile: '#0000FF',     // Blue
-  trine: '#008000'        // Green
+// Aspect colors and line widths
+const aspectStyles = {
+  conjunction: { color: null, lineWidth: 0 }, // No line for conjunction
+  opposition: { color: '#FF0000', lineWidth: 3 }, // Red bold
+  square: { color: '#FF4500', lineWidth: 2 },     // Orange-red normal
+  sextile: { color: '#0000FF', lineWidth: 1.5 },  // Blue
+  trine: { color: '#008000', lineWidth: 1.5 }     // Green
 };
 
 // --- Utility Functions ---
@@ -97,28 +82,13 @@ const aspectColors = {
  */
 const degToRad = (degrees) => degrees * Math.PI / 180;
 
-// Astrological signs in order (used for sign index lookup)
+// Astrological signs in order (used for sign index lookup and drawing labels)
 const signs = [
   "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
   "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ];
 
-// Astrological signs for drawing labels (adjust order if needed for visual layout)
-// This array dictates the order and starting point for drawing the sign names around the wheel.
-const signsForDrawing = [
-  { nome: 'ÁRIES', startDeg: 0 },
-  { nome: 'TOURO', startDeg: 30 },
-  { nome: 'GÊMEOS', startDeg: 60 },
-  { nome: 'CÂNCER', startDeg: 90 },
-  { nome: 'LEÃO', startDeg: 120 },
-  { nome: 'VIRGEM', startDeg: 150 },
-  { nome: 'LIBRA', startDeg: 180 },
-  { nome: 'ESCORPIÃO', startDeg: 210 },
-  { nome: 'SAGITÁRIO', startDeg: 240 },
-  { nome: 'CAPRICÓRNIO', startDeg: 270 },
-  { nome: 'AQUÁRIO', startDeg: 300 },
-  { nome: 'PEIXES', startDeg: 330 }
-];
+// --- Chart Drawing Function ---
 
 /**
  * Generates a natal chart image as a PNG buffer.
@@ -131,7 +101,7 @@ async function generateNatalChartImage(ephemerisData) {
 
   // Ensure data is correctly accessed
   const planetPositions = ephemerisData?.geo || {};
-  const planetSignData = ephemerisData?.signs || {}; // Contains sign and house for each planet
+  const planetSignData = ephemerisData?.signs || {};
   const houseCusps = ephemerisData?.houses?.cusps || [];
   const aspectsData = ephemerisData?.aspects || {};
 
@@ -142,8 +112,9 @@ async function generateNatalChartImage(ephemerisData) {
   // --- Main Circles ---
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI); ctx.stroke(); // Outer zodiac circle
-  ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRadius, 0, 2 * Math.PI); ctx.stroke(); // Inner zodiac circle (for degrees/signs)
+  ctx.beginPath(); ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI); ctx.stroke(); // Outer boundary
+  ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRingOuterRadius, 0, 2 * Math.PI); ctx.stroke(); // Zodiac outer ring
+  ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRingInnerRadius, 0, 2 * Math.PI); ctx.stroke(); // Zodiac inner ring
   ctx.beginPath(); ctx.arc(centerX, centerY, planetOrbitRadius, 0, 2 * Math.PI); ctx.stroke(); // Planet orbit circle
   ctx.beginPath(); ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI); ctx.stroke(); // Innermost circle
 
@@ -153,27 +124,27 @@ async function generateNatalChartImage(ephemerisData) {
 
   houseCusps.forEach((cusp, index) => {
     const angleRad = degToRad(cusp.degree);
-    const xOuter = centerX + outerRadius * Math.cos(angleRad);
+    const xOuter = centerX + outerRadius * Math.cos(angleRad); // Extend to outer boundary
     const yOuter = centerY + outerRadius * Math.sin(angleRad);
-    const xInner = centerX + innerRadius * Math.cos(angleRad);
+    const xInner = centerX + innerRadius * Math.cos(angleRad); // Start from inner circle
     const yInner = centerY + innerRadius * Math.sin(angleRad);
 
     ctx.beginPath();
-    ctx.moveTo(xInner, yInner); // Start from the inner circle
-    ctx.lineTo(xOuter, yOuter); // Extend to the outer circle
+    ctx.moveTo(xInner, yInner);
+    ctx.lineTo(xOuter, yOuter);
     ctx.stroke();
 
-    // Draw house numbers (positioned in the middle of the house sector)
+    // Draw house numbers (positioned in the central area)
     const nextCuspDegree = houseCusps[(index + 1) % 12].degree;
     let midAngleDeg;
     if (nextCuspDegree > cusp.degree) {
       midAngleDeg = (cusp.degree + nextCuspDegree) / 2;
-    } else { // Handle wrap-around (e.g., from 350 to 10 degrees)
+    } else {
       midAngleDeg = (cusp.degree + nextCuspDegree + 360) / 2;
       if (midAngleDeg >= 360) midAngleDeg -= 360;
     }
 
-    const houseNumberRadius = (planetOrbitRadius + innerRadius) / 2; // Position between inner planet circle and inner circle
+    const houseNumberRadius = innerRadius + (planetOrbitRadius - innerRadius) * 0.5; // Position between inner circle and planet orbit
     const numX = centerX + houseNumberRadius * Math.cos(degToRad(midAngleDeg));
     const numY = centerY + houseNumberRadius * Math.sin(degToRad(midAngleDeg));
 
@@ -183,60 +154,30 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
 
-  // --- Zodiac Signs (Symbols and Names) ---
+  // --- Zodiac Sign Names (Inside Zodiac Ring) ---
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.font = 'bold 24px Inter'; // Use Inter font for text names
 
-  // Draw Sign Symbols
-  const signSymbolRadius = outerRadius + 30; // Slightly outside the outer circle
-  // Check if Symbola font is registered before trying to use it
-  if (fs.existsSync(symbolaFontPath)) {
-    ctx.font = '48px Symbola'; // Use Symbola font for symbols
-  } else {
-    // Fallback to Inter font if Symbola is not available
-    ctx.font = 'bold 36px Inter';
-  }
-
-  signsForDrawing.forEach(signo => {
-    const signName = signo.nome.charAt(0).toUpperCase() + signo.nome.slice(1).toLowerCase(); // Normalize name (e.g., 'ÁRIES' -> 'Áries')
-    const symbolChar = signSymbols[signName.normalize("NFD").replace(/[\u0300-\u036f]/g, "")]; // Remove accents for lookup
-
-    const angleDeg = signo.startDeg + 15; // Middle of the 30-degree sign
+  // Calculate position for each sign name
+  signs.forEach((signName, index) => {
+    const startDegree = index * 30; // Each sign is 30 degrees
+    const angleDeg = startDegree + 15; // Middle of the 30-degree sign
     const angleRad = degToRad(angleDeg);
 
-    const x = centerX + signSymbolRadius * Math.cos(angleRad);
-    const y = centerY + signSymbolRadius * Math.sin(angleRad);
+    const signNameTextRadius = (zodiacRingOuterRadius + zodiacRingInnerRadius) / 2; // Position in the middle of the zodiac ring
 
+    // Simplified text drawing for sign names (no individual letter rotation)
+    const textX = centerX + signNameTextRadius * Math.cos(angleRad);
+    const textY = centerY + signNameTextRadius * Math.sin(angleRad);
+
+    ctx.save();
+    ctx.translate(textX, textY);
+    // Rotate text to align with the circle (adjusting for canvas Y-axis inversion)
+    ctx.rotate(angleRad + Math.PI / 2); // Rotate text to follow the arc
     ctx.fillStyle = textColor;
-    if (symbolChar && fs.existsSync(symbolaFontPath)) {
-      ctx.fillText(symbolChar, x, y);
-    } else {
-      // Fallback to text if symbola font is missing or symbol not found
-      ctx.font = 'bold 20px Inter'; // Smaller font for fallback sign name
-      ctx.fillText(signo.nome, x, y);
-    }
-  });
-
-  // Draw Sign Names (Circular Layout) - Adjusted positioning
-  const signNameTextRadius = zodiacRadius + 50; // Between outer zodiac circle and outer radius
-  ctx.font = 'bold 20px Inter'; // Use Inter font for text names
-  signsForDrawing.forEach(signo => {
-    const angleDeg = signo.startDeg + 15; // Middle of the 30-degree sign
-    const angleRad = degToRad(angleDeg);
-
-    const letters = signo.nome.split('');
-    const letterSpacing = 20; // Adjust for visual spacing
-
-    letters.forEach((letter, i) => {
-      const letterAngle = angleRad + (i - (letters.length - 1) / 2) * (letterSpacing / signNameTextRadius);
-      const x = centerX + signNameTextRadius * Math.cos(letterAngle);
-      const y = centerY + signNameTextRadius * Math.sin(letterAngle);
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(letterAngle + Math.PI / 2); // Rotate text to follow the arc
-      ctx.fillText(letter, 0, 0);
-      ctx.restore();
-    });
+    ctx.fillText(signName.toUpperCase(), 0, 0); // Draw full name
+    ctx.restore();
   });
 
   // --- Degree Markers ---
@@ -246,15 +187,15 @@ async function generateNatalChartImage(ephemerisData) {
 
   for (let deg = 0; deg < 360; deg += 1) { // Draw every degree for finer marks
     const angleRad = degToRad(deg);
-    const outerMarkRadius = zodiacRadius - 5; // Start just inside zodiac circle
-    let innerMarkRadius = zodiacRadius - 10; // Default mark length
+    const outerMarkRadius = zodiacRingOuterRadius; // Start from outer zodiac ring
+    let innerMarkRadius = zodiacRingOuterRadius - 5; // Default mark length
 
     if (deg % 5 === 0) { // Longer mark for every 5 degrees
-      innerMarkRadius = zodiacRadius - 15;
+      innerMarkRadius = zodiacRingOuterRadius - 10;
     }
     if (deg % 10 === 0) { // Even longer mark for every 10 degrees, and add text
-      innerMarkRadius = zodiacRadius - 25;
-      const textRadius = zodiacRadius - 35; // Position text further in
+      innerMarkRadius = zodiacRingOuterRadius - 20;
+      const textRadius = zodiacRingOuterRadius - 35; // Position text further in
       const textX = centerX + textRadius * Math.cos(angleRad);
       const textY = centerY + textRadius * Math.sin(angleRad);
       ctx.fillText(deg.toString(), textX, textY);
@@ -268,20 +209,20 @@ async function generateNatalChartImage(ephemerisData) {
 
 
   // --- Planet Positions (Symbols) ---
-  ctx.fillStyle = textColor;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  // Check if Symbola font is registered before trying to use it
-  if (fs.existsSync(symbolaFontPath)) {
+  ctx.fillStyle = textColor;
+
+  // Set font based on Symbola availability
+  if (useSymbolaFont) {
     ctx.font = '36px Symbola'; // Use Symbola font for planet symbols
   } else {
-    // Fallback to Inter font if Symbola is not available
-    ctx.font = 'bold 20px Inter';
+    ctx.font = 'bold 20px Inter'; // Fallback to Inter font for text names
   }
 
-  const placedPlanets = []; // To track placed planets and avoid overlaps
+  const placedPlanets = []; // To track placed planets and their final positions
 
-  // Sort planets by degree to help with overlap avoidance
+  // Sort planets by degree to help with overlap avoidance (ascending order)
   const sortedPlanets = Object.entries(planetPositions).sort(([, degA], [, degB]) => degA - degB);
 
   sortedPlanets.forEach(([planetName, degree]) => {
@@ -290,9 +231,9 @@ async function generateNatalChartImage(ephemerisData) {
     let x, y;
     let overlap = true;
     let attempt = 0;
-    const maxAttempts = 10; // Max attempts to find a non-overlapping spot
-    const radiusStep = 20; // Pixels to move out/in for overlap avoidance (increased slightly)
-    const symbolSize = 30; // Approximate size of the symbol for collision detection (increased for symbols)
+    const maxAttempts = 15; // Increased max attempts for better spacing
+    const radiusStep = 25; // Pixels to move out/in for overlap avoidance (increased)
+    const symbolSize = 30; // Approximate size of the symbol for collision detection
 
     // Simple overlap avoidance: try to move slightly if collision
     while (overlap && attempt < maxAttempts) {
@@ -301,8 +242,10 @@ async function generateNatalChartImage(ephemerisData) {
       overlap = false;
 
       for (const placed of placedPlanets) {
+        // Calculate distance between current planet's potential position and already placed planets
         const dist = Math.sqrt(Math.pow(x - placed.x, 2) + Math.pow(y - placed.y, 2));
-        if (dist < (symbolSize + placed.symbolSize) * 0.7) { // If too close (0.7 factor for tighter packing)
+        // Check for overlap based on symbol size. Factor 0.8 allows slight overlap for denser charts.
+        if (dist < (symbolSize + placed.symbolSize) * 0.8) {
           overlap = true;
           currentPlanetRadius += radiusStep; // Move further out
           break;
@@ -311,36 +254,26 @@ async function generateNatalChartImage(ephemerisData) {
       attempt++;
     }
 
-    // Fallback if too many overlaps or no symbol
+    // Draw the planet symbol or its name as fallback
     const symbol = planetSymbols[planetName];
-    if (symbol && fs.existsSync(symbolaFontPath)) {
+    if (symbol && useSymbolaFont) {
       ctx.fillText(symbol, x, y);
     } else {
-      // Fallback to text if font not loaded or symbol not found
-      ctx.font = 'bold 16px Inter';
-      ctx.fillText(planetName.toUpperCase(), x, y);
+      ctx.fillText(planetName.toUpperCase(), x, y); // Fallback to text
     }
 
-    placedPlanets.push({ x, y, symbolSize: symbolSize, degree: degree, name: planetName }); // Store placed planet with its final position
+    // Store the final calculated position of the planet
+    placedPlanets.push({ x, y, symbolSize: symbolSize, degree: degree, name: planetName });
   });
 
   // --- Aspect Lines ---
-  ctx.lineWidth = 2; // Default line width for aspects
-
+  // Draw lines between the actual drawn positions of the planets
   for (const aspectType in aspectsData) {
-    const color = aspectColors[aspectType];
-    if (!color) continue; // Skip if no color defined or if null (like conjunction)
+    const style = aspectStyles[aspectType];
+    if (!style || style.color === null) continue; // Skip if no style or color is null (e.g., conjunction)
 
-    ctx.strokeStyle = color;
-
-    // Adjust line width for "bold" aspects like Opposition
-    if (aspectType === 'opposition') {
-      ctx.lineWidth = 3; // Thicker line for opposition
-    } else if (aspectType === 'square') {
-      ctx.lineWidth = 2; // Normal thickness for square
-    } else {
-      ctx.lineWidth = 1.5; // Slightly thinner for sextile/trine
-    }
+    ctx.strokeStyle = style.color;
+    ctx.lineWidth = style.lineWidth;
 
     aspectsData[aspectType].forEach(aspect => {
       const planet1Name = aspect.planet1.name;
@@ -351,7 +284,6 @@ async function generateNatalChartImage(ephemerisData) {
       const p2 = placedPlanets.find(p => p.name === planet2Name);
 
       if (p1 && p2) {
-        // Draw line between the *actual drawn positions* of the planets
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
