@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../logger');
 
+// Fontes
 const interFontPath = path.join(__dirname, '../fonts/Inter-Bold.ttf');
 if (!fs.existsSync(interFontPath)) {
   logger.error(`Inter font not found: ${interFontPath}`);
@@ -28,6 +29,7 @@ if (!fs.existsSync(symbolaFontPath)) {
   }
 }
 
+// Configuração de dimensões e cores
 const width = 1536;
 const height = 1536;
 const centerX = width / 2;
@@ -98,15 +100,23 @@ async function generateNatalChartImage(ephemerisData) {
   const houseCusps = Array.isArray(ephemerisData?.houses?.cusps) ? ephemerisData.houses.cusps : [];
   const aspectsData = ephemerisData?.aspects || {};
 
+  // Fundo geral
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, width, height);
 
+  // Fundo central também na mesma cor
+  ctx.beginPath();
+  ctx.fillStyle = backgroundColor;
+  ctx.arc(centerX, centerY, innerRadius - 5, 0, 2 * Math.PI);
+  ctx.fill();
+
+  // Círculos principais
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI); ctx.stroke();
   ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRingInnerRadius, 0, 2 * Math.PI); ctx.stroke();
   ctx.beginPath(); ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI); ctx.stroke();
-
+  // Linhas das casas e números
   houseCusps.forEach((cusp, index) => {
     const angleRad = toChartCoords(cusp.degree);
     const xInner = centerX + innerRadius * Math.cos(angleRad);
@@ -138,11 +148,12 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText((index + 1).toString(), x, y);
   });
 
+  // Graus nas cúspides
   ctx.font = 'bold 16px Inter';
   ctx.fillStyle = '#5A2A00';
   houseCusps.forEach((cusp) => {
     const angleRad = toChartCoords(cusp.degree);
-    const r = zodiacRingInnerRadius + 30;
+    const r = zodiacRingInnerRadius - 20;
     const x = centerX + r * Math.cos(angleRad);
     const y = centerY + r * Math.sin(angleRad);
     const signIndex = Math.floor(cusp.degree / 30);
@@ -151,11 +162,12 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angleRad + Math.PI/2);
-    ctx.textAlign = 'left';
+    ctx.textAlign = 'right';
     ctx.fillText(label, 0, 0);
     ctx.restore();
   });
 
+  // Divisões dos signos
   ctx.strokeStyle = signDivisionColor;
   ctx.lineWidth = 1.2;
   ctx.setLineDash([8, 6]);
@@ -172,17 +184,16 @@ async function generateNatalChartImage(ephemerisData) {
   }
   ctx.setLineDash([]);
 
+  // Nomes dos signos
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = signColor;
-
   signs.forEach((sign, i) => {
     const angleDeg = i * 30 + 15;
     const angleRad = toChartCoords(angleDeg);
     const r = (zodiacRingOuterRadius + zodiacRingInnerRadius) / 2;
     const x = centerX + r * Math.cos(angleRad);
     const y = centerY + r * Math.sin(angleRad);
-
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angleRad + Math.PI / 2);
@@ -195,19 +206,18 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.restore();
   });
 
+  // Posicionamento dos planetas com prevenção de colisão
   const placed = [];
   const planets = Object.entries(planetPositions).sort(([, a], [, b]) => a - b);
-  const planetRadiusMap = {};
-  const collisionThreshold = 4;
-  const minRadius = planetZoneInner;
-  const maxRadius = planetZoneOuter;
-  const radialStep = 20;
+  const collisionThreshold = 5;
+  const radialStep = 26;
+  const baseRadius = planetZoneInner + (planetZoneOuter - planetZoneInner) / 2;
 
   planets.forEach(([name, deg]) => {
-    let radius = minRadius + (maxRadius - minRadius) / 2;
+    let radius = baseRadius;
     for (const other of placed) {
-      const diff = Math.abs(deg - other.degree);
-      if (diff < collisionThreshold || 360 - diff < collisionThreshold) {
+      const angularDiff = Math.abs(deg - other.degree);
+      if (angularDiff < collisionThreshold || 360 - angularDiff < collisionThreshold) {
         radius += radialStep;
       }
     }
@@ -217,7 +227,7 @@ async function generateNatalChartImage(ephemerisData) {
     const y = centerY + radius * Math.sin(angleRad);
 
     const symbol = planetSymbols[name];
-    const fontSize = useSymbolaFont ? 52 : 32;
+    const fontSize = useSymbolaFont ? 54 : 34;
     ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
     ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
     ctx.beginPath();
@@ -229,11 +239,12 @@ async function generateNatalChartImage(ephemerisData) {
 
     ctx.fillStyle = textColor;
     ctx.font = 'bold 16px Inter';
-    ctx.fillText(planetNames[name] || name, x, y + 38);
+    ctx.fillText(planetNames[name] || name, x, y + 40);
 
     placed.push({ x, y, degree: deg, name, angleRad });
   });
 
+  // Linhas de aspectos com origem ajustada (não colidem com símbolos)
   for (const aspectType in aspectsData) {
     const style = aspectStyles[aspectType];
     if (!style || style.color === null) continue;
@@ -243,11 +254,11 @@ async function generateNatalChartImage(ephemerisData) {
       const p1 = placed.find(p => p.name === a.planet1.name);
       const p2 = placed.find(p => p.name === a.planet2.name);
       if (p1 && p2) {
-        const shrink = 35;
-        const x1 = centerX + (p1.x - centerX) * 0.85;
-        const y1 = centerY + (p1.y - centerY) * 0.85;
-        const x2 = centerX + (p2.x - centerX) * 0.85;
-        const y2 = centerY + (p2.y - centerY) * 0.85;
+        const factor = 0.85;
+        const x1 = centerX + (p1.x - centerX) * factor;
+        const y1 = centerY + (p1.y - centerY) * factor;
+        const x2 = centerX + (p2.x - centerX) * factor;
+        const y2 = centerY + (p2.y - centerY) * factor;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -256,7 +267,7 @@ async function generateNatalChartImage(ephemerisData) {
     });
   }
 
-  ctx.lineWidth = 2;
+  // Texto central
   ctx.fillStyle = centerTextColor;
   ctx.font = 'bold 32px Inter';
   ctx.fillText('MAPA NATAL', centerX, centerY - 25);
