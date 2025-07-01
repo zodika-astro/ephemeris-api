@@ -44,7 +44,8 @@ const lineColor = '#29281E';
 const textColor = '#29281E';
 const cuspNumberColor = '#555555';
 const signColor = '#5A4A42';
-const signDivisionColor = 'rgba(89, 74, 66, 0.4)'; // Nova cor para divisórias
+const signDivisionColor = 'rgba(89, 74, 66, 0.4)';
+const arrowColor = '#5A2A00'; // Cor para as setinhas
 
 const planetSymbols = {
   sun: '\u2609', moon: '\u263D', mercury: '\u263F', venus: '\u2640',
@@ -70,6 +71,23 @@ const signSymbols = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑'
 // Sistema de coordenadas unificado (anti-horário)
 function toChartCoords(degree) {
   return degToRad(360 - degree);
+}
+
+// Função para desenhar setinhas
+function drawArrow(ctx, x, y, angle, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-size, -size/2);
+  ctx.lineTo(-size, size/2);
+  ctx.closePath();
+  ctx.fillStyle = arrowColor;
+  ctx.fill();
+  
+  ctx.restore();
 }
 
 async function generateNatalChartImage(ephemerisData) {
@@ -131,14 +149,23 @@ async function generateNatalChartImage(ephemerisData) {
 
   houseCusps.forEach((cusp, index) => {
     const angleRad = toChartCoords(cusp.degree);
-    const xOuter = centerX + outerRadius * Math.cos(angleRad);
-    const yOuter = centerY + outerRadius * Math.sin(angleRad);
+    
+    // Ponto inicial (círculo interno)
     const xInner = centerX + innerRadius * Math.cos(angleRad);
     const yInner = centerY + innerRadius * Math.sin(angleRad);
+    
+    // Ponto final (anel interno do zodíaco)
+    const xZodiacInner = centerX + zodiacRingInnerRadius * Math.cos(angleRad);
+    const yZodiacInner = centerY + zodiacRingInnerRadius * Math.sin(angleRad);
+    
+    // Linha da cúspide (mais curta)
     ctx.beginPath(); 
     ctx.moveTo(xInner, yInner); 
-    ctx.lineTo(xOuter, yOuter); 
+    ctx.lineTo(xZodiacInner, yZodiacInner); 
     ctx.stroke();
+    
+    // Adicionar setinha no final da linha
+    drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12);
 
     // Cálculo preciso do ponto médio
     const nextIndex = (index + 1) % houseCusps.length;
@@ -187,7 +214,7 @@ async function generateNatalChartImage(ephemerisData) {
   // --- Divisórias entre Signos (30 graus) ---
   ctx.strokeStyle = signDivisionColor;
   ctx.lineWidth = 1.2;
-  ctx.setLineDash([8, 6]); // Padrão de tracejado: 8px traço, 6px espaço
+  ctx.setLineDash([8, 6]);
   
   for (let deg = 0; deg < 360; deg += 30) {
     const rad = toChartCoords(deg);
@@ -202,7 +229,7 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.stroke();
   }
   
-  ctx.setLineDash([]); // Resetar para linha sólida
+  ctx.setLineDash([]);
 
   // --- Signos do Zodíaco (sentido anti-horário) ---
   ctx.textAlign = 'center'; 
