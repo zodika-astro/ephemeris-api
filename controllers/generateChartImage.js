@@ -153,7 +153,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.fillStyle = '#5A2A00';
   houseCusps.forEach((cusp) => {
     const angleRad = toChartCoords(cusp.degree);
-    const r = zodiacRingInnerRadius - 20;
+    const r = zodiacRingInnerRadius - 25;
     const x = centerX + r * Math.cos(angleRad);
     const y = centerY + r * Math.sin(angleRad);
     const signIndex = Math.floor(cusp.degree / 30);
@@ -212,6 +212,8 @@ async function generateNatalChartImage(ephemerisData) {
   const collisionThreshold = 5;
   const radialStep = 26;
   const baseRadius = planetZoneInner + (planetZoneOuter - planetZoneInner) / 2;
+  const degreeSlotMap = {};
+
 
   planets.forEach(([name, deg]) => {
     let radius = baseRadius;
@@ -227,7 +229,7 @@ async function generateNatalChartImage(ephemerisData) {
     const y = centerY + radius * Math.sin(angleRad);
 
     const symbol = planetSymbols[name];
-    const fontSize = useSymbolaFont ? 54 : 34;
+    const fontSize = useSymbolaFont ? 52 : 32;
     ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
     ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
     ctx.beginPath();
@@ -237,9 +239,16 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillStyle = symbolColor;
     ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
 
+    // Empilhamento dos nomes baseado no grau arredondado
+    const roundedDeg = Math.round(deg);
+    if (!degreeSlotMap[roundedDeg]) degreeSlotMap[roundedDeg] = 0;
+    const offset = degreeSlotMap[roundedDeg] * 18; // empilhamento vertical
+    degreeSlotMap[roundedDeg]++;
+
     ctx.fillStyle = textColor;
     ctx.font = 'bold 16px Inter';
-    ctx.fillText(planetNames[name] || name, x, y + 40);
+    ctx.fillText(planetNames[name] || name, x, y + 38 + offset);
+
 
     placed.push({ x, y, degree: deg, name, angleRad });
   });
