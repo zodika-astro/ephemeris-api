@@ -36,8 +36,12 @@ const centerY = height / 2;
 const outerRadius = 600;
 const zodiacRingOuterRadius = outerRadius;
 const zodiacRingInnerRadius = outerRadius * 0.85;
-const planetOrbitRadius = outerRadius * 0.65;
+// Removemos a órbita planetária fixa
 const innerRadius = outerRadius * 0.25;
+
+// Definição de camadas planetárias
+const planetZoneInner = zodiacRingInnerRadius * 0.95; // Margem interna para planetas
+const planetZoneOuter = zodiacRingInnerRadius * 0.75; // Margem externa para planetas
 
 const backgroundColor = '#FFFBF4';
 const lineColor = '#29281E';
@@ -45,7 +49,7 @@ const textColor = '#29281E';
 const cuspNumberColor = '#555555';
 const signColor = '#5A4A42';
 const signDivisionColor = 'rgba(89, 74, 66, 0.4)';
-const arrowColor = '#5A2A00'; // Cor para as setinhas
+const arrowColor = '#5A2A00';
 
 const planetSymbols = {
   sun: '\u2609', moon: '\u263D', mercury: '\u263F', venus: '\u2640',
@@ -115,7 +119,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI); ctx.stroke();
   ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRingInnerRadius, 0, 2 * Math.PI); ctx.stroke();
-  ctx.beginPath(); ctx.arc(centerX, centerY, planetOrbitRadius, 0, 2 * Math.PI); ctx.stroke();
+  // REMOVIDO: a órbita planetária (terceira linha)
   ctx.beginPath(); ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI); ctx.stroke();
   
   // Preenchimento central
@@ -158,7 +162,7 @@ async function generateNatalChartImage(ephemerisData) {
     const xZodiacInner = centerX + zodiacRingInnerRadius * Math.cos(angleRad);
     const yZodiacInner = centerY + zodiacRingInnerRadius * Math.sin(angleRad);
     
-    // Linha da cúspide (mais curta)
+    // Linha da cúspide
     ctx.beginPath(); 
     ctx.moveTo(xInner, yInner); 
     ctx.lineTo(xZodiacInner, yZodiacInner); 
@@ -178,7 +182,8 @@ async function generateNatalChartImage(ephemerisData) {
       if (midDegree >= 360) midDegree -= 360;
     }
     
-    const r = innerRadius + (planetOrbitRadius - innerRadius) * 0.3;
+    // Posicionar o número da casa mais próximo da linha da cúspide
+    const r = zodiacRingInnerRadius - 40; // Mais próximo do anel interno
     const x = centerX + r * Math.cos(toChartCoords(midDegree));
     const y = centerY + r * Math.sin(toChartCoords(midDegree));
     
@@ -261,20 +266,28 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.restore();
   });
 
-  // --- Planetas (posicionados por casa) ---
+  // --- Planetas (distribuídos no espaço entre o anel interno do zodíaco e o círculo central) ---
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const placed = [];
   const planets = Object.entries(planetPositions).sort(([, a], [, b]) => a - b);
   
+  // Definir os limites para posicionamento dos planetas
+  const minRadius = innerRadius + 50; // 50 pixels a partir do círculo central
+  const maxRadius = zodiacRingInnerRadius - 50; // 50 pixels a partir do anel interno do zodíaco
+  
   planets.forEach(([name, deg]) => {
     // Determinar casa do planeta
     const house = getHouseForPlanet(deg, houseCusps);
-    const houseRadius = innerRadius + (house / 12) * (planetOrbitRadius - innerRadius);
+    
+    // Calcular posição radial baseada na casa
+    // Casa 1: mais externa, Casa 12: mais interna
+    const houseFactor = (13 - house) / 12; // Invertido para casa 1 ser mais externa
+    const radius = minRadius + (maxRadius - minRadius) * houseFactor;
     
     const angleRad = toChartCoords(deg);
-    const x = centerX + houseRadius * Math.cos(angleRad);
-    const y = centerY + houseRadius * Math.sin(angleRad);
+    const x = centerX + radius * Math.cos(angleRad);
+    const y = centerY + radius * Math.sin(angleRad);
     
     const symbol = planetSymbols[name];
     const fontSize = useSymbolaFont ? 42 : 24;
