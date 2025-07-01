@@ -153,7 +153,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.fillStyle = '#5A2A00';
   houseCusps.forEach((cusp) => {
     const angleRad = toChartCoords(cusp.degree);
-    const r = zodiacRingInnerRadius - 25;
+    const r = zodiacRingInnerRadius - 20;
     const x = centerX + r * Math.cos(angleRad);
     const y = centerY + r * Math.sin(angleRad);
     const signIndex = Math.floor(cusp.degree / 30);
@@ -162,8 +162,8 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angleRad + Math.PI/2);
-    ctx.textAlign = 'right';
-    ctx.fillText(label, 0, 0);
+    ctx.textAlign = 'left';
+    ctx.fillText(label, -5, 0);
     ctx.restore();
   });
 
@@ -240,10 +240,11 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
 
     // Empilhamento dos nomes baseado no grau arredondado
-    const roundedDeg = Math.round(deg);
-    if (!degreeSlotMap[roundedDeg]) degreeSlotMap[roundedDeg] = 0;
-    const offset = degreeSlotMap[roundedDeg] * 18; // empilhamento vertical
-    degreeSlotMap[roundedDeg]++;
+    const blockSize = 10; // 10 graus de tolerância
+    const blockIndex = Math.floor(deg / blockSize);
+    if (!degreeSlotMap[blockIndex]) degreeSlotMap[blockIndex] = 0;
+    const offset = degreeSlotMap[blockIndex] * 18; // empilhamento vertical
+    degreeSlotMap[blockIndex]++;
 
     ctx.fillStyle = textColor;
     ctx.font = 'bold 16px Inter';
