@@ -44,6 +44,7 @@ const lineColor = '#29281E';
 const textColor = '#29281E';
 const cuspNumberColor = '#555555';
 const signColor = '#5A4A42';
+const signDivisionColor = 'rgba(89, 74, 66, 0.4)'; // Nova cor para divisórias
 
 const planetSymbols = {
   sun: '\u2609', moon: '\u263D', mercury: '\u263F', venus: '\u2640',
@@ -182,6 +183,26 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText(label, 0, 0);
     ctx.restore();
   });
+
+  // --- Divisórias entre Signos (30 graus) ---
+  ctx.strokeStyle = signDivisionColor;
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([8, 6]); // Padrão de tracejado: 8px traço, 6px espaço
+  
+  for (let deg = 0; deg < 360; deg += 30) {
+    const rad = toChartCoords(deg);
+    const xStart = centerX + zodiacRingInnerRadius * Math.cos(rad);
+    const yStart = centerY + zodiacRingInnerRadius * Math.sin(rad);
+    const xEnd = centerX + zodiacRingOuterRadius * Math.cos(rad);
+    const yEnd = centerY + zodiacRingOuterRadius * Math.sin(rad);
+    
+    ctx.beginPath();
+    ctx.moveTo(xStart, yStart);
+    ctx.lineTo(xEnd, yEnd);
+    ctx.stroke();
+  }
+  
+  ctx.setLineDash([]); // Resetar para linha sólida
 
   // --- Signos do Zodíaco (sentido anti-horário) ---
   ctx.textAlign = 'center'; 
