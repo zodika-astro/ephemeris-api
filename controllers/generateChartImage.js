@@ -36,20 +36,23 @@ const centerY = height / 2;
 const outerRadius = 600;
 const zodiacRingOuterRadius = outerRadius;
 const zodiacRingInnerRadius = outerRadius * 0.85;
-// Removemos a órbita planetária fixa
 const innerRadius = outerRadius * 0.25;
 
 // Definição de camadas planetárias
-const planetZoneInner = zodiacRingInnerRadius * 0.95; // Margem interna para planetas
-const planetZoneOuter = zodiacRingInnerRadius * 0.75; // Margem externa para planetas
+const planetZoneInner = innerRadius + 50;
+const planetZoneOuter = zodiacRingInnerRadius - 50;
 
-const backgroundColor = '#FFFBF4';
-const lineColor = '#29281E';
-const textColor = '#29281E';
+// Cores atualizadas
+const backgroundColor = '#FFFBF4'; // Fundo principal
+const lineColor = '#29281E'; // Cor das linhas
+const textColor = '#29281E'; // Cor dos textos
+const symbolColor = '#1A1E3B'; // Cor dos símbolos
 const cuspNumberColor = '#555555';
 const signColor = '#5A4A42';
 const signDivisionColor = 'rgba(89, 74, 66, 0.4)';
 const arrowColor = '#5A2A00';
+const centerBgColor = '#B7A8D3'; // Fundo do centro
+const centerTextColor = '#807B74'; // Texto do centro
 
 const planetSymbols = {
   sun: '\u2609', moon: '\u263D', mercury: '\u263F', venus: '\u2640',
@@ -57,12 +60,19 @@ const planetSymbols = {
   neptune: '\u2646', pluto: '\u2647', trueNode: '\u260A', lilith: '\u262D', chiron: '\u26B7'
 };
 
+const planetNames = {
+  sun: 'Sol', moon: 'Lua', mercury: 'Mercúrio', venus: 'Vênus',
+  mars: 'Marte', jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano',
+  neptune: 'Netuno', pluto: 'Plutão', trueNode: 'Nodo Norte', lilith: 'Lilith', chiron: 'Quíron'
+};
+
+// Estilos de aspecto atualizados
 const aspectStyles = {
-  conjunction: { color: '#FF9800', lineWidth: 3 },
-  opposition: { color: '#D32F2F', lineWidth: 3 },
-  square: { color: '#F57C00', lineWidth: 2.5 },
-  sextile: { color: '#1976D2', lineWidth: 2 },
-  trine: { color: '#388E3C', lineWidth: 2 }
+  conjunction: { color: null, lineWidth: 0 }, // Sem linha para conjunções
+  opposition: { color: '#FF0000', lineWidth: 3 }, // Vermelho
+  square: { color: '#FF4500', lineWidth: 2.5 }, // Laranja
+  sextile: { color: '#0000FF', lineWidth: 2 }, // Azul
+  trine: { color: '#008000', lineWidth: 2 } // Verde
 };
 
 const degToRad = (degrees) => degrees * Math.PI / 180;
@@ -104,14 +114,8 @@ async function generateNatalChartImage(ephemerisData) {
   const aspectsData = ephemerisData?.aspects || {};
   const meta = ephemerisData?.meta || {};
 
-  // Fundo com gradiente sutil
-  const gradient = ctx.createRadialGradient(
-    centerX, centerY, innerRadius * 0.5,
-    centerX, centerY, outerRadius * 1.2
-  );
-  gradient.addColorStop(0, '#FFF9ED');
-  gradient.addColorStop(1, '#FFEED6');
-  ctx.fillStyle = gradient;
+  // Fundo principal
+  ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, width, height);
 
   // --- Estrutura Principal ---
@@ -119,12 +123,11 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI); ctx.stroke();
   ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRingInnerRadius, 0, 2 * Math.PI); ctx.stroke();
-  // REMOVIDO: a órbita planetária (terceira linha)
   ctx.beginPath(); ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI); ctx.stroke();
   
   // Preenchimento central
   ctx.beginPath(); 
-  ctx.fillStyle = '#FFF9E6'; 
+  ctx.fillStyle = centerBgColor; 
   ctx.arc(centerX, centerY, innerRadius - 5, 0, 2 * Math.PI); 
   ctx.fill();
   ctx.stroke();
@@ -183,7 +186,7 @@ async function generateNatalChartImage(ephemerisData) {
     }
     
     // Posicionar o número da casa mais próximo da linha da cúspide
-    const r = zodiacRingInnerRadius - 40; // Mais próximo do anel interno
+    const r = zodiacRingInnerRadius - 40;
     const x = centerX + r * Math.cos(toChartCoords(midDegree));
     const y = centerY + r * Math.sin(toChartCoords(midDegree));
     
@@ -194,12 +197,13 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText((index + 1).toString(), x, y);
   });
 
-  // Marcadores de cúspide Placidus
+  // Marcadores de cúspide Placidus (reposicionados)
   ctx.font = 'bold 16px Inter';
   ctx.fillStyle = '#5A2A00';
   houseCusps.forEach((cusp) => {
     const angleRad = toChartCoords(cusp.degree);
-    const r = zodiacRingInnerRadius - 20;
+    // Mover para direita (aumentar o raio)
+    const r = zodiacRingInnerRadius - 10; 
     const x = centerX + r * Math.cos(angleRad);
     const y = centerY + r * Math.sin(angleRad);
     
@@ -266,50 +270,50 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.restore();
   });
 
-  // --- Planetas (distribuídos no espaço entre o anel interno do zodíaco e o círculo central) ---
+  // --- Planetas ---
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const placed = [];
   const planets = Object.entries(planetPositions).sort(([, a], [, b]) => a - b);
   
   // Definir os limites para posicionamento dos planetas
-  const minRadius = innerRadius + 50; // 50 pixels a partir do círculo central
-  const maxRadius = zodiacRingInnerRadius - 50; // 50 pixels a partir do anel interno do zodíaco
+  const minRadius = planetZoneInner;
+  const maxRadius = planetZoneOuter;
   
   planets.forEach(([name, deg]) => {
-    // Determinar casa do planeta
-    const house = getHouseForPlanet(deg, houseCusps);
-    
-    // Calcular posição radial baseada na casa
-    // Casa 1: mais externa, Casa 12: mais interna
-    const houseFactor = (13 - house) / 12; // Invertido para casa 1 ser mais externa
-    const radius = minRadius + (maxRadius - minRadius) * houseFactor;
-    
     const angleRad = toChartCoords(deg);
-    const x = centerX + radius * Math.cos(angleRad);
-    const y = centerY + radius * Math.sin(angleRad);
+    
+    // Posicionamento radial (distribuição proporcional)
+    const r = minRadius + (maxRadius - minRadius) * 0.5; // Centralizado na zona planetária
+    const x = centerX + r * Math.cos(angleRad);
+    const y = centerY + r * Math.sin(angleRad);
     
     const symbol = planetSymbols[name];
-    const fontSize = useSymbolaFont ? 42 : 24;
+    const fontSize = useSymbolaFont ? 46 : 28; // Aumentado o tamanho
     ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
     
     // Fundo para contraste
     ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
     ctx.beginPath();
-    ctx.arc(x, y, fontSize/1.8, 0, Math.PI * 2);
+    ctx.arc(x, y, fontSize/1.6, 0, Math.PI * 2);
     ctx.fill();
     
-    // Símbolo do planeta
-    ctx.fillStyle = '#2A2A2A';
+    // Símbolo do planeta (nova cor)
+    ctx.fillStyle = symbolColor;
     ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
     
-    placed.push({ x, y, degree: deg, name, house });
+    // Nome do planeta
+    ctx.fillStyle = textColor;
+    ctx.font = 'bold 14px Inter';
+    ctx.fillText(planetNames[name] || name, x, y + 35);
+    
+    placed.push({ x, y, degree: deg, name });
   });
 
   // --- Aspectos ---
   for (const aspectType in aspectsData) {
     const style = aspectStyles[aspectType];
-    if (!style) continue;
+    if (!style || style.color === null) continue; // Ignorar conjunções
     
     ctx.strokeStyle = style.color;
     ctx.lineWidth = style.lineWidth;
@@ -335,20 +339,21 @@ async function generateNatalChartImage(ephemerisData) {
     });
   }
 
-  // --- Informações Centrais ---
+  // --- Informações Centrais (simplificadas) ---
   ctx.lineWidth = 2;
-  ctx.fillStyle = '#5D4037';
+  ctx.fillStyle = centerTextColor;
+  
+  // "MAPA NATAL"
   ctx.font = 'bold 32px Inter';
   ctx.fillText('MAPA NATAL', centerX, centerY - 25);
   
-  ctx.font = 'italic 20px Inter';
-  ctx.fillStyle = '#7D5D47';
-  ctx.fillText(meta.name || 'N/A', centerX, centerY + 15);
+  // "ZODIKA"
+  ctx.font = 'italic 26px Inter';
+  ctx.fillText('ZODIKA', centerX, centerY + 15);
   
+  // Site
   ctx.font = '18px Inter';
-  ctx.fillStyle = '#999999';
-  ctx.fillText(meta.datetime || 'Data não disponível', centerX, centerY + 45);
-  ctx.fillText('www.zodika.com.br', centerX, centerY + 75);
+  ctx.fillText('www.zodika.com.br', centerX, centerY + 55);
 
   return canvas.toBuffer('image/png');
 }
