@@ -149,13 +149,17 @@ async function computePlanets(jd, cusps) {
         continue;
       }
 
-      const astrologicalHouse = determineAstrologicalHouse(currentLongitude, cusps);
+const astrologicalHouse = determineAstrologicalHouse(currentLongitude, cusps);
 
-      geoPositions[name] = currentLongitude;
-      signData[name] = {
-        sign: degreeToSign(currentLongitude),
-        retrograde: futureLongitude < currentLongitude,
-        house: astrologicalHouse
+const delta = ((futureLongitude - currentLongitude + 540) % 360) - 180;
+const isRetrograde = delta < 0;
+
+geoPositions[name] = currentLongitude;
+signData[name] = {
+  sign: degreeToSign(currentLongitude),
+  retrograde: isRetrograde,
+  house: astrologicalHouse
+
       };
     } catch (err) {
       logger.error('Error calculating ' + name + ': ' + err.message);
