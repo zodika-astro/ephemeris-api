@@ -62,7 +62,7 @@ const degToRad = (degrees) => degrees * Math.PI / 180;
 
 const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
   "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-const signSymbols = ['\u2648','\u2649','\u264A','\u264B','\u264C','\u264D','\u264E','\u264F','\u2650','\u2651','\u2652','\u2653'];
+const signSymbols = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
 
 async function generateNatalChartImage(ephemerisData) {
   const canvas = createCanvas(width, height);
@@ -118,7 +118,7 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.translate(x, y);
     ctx.rotate(angleRad + Math.PI / 2);
     ctx.fillStyle = textColor;
-    ctx.fillText(String.fromCharCode(parseInt(signSymbols[i].replace('\u', ''), 16)), 0, -10);
+    ctx.fillText(signSymbols[i], 0, -10);
     ctx.fillText(sign.toUpperCase(), 0, 12);
     ctx.restore();
   });
