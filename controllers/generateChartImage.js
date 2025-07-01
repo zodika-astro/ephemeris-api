@@ -60,8 +60,7 @@ const aspectStyles = {
 
 const degToRad = (degrees) => degrees * Math.PI / 180;
 
-const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-  "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+const signs = ["Peixes", "Aquário", "Capricórnio", "Sagitário", "Escorpião", "Libra", "Virgem", "Leão", "Câncer", "Gêmeos", "Touro", "Áries"].reverse();
 const signSymbols = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
 
 async function generateNatalChartImage(ephemerisData) {
@@ -109,19 +108,19 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = 'bold 20px Inter';
   signs.forEach((sign, i) => {
-    const angleDeg = i * 30 + 15;
-    const angleRad = degToRad(angleDeg);
-    const r = (zodiacRingOuterRadius + zodiacRingInnerRadius) / 2;
-    const x = centerX + r * Math.cos(angleRad);
-    const y = centerY + r * Math.sin(angleRad);
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angleRad + Math.PI / 2);
-    ctx.fillStyle = textColor;
-    ctx.fillText(signSymbols[i], 0, -10);
-    ctx.fillText(sign.toUpperCase(), 0, 12);
-    ctx.restore();
-  });
+  const angleDeg = 360 - (i * 30 + 15); // reverse direction
+  const angleRad = degToRad(angleDeg);
+  const r = (zodiacRingOuterRadius + zodiacRingInnerRadius) / 2;
+  const x = centerX + r * Math.cos(angleRad);
+  const y = centerY + r * Math.sin(angleRad);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angleRad + Math.PI / 2);
+  ctx.fillStyle = textColor;
+  ctx.fillText(signSymbols[i], 0, -10);
+  ctx.fillText(sign.toUpperCase(), 0, 12);
+  ctx.restore();
+});
 
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1;
