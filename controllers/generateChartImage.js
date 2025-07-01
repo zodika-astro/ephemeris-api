@@ -36,14 +36,14 @@ const centerY = height / 2;
 const outerRadius = 600;
 const zodiacRingOuterRadius = outerRadius;
 const zodiacRingInnerRadius = outerRadius * 0.85;
-const planetOrbitRadius = outerRadius * 0.65;  // Aumentado para melhor disposição
-const innerRadius = outerRadius * 0.25;        // Aumentado para mais espaço
+const planetOrbitRadius = outerRadius * 0.65;
+const innerRadius = outerRadius * 0.25;
 
 const backgroundColor = '#FFFBF4';
 const lineColor = '#29281E';
 const textColor = '#29281E';
 const cuspNumberColor = '#555555';
-const signColor = '#5A4A42'; // Nova cor para signos
+const signColor = '#5A4A42';
 
 const planetSymbols = {
   sun: '\u2609', moon: '\u263D', mercury: '\u263F', venus: '\u2640',
@@ -52,7 +52,7 @@ const planetSymbols = {
 };
 
 const aspectStyles = {
-  conjunction: { color: '#FF9800', lineWidth: 3 }, // Cor adicionada
+  conjunction: { color: '#FF9800', lineWidth: 3 },
   opposition: { color: '#D32F2F', lineWidth: 3 },
   square: { color: '#F57C00', lineWidth: 2.5 },
   sextile: { color: '#1976D2', lineWidth: 2 },
@@ -61,10 +61,15 @@ const aspectStyles = {
 
 const degToRad = (degrees) => degrees * Math.PI / 180;
 
-// Ordem zodiacal corrigida
+// Ordem zodiacal natural (sentido anti-horário)
 const signs = ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", 
                "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"];
 const signSymbols = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+
+// Sistema de coordenadas unificado (anti-horário)
+function toChartCoords(degree) {
+  return degToRad(360 - degree);
+}
 
 async function generateNatalChartImage(ephemerisData) {
   const canvas = createCanvas(width, height);
@@ -101,11 +106,30 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.fill();
   ctx.stroke();
 
-  // --- Casas Astrológicas ---
+  // --- Casas Astrológicas (Placidus) ---
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1.5;
+  
+  // Função para determinar casa de um planeta
+  const getHouseForPlanet = (planetDegree, cusps) => {
+    for (let i = 0; i < cusps.length; i++) {
+      const nextIndex = (i + 1) % cusps.length;
+      const start = cusps[i].degree;
+      let end = cusps[nextIndex].degree;
+      
+      if (end < start) end += 360;
+      let planetDeg = planetDegree;
+      if (planetDeg < start) planetDeg += 360;
+      
+      if (planetDeg >= start && planetDeg < end) {
+        return i + 1;
+      }
+    }
+    return 1;
+  };
+
   houseCusps.forEach((cusp, index) => {
-    const angleRad = degToRad(cusp.degree);
+    const angleRad = toChartCoords(cusp.degree);
     const xOuter = centerX + outerRadius * Math.cos(angleRad);
     const yOuter = centerY + outerRadius * Math.sin(angleRad);
     const xInner = centerX + innerRadius * Math.cos(angleRad);
@@ -127,8 +151,8 @@ async function generateNatalChartImage(ephemerisData) {
     }
     
     const r = innerRadius + (planetOrbitRadius - innerRadius) * 0.3;
-    const x = centerX + r * Math.cos(degToRad(midDegree));
-    const y = centerY + r * Math.sin(degToRad(midDegree));
+    const x = centerX + r * Math.cos(toChartCoords(midDegree));
+    const y = centerY + r * Math.sin(toChartCoords(midDegree));
     
     ctx.fillStyle = cuspNumberColor;
     ctx.font = 'bold 28px Inter';
@@ -137,15 +161,37 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText((index + 1).toString(), x, y);
   });
 
-  // --- Signos do Zodíaco ---
+  // Marcadores de cúspide Placidus
+  ctx.font = 'bold 16px Inter';
+  ctx.fillStyle = '#5A2A00';
+  houseCusps.forEach((cusp) => {
+    const angleRad = toChartCoords(cusp.degree);
+    const r = zodiacRingInnerRadius - 20;
+    const x = centerX + r * Math.cos(angleRad);
+    const y = centerY + r * Math.sin(angleRad);
+    
+    // Calcular signo e grau
+    const signIndex = Math.floor(cusp.degree / 30);
+    const degreeInSign = (cusp.degree % 30).toFixed(1);
+    const label = `${degreeInSign}° ${signSymbols[signIndex]}`;
+    
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angleRad + Math.PI/2);
+    ctx.textAlign = 'center';
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
+  });
+
+  // --- Signos do Zodíaco (sentido anti-horário) ---
   ctx.textAlign = 'center'; 
   ctx.textBaseline = 'middle';
   ctx.fillStyle = signColor;
   ctx.font = 'bold 22px Inter';
   
   signs.forEach((sign, i) => {
-    const angleDeg = i * 30 + 15; // Posicionamento correto
-    const angleRad = degToRad(angleDeg);
+    const angleDeg = i * 30 + 15;
+    const angleRad = toChartCoords(angleDeg);
     const r = (zodiacRingOuterRadius + zodiacRingInnerRadius) / 2;
     const x = centerX + r * Math.cos(angleRad);
     const y = centerY + r * Math.sin(angleRad);
@@ -167,17 +213,20 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.restore();
   });
 
-  // --- Planetas ---
+  // --- Planetas (posicionados por casa) ---
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const placed = [];
   const planets = Object.entries(planetPositions).sort(([, a], [, b]) => a - b);
   
   planets.forEach(([name, deg]) => {
-    const rad = degToRad(deg);
-    const r = planetOrbitRadius;
-    const x = centerX + r * Math.cos(rad);
-    const y = centerY + r * Math.sin(rad);
+    // Determinar casa do planeta
+    const house = getHouseForPlanet(deg, houseCusps);
+    const houseRadius = innerRadius + (house / 12) * (planetOrbitRadius - innerRadius);
+    
+    const angleRad = toChartCoords(deg);
+    const x = centerX + houseRadius * Math.cos(angleRad);
+    const y = centerY + houseRadius * Math.sin(angleRad);
     
     const symbol = planetSymbols[name];
     const fontSize = useSymbolaFont ? 42 : 24;
@@ -193,10 +242,10 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillStyle = '#2A2A2A';
     ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
     
-    placed.push({ x, y, degree: deg, name });
+    placed.push({ x, y, degree: deg, name, house });
   });
 
-  // --- Aspectos (com linhas curvas) ---
+  // --- Aspectos ---
   for (const aspectType in aspectsData) {
     const style = aspectStyles[aspectType];
     if (!style) continue;
