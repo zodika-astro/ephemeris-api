@@ -1,26 +1,29 @@
-const { registerFont } = require('canvas');
+const { createCanvas, registerFont } = require('canvas');
 const path = require('path');
+const fs = require('fs');
 
-// Caminhos para as fontes (usando path.join para compatibilidade entre sistemas)
-registerFont(path.join(__dirname, 'fonts/Inter-Bold.ttf'), { 
-  family: 'Inter', 
-  weight: 'bold' // Peso da fonte (negrito)
+// Verificação de fontes
+const fontPaths = {
+  interBold: path.join(__dirname, '../fonts/Inter-Bold.ttf'),
+  notoSymbols: path.join(__dirname, '../fonts/NotoSansSymbols-Regular.ttf')
+};
+
+// Checa se arquivos existem
+Object.entries(fontPaths).forEach(([name, path]) => {
+  if (!fs.existsSync(path)) {
+    console.error(`Fonte ${name} não encontrada em: ${path}`);
+  }
 });
 
-registerFont(path.join(__dirname, 'fonts/Inter-Regular.ttf'), { 
-  family: 'Inter' 
-});
-
-registerFont(path.join(__dirname, 'fonts/NotoSansSymbols-Regular.ttf'), { 
-  family: 'Noto Sans Symbols' 
-});
-
+// Registro seguro
 try {
-  console.log('Fontes registradas com sucesso!');
-  console.log('Teste de símbolo ♈:', new Canvas(100, 100).getContext('2d').measureText('♈').width > 0 ? 'OK' : 'Falhou');
-} catch (error) {
-  console.error('Erro ao carregar fontes:', error.message);
+  registerFont(fontPaths.interBold, { family: 'Inter', weight: 'bold' });
+  registerFont(fontPaths.notoSymbols, { family: 'Noto Sans Symbols' });
+} catch (e) {
+  console.warn('Registro de fontes falhou, usando fallback:', e.message);
 }
+
+// Agora prossiga com createCanvas e o resto do código...
 
 const { createCanvas, registerFont } = require('canvas');
 const fs = require('fs');
