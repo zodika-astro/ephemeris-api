@@ -2,18 +2,31 @@
 const { createCanvas, registerFont } = require('canvas');
 const path = require('path');
 const fs = require('fs');
-const logger = require('../logger'); // Corrected path to logger
+const logger = require('../logger');
 
 // --- Font Configuration ---
-const fontPath = path.join(__dirname, '../fonts/Inter-Bold.ttf');
-if (!fs.existsSync(fontPath)) {
-  logger.error(`Font Inter not found: ${fontPath}. Please ensure the font file exists.`);
-  // Consider throwing an error or using a fallback font if critical
+// Path to the Inter font (for general text)
+const interFontPath = path.join(__dirname, '../fonts/Inter-Bold.ttf');
+if (!fs.existsSync(interFontPath)) {
+  logger.error(`Inter font not found: ${interFontPath}. Please ensure the font file exists.`);
 }
 try {
-  registerFont(fontPath, { family: 'Inter', weight: 'bold' });
+  registerFont(interFontPath, { family: 'Inter', weight: 'bold' });
 } catch (e) {
   logger.warn('Error registering Inter font:', e.message);
+}
+
+// Path to Symbola font for astrological symbols
+const symbolaFontPath = path.join(__dirname, '../fonts/symbola.ttf'); // Using Symbola.ttf
+if (!fs.existsSync(symbolaFontPath)) {
+  logger.error(`Symbola font not found: ${symbolaFontPath}. Please ensure the font file exists.`);
+  // Fallback to text names if font is missing
+} else {
+  try {
+    registerFont(symbolaFontPath, { family: 'Symbola' });
+  } catch (e) {
+    logger.warn('Error registering Symbola font:', e.message);
+  }
 }
 
 // --- Chart Drawing Constants ---
@@ -21,14 +34,77 @@ const width = 1536;
 const height = 1536;
 const centerX = width / 2;
 const centerY = height / 2;
-const radius = 700;
+const outerRadius = 700; // Outer circle of the chart
+const zodiacRadius = outerRadius * 0.9; // Radius for sign names/degrees
+const planetOrbitRadius = outerRadius * 0.5; // Radius for planet positions
+const innerRadius = outerRadius * 0.2; // Innermost circle radius
 
 const backgroundColor = '#FFFBF4';
 const lineColor = '#29281E';
 const textColor = '#29281E';
-const planetColor = '#8B0000'; // Example color for planets
+const cuspNumberColor = '#555555'; // Color for house numbers
+
+// Astrological symbols mapping (Unicode characters for Symbola font)
+// These are common Unicode values for astrological symbols.
+// If Symbola doesn't render them, you might need to find alternative Unicode points
+// or a different font.
+const planetSymbols = {
+  sun: '\u2609',        // ☉
+  moon: '\u263D',       // ☽ (or \u263E for waning crescent)
+  mercury: '\u263F',    // ☿
+  venus: '\u2640',      // ♀
+  mars: '\u2642',       // ♂
+  jupiter: '\u2643',    // ♃
+  saturn: '\u2644',     // ♄
+  uranus: '\u2645',     // ♅
+  neptune: '\u2646',    // ♆
+  pluto: '\u2647',      // ♇
+  trueNode: '\u260A',   // ☊ (North Node)
+  lilith: '\u262D',     // ☍ (Black Moon Lilith - common symbol, might vary)
+  chiron: '\u26B7'      // ⚷
+};
+
+const signSymbols = {
+  Aries: '\u2648',      // ♈
+  Taurus: '\u2649',     // ♉
+  Gemini: '\u264A',     // ♊
+  Cancer: '\u264B',     // ♋
+  Leo: '\u264C',        // ♌
+  Virgo: '\u264D',      // ♍
+  Libra: '\u264E',      // ♎
+  Scorpio: '\u264F',    // ♏
+  Sagittarius: '\u2650',// ♐
+  Capricorn: '\u2651',  // ♑
+  Aquarius: '\u2652',   // ♒
+  Pisces: '\u2653'      // ♓
+};
+
+// Aspect colors (for drawing lines) based on user's request
+const aspectColors = {
+  conjunction: null,      // No line for conjunction
+  opposition: '#FF0000',  // Red bold
+  square: '#FF4500',      // Orange-red (slightly less bold than pure red)
+  sextile: '#0000FF',     // Blue
+  trine: '#008000'        // Green
+};
+
+// --- Utility Functions ---
+
+/**
+ * Converts degrees to radians.
+ * @param {number} degrees - Degrees value.
+ * @returns {number} Radians value.
+ */
+const degToRad = (degrees) => degrees * Math.PI / 180;
+
+// Astrological signs in order (used for sign index lookup)
+const signs = [
+  "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+  "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+];
 
 // Astrological signs for drawing labels (adjust order if needed for visual layout)
+// This array dictates the order and starting point for drawing the sign names around the wheel.
 const signsForDrawing = [
   { nome: 'ÁRIES', startDeg: 0 },
   { nome: 'TOURO', startDeg: 30 },
@@ -53,80 +129,108 @@ async function generateNatalChartImage(ephemerisData) {
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // Ensure planetPositions is correctly accessed
+  // Ensure data is correctly accessed
   const planetPositions = ephemerisData?.geo || {};
+  const planetSignData = ephemerisData?.signs || {}; // Contains sign and house for each planet
+  const houseCusps = ephemerisData?.houses?.cusps || [];
+  const aspectsData = ephemerisData?.aspects || {};
 
   // --- Background ---
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, width, height);
 
-  // --- Circles ---
+  // --- Main Circles ---
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI); ctx.stroke();
-  ctx.beginPath(); ctx.arc(centerX, centerY, radius * 0.8, 0, 2 * Math.PI); ctx.stroke();
-  ctx.beginPath(); ctx.arc(centerX, centerY, radius * 0.4, 0, 2 * Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI); ctx.stroke(); // Outer zodiac circle
+  ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRadius, 0, 2 * Math.PI); ctx.stroke(); // Inner zodiac circle (for degrees/signs)
+  ctx.beginPath(); ctx.arc(centerX, centerY, planetOrbitRadius, 0, 2 * Math.PI); ctx.stroke(); // Planet orbit circle
+  ctx.beginPath(); ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI); ctx.stroke(); // Innermost circle
 
-  // --- House Lines ---
-  // Note: Your house lines are currently drawn every 30 degrees, which is for equal houses.
-  // If you want to draw based on actual cusp degrees, you'd use ephemerisData.houses.cusps.
-  // For simplicity, keeping the 30-degree divisions as per original code.
-  for (let i = 0; i < 12; i++) {
-    const angle = (i * 30) * Math.PI / 180;
-    const x = centerX + radius * Math.cos(angle);
-    const y = centerY + radius * Math.sin(angle);
-    ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.lineTo(x, y); ctx.stroke();
+  // --- House Cusps Lines (Accurate) ---
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 1.5;
 
-    // Small markers on the outer circle
-    const markerLength = radius * 0.05;
-    const x1 = centerX + (radius * 0.8) * Math.cos(angle);
-    const y1 = centerY + (radius * 0.8) * Math.sin(angle);
-    const x2 = centerX + (radius * 0.8 + markerLength) * Math.cos(angle);
-    const y2 = centerY + (radius * 0.8 + markerLength) * Math.sin(angle);
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-  }
+  houseCusps.forEach((cusp, index) => {
+    const angleRad = degToRad(cusp.degree);
+    const xOuter = centerX + outerRadius * Math.cos(angleRad);
+    const yOuter = centerY + outerRadius * Math.sin(angleRad);
+    const xInner = centerX + innerRadius * Math.cos(angleRad);
+    const yInner = centerY + innerRadius * Math.sin(angleRad);
 
-  // --- Degree Markers ---
-  ctx.fillStyle = textColor;
+    ctx.beginPath();
+    ctx.moveTo(xInner, yInner); // Start from the inner circle
+    ctx.lineTo(xOuter, yOuter); // Extend to the outer circle
+    ctx.stroke();
+
+    // Draw house numbers (positioned in the middle of the house sector)
+    const nextCuspDegree = houseCusps[(index + 1) % 12].degree;
+    let midAngleDeg;
+    if (nextCuspDegree > cusp.degree) {
+      midAngleDeg = (cusp.degree + nextCuspDegree) / 2;
+    } else { // Handle wrap-around (e.g., from 350 to 10 degrees)
+      midAngleDeg = (cusp.degree + nextCuspDegree + 360) / 2;
+      if (midAngleDeg >= 360) midAngleDeg -= 360;
+    }
+
+    const houseNumberRadius = (planetOrbitRadius + innerRadius) / 2; // Position between inner planet circle and inner circle
+    const numX = centerX + houseNumberRadius * Math.cos(degToRad(midAngleDeg));
+    const numY = centerY + houseNumberRadius * Math.sin(degToRad(midAngleDeg));
+
+    ctx.fillStyle = cuspNumberColor;
+    ctx.font = 'bold 24px Inter';
+    ctx.fillText((index + 1).toString(), numX, numY);
+  });
+
+
+  // --- Zodiac Signs (Symbols and Names) ---
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  for (let deg = 0; deg < 360; deg += 5) {
-    const angle = deg * Math.PI / 180;
-    const outer = deg % 10 === 0 ? 20 : 15; // Longer lines for 10-degree marks
-    const inner = deg % 10 === 0 ? 35 : 30;
-
-    ctx.beginPath();
-    ctx.moveTo(centerX + (radius - outer) * Math.cos(angle), centerY + (radius - outer) * Math.sin(angle));
-    ctx.lineTo(centerX + (radius - inner) * Math.cos(angle), centerY + (radius - inner) * Math.sin(angle));
-    ctx.stroke();
-
-    if (deg % 10 === 0) {
-      ctx.font = 'bold 16px Inter';
-      ctx.fillText(deg.toString(), centerX + (radius - 50) * Math.cos(angle), centerY + (radius - 50) * Math.sin(angle));
-    }
+  // Draw Sign Symbols
+  const signSymbolRadius = outerRadius + 30; // Slightly outside the outer circle
+  // Check if Symbola font is registered before trying to use it
+  if (fs.existsSync(symbolaFontPath)) {
+    ctx.font = '48px Symbola'; // Use Symbola font for symbols
+  } else {
+    // Fallback to Inter font if Symbola is not available
+    ctx.font = 'bold 36px Inter';
   }
 
-  // --- Sign Names (Circular Layout) ---
-  // Note: The original `signos` array had an inverse order for `startDeg`.
-  // Adjusted `signsForDrawing` to match typical astrological wheel layout (Aries at 0 deg).
-  // The `startDeg` in `signsForDrawing` should be the actual degree where the sign starts.
-  // For circular text, the angle calculation needs to be precise.
-  ctx.font = 'bold 32px Inter'; // Set font once for all signs
   signsForDrawing.forEach(signo => {
-    // Calculate the center of the sign's arc for text placement
-    const angleDeg = signo.startDeg + 15; // Middle of the 30-degree sign
-    const angleRad = angleDeg * Math.PI / 180;
+    const signName = signo.nome.charAt(0).toUpperCase() + signo.nome.slice(1).toLowerCase(); // Normalize name (e.g., 'ÁRIES' -> 'Áries')
+    const symbolChar = signSymbols[signName.normalize("NFD").replace(/[\u0300-\u036f]/g, "")]; // Remove accents for lookup
 
-    const nameRadius = radius - 100;
+    const angleDeg = signo.startDeg + 15; // Middle of the 30-degree sign
+    const angleRad = degToRad(angleDeg);
+
+    const x = centerX + signSymbolRadius * Math.cos(angleRad);
+    const y = centerY + signSymbolRadius * Math.sin(angleRad);
+
+    ctx.fillStyle = textColor;
+    if (symbolChar && fs.existsSync(symbolaFontPath)) {
+      ctx.fillText(symbolChar, x, y);
+    } else {
+      // Fallback to text if symbola font is missing or symbol not found
+      ctx.font = 'bold 20px Inter'; // Smaller font for fallback sign name
+      ctx.fillText(signo.nome, x, y);
+    }
+  });
+
+  // Draw Sign Names (Circular Layout) - Adjusted positioning
+  const signNameTextRadius = zodiacRadius + 50; // Between outer zodiac circle and outer radius
+  ctx.font = 'bold 20px Inter'; // Use Inter font for text names
+  signsForDrawing.forEach(signo => {
+    const angleDeg = signo.startDeg + 15; // Middle of the 30-degree sign
+    const angleRad = degToRad(angleDeg);
+
     const letters = signo.nome.split('');
-    const letterSpacing = 22; // Adjust for visual spacing
+    const letterSpacing = 20; // Adjust for visual spacing
 
     letters.forEach((letter, i) => {
-      // Calculate individual letter angle for circular text
-      const letterAngle = angleRad + (i - (letters.length - 1) / 2) * (letterSpacing / nameRadius);
-      const x = centerX + nameRadius * Math.cos(letterAngle);
-      const y = centerY + nameRadius * Math.sin(letterAngle);
+      const letterAngle = angleRad + (i - (letters.length - 1) / 2) * (letterSpacing / signNameTextRadius);
+      const x = centerX + signNameTextRadius * Math.cos(letterAngle);
+      const y = centerY + signNameTextRadius * Math.sin(letterAngle);
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(letterAngle + Math.PI / 2); // Rotate text to follow the arc
@@ -135,55 +239,129 @@ async function generateNatalChartImage(ephemerisData) {
     });
   });
 
-  // --- House Numbers ---
-  ctx.font = 'bold 28px Inter';
-  for (let i = 0; i < 12; i++) {
-    // Position house numbers in the middle of each house sector
-    // This uses the 30-degree equal house assumption from your drawing logic.
-    // To use actual cusps, ensure ephemerisData.houses.cusps is correctly populated and use its degrees.
-    const cusp1Degree = ephemerisData.houses?.cusps[i]?.degree;
-    const cusp2Degree = ephemerisData.houses?.cusps[(i + 1) % 12]?.degree;
+  // --- Degree Markers ---
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 1;
+  ctx.font = '14px Inter'; // Smaller font for degrees
 
-    if (cusp1Degree !== undefined && cusp2Degree !== undefined) {
-      // Calculate the midpoint angle between two cusps, handling wrap-around for 360/0
-      let midAngleDeg;
-      if (cusp2Degree > cusp1Degree) {
-          midAngleDeg = (cusp1Degree + cusp2Degree) / 2;
-      } else {
-          midAngleDeg = (cusp1Degree + cusp2Degree + 360) / 2;
-          if (midAngleDeg >= 360) midAngleDeg -= 360;
-      }
+  for (let deg = 0; deg < 360; deg += 1) { // Draw every degree for finer marks
+    const angleRad = degToRad(deg);
+    const outerMarkRadius = zodiacRadius - 5; // Start just inside zodiac circle
+    let innerMarkRadius = zodiacRadius - 10; // Default mark length
 
-      const angleRad = midAngleDeg * Math.PI / 180;
-      const houseRadius = radius * 0.6;
-      ctx.fillText((i + 1).toString(), centerX + houseRadius * Math.cos(angleRad), centerY + houseRadius * Math.sin(angleRad));
-    } else {
-      logger.warn(`House cusp data missing for house ${i + 1}. Using default 30-degree spacing.`);
-      const angleDeg = i * 30 + 15;
-      const angleRad = angleDeg * Math.PI / 180;
-      const houseRadius = radius * 0.6;
-      ctx.fillText((i + 1).toString(), centerX + houseRadius * Math.cos(angleRad), centerY + houseRadius * Math.sin(angleRad));
+    if (deg % 5 === 0) { // Longer mark for every 5 degrees
+      innerMarkRadius = zodiacRadius - 15;
     }
+    if (deg % 10 === 0) { // Even longer mark for every 10 degrees, and add text
+      innerMarkRadius = zodiacRadius - 25;
+      const textRadius = zodiacRadius - 35; // Position text further in
+      const textX = centerX + textRadius * Math.cos(angleRad);
+      const textY = centerY + textRadius * Math.sin(angleRad);
+      ctx.fillText(deg.toString(), textX, textY);
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(centerX + outerMarkRadius * Math.cos(angleRad), centerY + outerMarkRadius * Math.sin(angleRad));
+    ctx.lineTo(centerX + innerMarkRadius * Math.cos(angleRad), centerY + innerMarkRadius * Math.sin(angleRad));
+    ctx.stroke();
   }
 
-  // --- Planet Positions ---
-  ctx.fillStyle = planetColor;
-  ctx.font = 'bold 16px Inter';
-  Object.entries(planetPositions).forEach(([planet, degree]) => {
-    const angle = degree * Math.PI / 180;
-    const planetRadius = radius * 0.4; // Inner circle for planets
-    const x = centerX + planetRadius * Math.cos(angle);
-    const y = centerY + planetRadius * Math.sin(angle);
 
-    // Draw a circle for the planet symbol (placeholder for actual symbols)
-    ctx.beginPath();
-    ctx.arc(x, y, 10, 0, 2 * Math.PI);
-    ctx.fill();
+  // --- Planet Positions (Symbols) ---
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Check if Symbola font is registered before trying to use it
+  if (fs.existsSync(symbolaFontPath)) {
+    ctx.font = '36px Symbola'; // Use Symbola font for planet symbols
+  } else {
+    // Fallback to Inter font if Symbola is not available
+    ctx.font = 'bold 20px Inter';
+  }
 
-    // Draw planet name (as a placeholder for actual symbols)
-    ctx.fillStyle = textColor;
-    ctx.fillText(planet.toUpperCase(), x, y - 20); // Position text above the circle
+  const placedPlanets = []; // To track placed planets and avoid overlaps
+
+  // Sort planets by degree to help with overlap avoidance
+  const sortedPlanets = Object.entries(planetPositions).sort(([, degA], [, degB]) => degA - degB);
+
+  sortedPlanets.forEach(([planetName, degree]) => {
+    const angleRad = degToRad(degree);
+    let currentPlanetRadius = planetOrbitRadius;
+    let x, y;
+    let overlap = true;
+    let attempt = 0;
+    const maxAttempts = 10; // Max attempts to find a non-overlapping spot
+    const radiusStep = 20; // Pixels to move out/in for overlap avoidance (increased slightly)
+    const symbolSize = 30; // Approximate size of the symbol for collision detection (increased for symbols)
+
+    // Simple overlap avoidance: try to move slightly if collision
+    while (overlap && attempt < maxAttempts) {
+      x = centerX + currentPlanetRadius * Math.cos(angleRad);
+      y = centerY + currentPlanetRadius * Math.sin(angleRad);
+      overlap = false;
+
+      for (const placed of placedPlanets) {
+        const dist = Math.sqrt(Math.pow(x - placed.x, 2) + Math.pow(y - placed.y, 2));
+        if (dist < (symbolSize + placed.symbolSize) * 0.7) { // If too close (0.7 factor for tighter packing)
+          overlap = true;
+          currentPlanetRadius += radiusStep; // Move further out
+          break;
+        }
+      }
+      attempt++;
+    }
+
+    // Fallback if too many overlaps or no symbol
+    const symbol = planetSymbols[planetName];
+    if (symbol && fs.existsSync(symbolaFontPath)) {
+      ctx.fillText(symbol, x, y);
+    } else {
+      // Fallback to text if font not loaded or symbol not found
+      ctx.font = 'bold 16px Inter';
+      ctx.fillText(planetName.toUpperCase(), x, y);
+    }
+
+    placedPlanets.push({ x, y, symbolSize: symbolSize, degree: degree, name: planetName }); // Store placed planet with its final position
   });
+
+  // --- Aspect Lines ---
+  ctx.lineWidth = 2; // Default line width for aspects
+
+  for (const aspectType in aspectsData) {
+    const color = aspectColors[aspectType];
+    if (!color) continue; // Skip if no color defined or if null (like conjunction)
+
+    ctx.strokeStyle = color;
+
+    // Adjust line width for "bold" aspects like Opposition
+    if (aspectType === 'opposition') {
+      ctx.lineWidth = 3; // Thicker line for opposition
+    } else if (aspectType === 'square') {
+      ctx.lineWidth = 2; // Normal thickness for square
+    } else {
+      ctx.lineWidth = 1.5; // Slightly thinner for sextile/trine
+    }
+
+    aspectsData[aspectType].forEach(aspect => {
+      const planet1Name = aspect.planet1.name;
+      const planet2Name = aspect.planet2.name;
+
+      // Find the final drawn positions of the planets
+      const p1 = placedPlanets.find(p => p.name === planet1Name);
+      const p2 = placedPlanets.find(p => p.name === planet2Name);
+
+      if (p1 && p2) {
+        // Draw line between the *actual drawn positions* of the planets
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+    });
+  }
+
+  // Reset line width for general drawing after aspects
+  ctx.lineWidth = 2;
 
   // --- Center Text ---
   ctx.fillStyle = textColor;
