@@ -157,7 +157,7 @@ const isRetrograde = delta < 0;
 geoPositions[name] = currentLongitude;
 signData[name] = {
   sign: degreeToSign(currentLongitude),
-  retrograde: isRetrograde ? "YES" : "NO",
+  retrograde: isRetrograde ? "yes" : "no",
   house: astrologicalHouse
 
       };
