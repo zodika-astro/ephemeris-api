@@ -358,20 +358,25 @@ const compute = async (reqBody) => {
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
       const hasInterceptedSign = analysis.housesWithInterceptedSigns.some(item => item.house === i);
-      const planetsInThisHouse = [];
-
+      
+      // Create an object to hold planets in this house, similar to the top-level 'planets' object
+      const planetsInThisHouse = {};
       for (const planetName in planetSignData) {
         const planetInfo = planetSignData[planetName];
         if (planetInfo.house === i) {
-          planetsInThisHouse.push(planetName); // Just the name of the planet
+          planetsInThisHouse[planetName] = { // Use planet name as key
+            sign: planetInfo.sign,
+            retrograde: planetInfo.retrograde,
+            house: planetInfo.house // Redundant but keeps structure consistent if needed elsewhere
+          };
         }
       }
 
       formattedHouses[`house${i}`] = {
         sign: cuspInfo ? cuspInfo.sign : null,
-        planetsInHouse: planetsInThisHouse,
-        intercepted: hasInterceptedSign ? "yes" : "no",
         cuspDegree: cuspInfo ? cuspInfo.degree : null,
+        intercepted: hasInterceptedSign ? "yes" : "no",
+        planets: planetsInThisHouse, // Now an object, similar to top-level 'planets'
       };
     }
 
