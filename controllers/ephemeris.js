@@ -149,17 +149,16 @@ async function computePlanets(jd, cusps) {
         continue;
       }
 
-const astrologicalHouse = determineAstrologicalHouse(currentLongitude, cusps);
+      const astrologicalHouse = determineAstrologicalHouse(currentLongitude, cusps);
 
-const delta = ((futureLongitude - currentLongitude + 540) % 360) - 180;
-const isRetrograde = delta < 0;
+      const delta = ((futureLongitude - currentLongitude + 540) % 360) - 180;
+      const isRetrograde = delta < 0;
 
-geoPositions[name] = currentLongitude;
-signData[name] = {
-  sign: degreeToSign(currentLongitude),
-  retrograde: isRetrograde ? "yes" : "no",
-  house: astrologicalHouse
-
+      geoPositions[name] = currentLongitude;
+      signData[name] = {
+        sign: degreeToSign(currentLongitude),
+        retrograde: isRetrograde ? "yes" : "no",
+        house: astrologicalHouse
       };
     } catch (err) {
       logger.error('Error calculating ' + name + ': ' + err.message);
@@ -290,13 +289,14 @@ const analyzeHouses = (cusps) => {
     let endDegree = nextCusp.degree > startDegree ? nextCusp.degree : nextCusp.degree + 360;
 
     const signsPresentInHouse = new Set();
-    for (let deg = Math.floor(startDegree); deg <= Math.ceil(endDegree); deg++) {
-      if (deg >= startDegree && deg < endDegree) {
-        signsPresentInHouse.add(degreeToSign(deg % 360));
-      }
+    // Iterate through degrees within the house to find all signs present
+    // This is a simplified approach and might need refinement for edge cases near cusps
+    for (let deg = Math.floor(startDegree); deg < Math.ceil(endDegree); deg++) {
+      signsPresentInHouse.add(degreeToSign(deg % 360));
     }
 
     signsPresentInHouse.forEach(sign => {
+      // If a sign is present in a house but not on any cusp, it's intercepted
       if (!signsOnCusps.has(sign)) {
         housesWithInterceptedSigns.push({ house: currentCusp.house, interceptedSign: sign });
         interceptedSigns.add(sign);
@@ -314,16 +314,16 @@ const analyzeHouses = (cusps) => {
     .filter(([, count]) => count > 1)
     .map(([sign]) => sign);
 
-return {
-  interceptedSigns: Array.from(interceptedSigns),
-  housesWithInterceptedSigns,
-  signsWithDoubleRulership,
-  cusps: cusps.map(c => ({
-    house: c.house,
-    sign: degreeToSign(c.degree),
-    degree: c.degree 
-  }))
-};
+  return {
+    interceptedSigns: Array.from(interceptedSigns),
+    housesWithInterceptedSigns,
+    signsWithDoubleRulership,
+    cusps: cusps.map(c => ({
+      house: c.house,
+      sign: degreeToSign(c.degree),
+      degree: c.degree
+    }))
+  };
 };
 
 // --- Main Computation Function ---
@@ -348,19 +348,43 @@ const compute = async (reqBody) => {
 
     const houseSystem = config.house_system || 'P';
     const cusps = await computeHouses(jd, latitude, longitude, houseSystem);
-    const { geo, signs: planetSignData } = await computePlanets(jd, cusps); // Renamed `signs` to `planetSignData` to avoid conflict with the global `signs` array.
+    const { geo, signs: planetSignData } = await computePlanets(jd, cusps);
     const aspects = await computeAspects(geo, planetSignData);
     const { elements, qualities } = await analyzeElementalAndModalQualities(planetSignData, cusps);
     const analysis = analyzeHouses(cusps);
+
+    // Group planets by house for the new fixed output structure
+    const planetsGroupedByHouse = {};
+    for (let i = 1; i <= 12; i++) {
+      const cuspInfo = analysis.cusps.find(c => c.house === i);
+      planetsGroupedByHouse[`house${i}`] = {
+        cuspSign: cuspInfo ? cuspInfo.sign : null,
+        cuspDegree: cuspInfo ? cuspInfo.degree : null,
+        planets: []
+      };
+    }
+
+    for (const planetName in planetSignData) {
+      const planetInfo = planetSignData[planetName];
+      const houseNumber = planetInfo.house;
+      if (houseNumber && houseNumber >= 1 && houseNumber <= 12 && planetsGroupedByHouse[`house${houseNumber}`]) {
+        planetsGroupedByHouse[`house${houseNumber}`].planets.push({
+          name: planetName,
+          sign: planetInfo.sign,
+          retrograde: planetInfo.retrograde
+        });
+      }
+    }
 
     return {
       statusCode: 200,
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       geo,
-      signs: planetSignData, // Use the renamed `planetSignData` here
+      signs: planetSignData,
       houses: {
-        cusps: analysis.cusps,
+        byNumber: planetsGroupedByHouse, // New fixed structure with planets in houses
+        interceptedSigns: analysis.interceptedSigns,
         housesWithInterceptedSigns: analysis.housesWithInterceptedSigns,
         signsWithDoubleRulership: analysis.signsWithDoubleRulership
       },
