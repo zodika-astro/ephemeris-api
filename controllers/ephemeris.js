@@ -353,27 +353,26 @@ const compute = async (reqBody) => {
     const { elements, qualities } = await analyzeElementalAndModalQualities(planetSignData, cusps);
     const analysis = analyzeHouses(cusps);
 
-    // Group planets by house for the new fixed output structure
-    const planetsGroupedByHouse = {};
+    // New structure for houses
+    const formattedHouses = {};
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
-      planetsGroupedByHouse[`house${i}`] = {
-        cuspSign: cuspInfo ? cuspInfo.sign : null,
-        cuspDegree: cuspInfo ? cuspInfo.degree : null,
-        planets: []
-      };
-    }
+      const hasInterceptedSign = analysis.housesWithInterceptedSigns.some(item => item.house === i);
+      const planetsInThisHouse = [];
 
-    for (const planetName in planetSignData) {
-      const planetInfo = planetSignData[planetName];
-      const houseNumber = planetInfo.house;
-      if (houseNumber && houseNumber >= 1 && houseNumber <= 12 && planetsGroupedByHouse[`house${houseNumber}`]) {
-        planetsGroupedByHouse[`house${houseNumber}`].planets.push({
-          name: planetName,
-          sign: planetInfo.sign,
-          retrograde: planetInfo.retrograde
-        });
+      for (const planetName in planetSignData) {
+        const planetInfo = planetSignData[planetName];
+        if (planetInfo.house === i) {
+          planetsInThisHouse.push(planetName); // Just the name of the planet
+        }
       }
+
+      formattedHouses[`house${i}`] = {
+        sign: cuspInfo ? cuspInfo.sign : null,
+        planetsInHouse: planetsInThisHouse,
+        intercepted: hasInterceptedSign ? "yes" : "no",
+        cuspDegree: cuspInfo ? cuspInfo.degree : null,
+      };
     }
 
     return {
@@ -381,13 +380,8 @@ const compute = async (reqBody) => {
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       geo,
-      signs: planetSignData,
-      houses: {
-        byNumber: planetsGroupedByHouse, // New fixed structure with planets in houses
-        interceptedSigns: analysis.interceptedSigns,
-        housesWithInterceptedSigns: analysis.housesWithInterceptedSigns,
-        signsWithDoubleRulership: analysis.signsWithDoubleRulership
-      },
+      planets: planetSignData, // Renamed 'signs' to 'planets'
+      houses: formattedHouses, // Use the new formattedHouses object directly
       aspects,
       elements,
       qualities
