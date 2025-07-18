@@ -198,7 +198,8 @@ async function generateNatalChartImage(ephemerisData) {
         const xStart = centerX + zodiacRingInnerRadius * Math.cos(rad);
         const yStart = centerY + zodiacRingInnerRadius * Math.sin(rad);
         const xEnd = centerX + zodiacRingOuterRadius * Math.cos(rad);
-        const yEnd = centerY + zodiacRingOuterRadius * Math.cos(rad); // Fixed yEnd calculation
+        // CORREÇÃO: Usar Math.sin para yEnd
+        const yEnd = centerY + zodiacRingOuterRadius * Math.sin(rad); 
         ctx.beginPath();
         ctx.moveTo(xStart, yStart);
         ctx.lineTo(xEnd, yEnd);
@@ -267,7 +268,8 @@ async function generateNatalChartImage(ephemerisData) {
 
     const placed = []; // Armazena as posições finais dos símbolos para desenhar aspectos
     const baseRadius = planetZoneInner + (planetZoneOuter - planetZoneInner) / 2;
-    const radialStep = 40; // Aumentado para 40 para maior espaçamento radial entre símbolos de planetas agrupados
+    // Aumentado para 50 para maior espaçamento radial entre símbolos de planetas agrupados
+    const radialStep = 50; 
 
     clusters.forEach(cluster => {
         const totalRadialSpread = (cluster.length - 1) * radialStep;
@@ -281,31 +283,39 @@ async function generateNatalChartImage(ephemerisData) {
 
             // Desenhar Símbolo do Planeta
             const symbol = planetSymbols[name];
-            const fontSize = useSymbolaFont ? 52 : 32;
+            const fontSize = useSymbolaFont ? 52 : 32; // Tamanho base do símbolo
             ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
             ctx.fillStyle = 'rgba(255, 249, 237, 0.7)'; // Fundo translúcido para o símbolo
             ctx.beginPath();
-            ctx.arc(xSymbol, ySymbol, fontSize / 1.6, 0, Math.PI * 2);
+            ctx.arc(xSymbol, ySymbol, fontSize / 1.6, 0, Math.PI * 2); // Círculo de fundo
             ctx.fill();
             ctx.fillStyle = symbolColor;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), xSymbol, ySymbol);
 
-            // Desenhar Indicador de Retrógrado 'R'
-            const planetInfo = planetSignData[name]; // Obter dados completos do planeta
+            // Desenhar Indicador de Retrógrado 'R' e Grau do Planeta
+            const planetInfo = planetSignData[name];
+            const textFontSize = 18; // Tamanho da fonte para 'R' e grau
+            ctx.font = `bold ${textFontSize}px Inter`;
+            ctx.fillStyle = textColor;
+
+            // Posição para o 'R' (se retrógrado)
             if (planetInfo && planetInfo.retrograde === "yes") {
-                ctx.fillStyle = textColor; // Cor do texto
-                ctx.font = 'bold 18px Inter'; // Fonte menor para o 'R'
-                // Posição do 'R' ligeiramente deslocada do símbolo
-                const rOffsetAngle = angleRad + degToRad(35); // Deslocamento angular para o 'R'
-                const rX = xSymbol + (fontSize / 2.2) * Math.cos(rOffsetAngle); // Ajustado para maior afastamento
-                const rY = ySymbol + (fontSize / 2.2) * Math.sin(rOffsetAngle); // Ajustado para maior afastamento
+                const rOffsetAngle = angleRad + degToRad(45); // Ângulo para o 'R'
+                const rRadiusOffset = (fontSize / 2) + 5; // Distância radial do centro do símbolo
+                const rX = xSymbol + rRadiusOffset * Math.cos(rOffsetAngle);
+                const rY = ySymbol + rRadiusOffset * Math.sin(rOffsetAngle);
                 ctx.fillText('R', rX, rY);
             }
 
-            // REMOVIDO: Desenho do Nome do Planeta e Grau
-            // A informação detalhada será fornecida na tabela separada.
+            // Posição para o Grau do Planeta
+            const degreeInSign = (deg % 30).toFixed(1);
+            const degOffsetAngle = angleRad - degToRad(45); // Ângulo para o grau (oposto ao 'R')
+            const degRadiusOffset = (fontSize / 2) + 5; // Distância radial do centro do símbolo
+            const degX = xSymbol + degRadiusOffset * Math.cos(degOffsetAngle);
+            const degY = ySymbol + degRadiusOffset * Math.sin(degOffsetAngle);
+            ctx.fillText(`${degreeInSign}°`, degX, degY);
 
             placed.push({ x: xSymbol, y: ySymbol, degree: deg, name, angleRad, finalRadius: symbolRadius });
         });
