@@ -100,8 +100,28 @@ function drawArrow(ctx, x, y, angle, size) {
 async function generateNatalChartImage(ephemerisData) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
+
+    // **AJUSTE**: Acessar planetas da nova chave 'planets'
     const planetPositions = ephemerisData?.geo || {};
-    const houseCusps = Array.isArray(ephemerisData?.houses?.cusps) ? ephemerisData.houses.cusps : [];
+    const planetSignData = ephemerisData?.planets || {}; // Nova chave para dados de planetas
+
+    // **AJUSTE**: Reconstruir o array de cúspides a partir da nova estrutura 'houses'
+    const houseCusps = [];
+    if (ephemerisData?.houses) {
+        for (let i = 1; i <= 12; i++) {
+            const houseKey = `house${i}`;
+            if (ephemerisData.houses[houseKey]) {
+                houseCusps.push({
+                    house: i,
+                    degree: ephemerisData.houses[houseKey].cuspDegree,
+                    sign: ephemerisData.houses[houseKey].sign // Adicionado para consistência, embora não usado diretamente no desenho da cúspide
+                });
+            }
+        }
+        // Ordenar as cúspides para garantir que estejam em ordem crescente de grau
+        houseCusps.sort((a, b) => a.degree - b.degree);
+    }
+    
     const aspectsData = ephemerisData?.aspects || {};
 
     // Desenha a base do mapa (círculos, signos, casas, etc.)
@@ -116,6 +136,7 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.beginPath(); ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, zodiacRingInnerRadius, 0, 2 * Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI); ctx.stroke();
+    
     houseCusps.forEach((cusp, index) => {
         const angleRad = toChartCoords(cusp.degree);
         const xInner = centerX + innerRadius * Math.cos(angleRad);
@@ -127,13 +148,21 @@ async function generateNatalChartImage(ephemerisData) {
         ctx.lineTo(xZodiacInner, yZodiacInner);
         ctx.stroke();
         drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12);
+        
+        // **AJUSTE**: Para o número da casa, precisamos do índice original da casa, não do índice no array ordenado.
+        // A maneira mais robusta é usar o `cusp.house` que já vem da API.
+        const originalHouseNumber = cusp.house; 
+        
         const nextIndex = (index + 1) % houseCusps.length;
         const nextCusp = houseCusps[nextIndex];
+        
         let midDegree = (cusp.degree + nextCusp.degree) / 2;
-        if (Math.abs(cusp.degree - nextCusp.degree) > 180) {
+        // Lógica para lidar com a passagem por 0/360 graus
+        if (nextCusp.degree < cusp.degree) {
             midDegree = (cusp.degree + nextCusp.degree + 360) / 2;
             if (midDegree >= 360) midDegree -= 360;
         }
+
         const r = zodiacRingInnerRadius - 40;
         const x = centerX + r * Math.cos(toChartCoords(midDegree));
         const y = centerY + r * Math.sin(toChartCoords(midDegree));
@@ -141,8 +170,9 @@ async function generateNatalChartImage(ephemerisData) {
         ctx.font = 'bold 28px Inter';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText((index + 1).toString(), x, y);
+        ctx.fillText(originalHouseNumber.toString(), x, y); // Usar originalHouseNumber
     });
+
     ctx.font = 'bold 16px Inter';
     ctx.fillStyle = '#5A2A00';
     houseCusps.forEach((cusp) => {
@@ -160,6 +190,7 @@ async function generateNatalChartImage(ephemerisData) {
         ctx.fillText(label, 5, 0);
         ctx.restore();
     });
+
     ctx.strokeStyle = signDivisionColor;
     ctx.lineWidth = 1.2;
     ctx.setLineDash([8, 6]);
@@ -197,12 +228,12 @@ async function generateNatalChartImage(ephemerisData) {
     });
 
     // ==================================================================
-    // INÍCIO DA LÓGICA DE POSICIONAMENTO DE PLANETAS (VERSÃO 3)
+    // INÍCIO DA LÓGICA DE POSICIONAMENTO DE PLANETAS (VERSÃO AJUSTADA)
     // ==================================================================
 
+    // Usar Object.entries(planetPositions) para garantir que temos os graus
     const planets = Object.entries(planetPositions).sort((a, b) => a[1] - b[1]);
-    // **AJUSTE**: Limiar reduzido para evitar agrupar planetas que não estão sobrepostos.
-    const collisionThreshold = 8; 
+    const collisionThreshold = 8;
     const clusters = [];
 
     if (planets.length > 0) {
