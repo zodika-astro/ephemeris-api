@@ -101,11 +101,11 @@ async function generateNatalChartImage(ephemerisData) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
-    // **AJUSTE**: Acessar planetas da nova chave 'planets'
+    // Acessar planetas da nova chave 'planets'
     const planetPositions = ephemerisData?.geo || {};
     const planetSignData = ephemerisData?.planets || {}; // Nova chave para dados de planetas
 
-    // **AJUSTE**: Reconstruir o array de cúspides a partir da nova estrutura 'houses'
+    // Reconstruir o array de cúspides a partir da nova estrutura 'houses'
     const houseCusps = [];
     if (ephemerisData?.houses) {
         for (let i = 1; i <= 12; i++) {
@@ -114,7 +114,7 @@ async function generateNatalChartImage(ephemerisData) {
                 houseCusps.push({
                     house: i,
                     degree: ephemerisData.houses[houseKey].cuspDegree,
-                    sign: ephemerisData.houses[houseKey].sign // Adicionado para consistência, embora não usado diretamente no desenho da cúspide
+                    sign: ephemerisData.houses[houseKey].sign
                 });
             }
         }
@@ -149,8 +149,7 @@ async function generateNatalChartImage(ephemerisData) {
         ctx.stroke();
         drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12);
         
-        // **AJUSTE**: Para o número da casa, precisamos do índice original da casa, não do índice no array ordenado.
-        // A maneira mais robusta é usar o `cusp.house` que já vem da API.
+        // Para o número da casa, usamos o `cusp.house` que já vem da API.
         const originalHouseNumber = cusp.house; 
         
         const nextIndex = (index + 1) % houseCusps.length;
@@ -233,7 +232,7 @@ async function generateNatalChartImage(ephemerisData) {
 
     // Usar Object.entries(planetPositions) para garantir que temos os graus
     const planets = Object.entries(planetPositions).sort((a, b) => a[1] - b[1]);
-    const collisionThreshold = 8;
+    const collisionThreshold = 8; // Limiar de colisão para agrupamento de símbolos
     const clusters = [];
 
     if (planets.length > 0) {
@@ -253,6 +252,7 @@ async function generateNatalChartImage(ephemerisData) {
         }
         clusters.push(currentCluster);
 
+        // Lidar com o cluster que cruza o ponto 0/360 graus
         if (clusters.length > 1) {
             const firstPlanetDeg = clusters[0][0][1];
             const lastPlanet = clusters[clusters.length - 1];
@@ -265,90 +265,50 @@ async function generateNatalChartImage(ephemerisData) {
         }
     }
 
-    const placed = [];
+    const placed = []; // Armazena as posições finais dos símbolos para desenhar aspectos
     const baseRadius = planetZoneInner + (planetZoneOuter - planetZoneInner) / 2;
-    const radialStep = 28;
-    const textLineHeight = 18;
+    const radialStep = 28; // Espaçamento radial entre símbolos de planetas agrupados
 
     clusters.forEach(cluster => {
-        // Caso 1: Planeta isolado (usa a lógica original, simples e eficaz)
-        if (cluster.length === 1) {
-            const [name, deg] = cluster[0];
-            const angleRad = toChartCoords(deg);
-            const radius = baseRadius;
-            const x = centerX + radius * Math.cos(angleRad);
-            const y = centerY + radius * Math.sin(angleRad);
+        const totalRadialSpread = (cluster.length - 1) * radialStep;
+        const initialRadius = baseRadius - totalRadialSpread / 2; // Raio inicial para o primeiro planeta no cluster
 
+        cluster.forEach(([name, deg], index) => {
+            const symbolRadius = initialRadius + index * radialStep; // Raio para o símbolo deste planeta
+            const angleRad = toChartCoords(deg);
+            const xSymbol = centerX + symbolRadius * Math.cos(angleRad);
+            const ySymbol = centerY + symbolRadius * Math.sin(angleRad);
+
+            // Desenhar Símbolo do Planeta
             const symbol = planetSymbols[name];
             const fontSize = useSymbolaFont ? 52 : 32;
             ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
-            ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
+            ctx.fillStyle = 'rgba(255, 249, 237, 0.7)'; // Fundo translúcido para o símbolo
             ctx.beginPath();
-            ctx.arc(x, y, fontSize / 1.6, 0, Math.PI * 2);
+            ctx.arc(xSymbol, ySymbol, fontSize / 1.6, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = symbolColor;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
+            ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), xSymbol, ySymbol);
 
-            ctx.fillStyle = textColor;
-            ctx.font = 'bold 16px Inter';
-            ctx.fillText(planetNames[name] || name, x, y + 38);
-
-            placed.push({ x, y, degree: deg, name, angleRad });
-
-        } else { // Caso 2: Cluster de planetas (lógica aprimorada)
-            const totalRadialSpread = (cluster.length - 1) * radialStep;
-            const initialRadius = baseRadius - totalRadialSpread / 2;
-
-            cluster.forEach(([name, deg], index) => {
-                const radius = initialRadius + index * radialStep;
-                const angleRad = toChartCoords(deg);
-                const x = centerX + radius * Math.cos(angleRad);
-                const y = centerY + radius * Math.sin(angleRad);
-
-                const symbol = planetSymbols[name];
-                const fontSize = useSymbolaFont ? 52 : 32;
-                ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
-                ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
-                ctx.beginPath();
-                ctx.arc(x, y, fontSize / 1.6, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = symbolColor;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), x, y);
-
-                placed.push({ x, y, degree: deg, name, angleRad });
-            });
-
-            const avgDeg = cluster.reduce((sum, p) => sum + p[1], 0) / cluster.length;
-            const avgAngleRad = toChartCoords(avgDeg);
-            // **AJUSTE**: O raio para o texto agora se baseia no raio do último símbolo do cluster.
-            const textRadius = initialRadius + totalRadialSpread + 45;
-            const textAnchorX = centerX + textRadius * Math.cos(avgAngleRad);
-            let textAnchorY = centerY + textRadius * Math.sin(avgAngleRad);
-            
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = textColor;
-            ctx.font = 'bold 16px Inter';
-
-            if (Math.abs(textAnchorX - centerX) < width * 0.1) {
-                ctx.textAlign = 'center';
-            } else if (textAnchorX > centerX) {
-                ctx.textAlign = 'left';
-            } else {
-                ctx.textAlign = 'right';
+            // Desenhar Indicador de Retrógrado 'R'
+            const planetInfo = planetSignData[name]; // Obter dados completos do planeta
+            if (planetInfo && planetInfo.retrograde === "yes") {
+                ctx.fillStyle = textColor; // Cor do texto
+                ctx.font = 'bold 18px Inter'; // Fonte menor para o 'R'
+                // Posição do 'R' ligeiramente deslocada do símbolo
+                const rOffsetAngle = angleRad + degToRad(25); // Deslocamento angular para o 'R'
+                const rX = xSymbol + (fontSize / 2) * Math.cos(rOffsetAngle);
+                const rY = ySymbol + (fontSize / 2) * Math.sin(rOffsetAngle);
+                ctx.fillText('R', rX, rY);
             }
-            
-            const totalTextHeight = (cluster.length - 1) * textLineHeight;
-            textAnchorY -= totalTextHeight / 2;
 
-            cluster.forEach(([name], index) => {
-                const yPos = textAnchorY + index * textLineHeight;
-                ctx.fillText(planetNames[name] || name, textAnchorX, yPos);
-            });
-        }
+            // REMOVIDO: Desenho do Nome do Planeta e Grau
+            // A informação detalhada será fornecida na tabela separada.
+
+            placed.push({ x: xSymbol, y: ySymbol, degree: deg, name, angleRad, finalRadius: symbolRadius });
+        });
     });
     
     // ==================================================================
@@ -365,7 +325,7 @@ async function generateNatalChartImage(ephemerisData) {
             const p1 = placed.find(p => p.name === a.planet1.name);
             const p2 = placed.find(p => p.name === a.planet2.name);
             if (p1 && p2) {
-                const factor = 0.85;
+                const factor = 0.85; // Ajuste para que as linhas de aspecto não cheguem até o símbolo
                 const x1 = centerX + (p1.x - centerX) * factor;
                 const y1 = centerY + (p1.y - centerY) * factor;
                 const x2 = centerX + (p2.x - centerX) * factor;
@@ -378,7 +338,7 @@ async function generateNatalChartImage(ephemerisData) {
         });
     }
 
-    // **CORREÇÃO**: Texto central desenhado por último para ficar sobre tudo.
+    // Texto central desenhado por último para ficar sobre tudo.
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = centerTextColor;
