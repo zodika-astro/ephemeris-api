@@ -40,10 +40,15 @@ const centerX = width / 2;
 const centerY = height / 2;
 const outerRadius = 600;
 const zodiacRingOuterRadius = outerRadius;
-const zodiacRingInnerRadius = outerRadius * 0.85;
-const innerRadius = outerRadius * 0.25;
-const planetZoneInner = innerRadius + 50;
-const planetZoneOuter = zodiacRingInnerRadius - 50;
+const zodiacRingInnerRadius = outerRadius * 0.85; // 510
+const innerRadius = outerRadius * 0.25; // 150
+
+// Nova constante para o raio máximo das linhas de aspecto
+const aspectsLineMaxRadius = innerRadius + 50; // 150 + 50 = 200
+
+// Zona de posicionamento dos planetas
+const minPlanetRadius = aspectsLineMaxRadius + 10; // 200 + 10 = 210 (buffer de 10)
+const maxPlanetRadius = zodiacRingInnerRadius - 5; // 510 - 5 = 505 (buffer de 5 da borda do anel do zodíaco)
 
 const backgroundColor = '#FFFBF4';
 const lineColor = '#29281E';
@@ -235,10 +240,6 @@ async function generateNatalChartImage(ephemerisData) {
     const planets = Object.entries(planetPositions).sort((a, b) => a[1] - b[1]);
     const placed = []; // Armazena as posições finais dos símbolos para desenhar aspectos
 
-    // Define a faixa radial onde os planetas podem ser colocados
-    const minPlanetRadius = planetZoneInner; // Começa da borda interna da zona de planetas
-    const maxPlanetRadius = planetZoneOuter; // Termina na borda externa da zona de planetas
-
     // Determina o tamanho efetivo de um símbolo de planeta + seu texto associado (grau, R)
     const symbolBaseFontSize = useSymbolaFont ? 52 : 32;
     const symbolCircleRadius = symbolBaseFontSize / 1.6; // Raio do círculo de fundo do símbolo
@@ -246,12 +247,11 @@ async function generateNatalChartImage(ephemerisData) {
     
     // Distância radial mínima necessária entre os centros de dois planetas para evitar sobreposição
     // Isso considera o círculo ao redor do símbolo e o texto ao redor dele.
-    // Usamos um valor fixo um pouco maior para garantir espaço.
-    const fixedRadialStep = 85; // Aumentado para garantir maior separação
+    const fixedRadialStep = 105; // Aumentado para garantir maior separação e evitar sobreposição
 
     for (const [name, deg] of planets) {
         const angleRad = toChartCoords(deg);
-        let currentSymbolRadius = minPlanetRadius;
+        let currentSymbolRadius = minPlanetRadius; // Começa na nova zona de planetas
         let foundPosition = false;
 
         // Tenta encontrar uma posição sem sobreposição movendo-se radialmente para fora
@@ -357,7 +357,7 @@ async function generateNatalChartImage(ephemerisData) {
     // FIM DA LÓGICA DE POSICIONAMENTO DE PLANETAS
     // ==================================================================
 
-    // Linhas de aspectos (desenhadas ANTES do texto central)
+    // Linhas de aspectos (desenhadas na nova zona mais interna)
     for (const aspectType in aspectsData) {
         const style = aspectStyles[aspectType];
         if (!style || style.color === null) continue;
@@ -367,11 +367,11 @@ async function generateNatalChartImage(ephemerisData) {
             const p1 = placed.find(p => p.name === a.planet1.name);
             const p2 = placed.find(p => p.name === a.planet2.name);
             if (p1 && p2) {
-                const factor = 0.85; // Ajuste para que as linhas de aspecto não cheguem até o símbolo
-                const x1 = centerX + (p1.xSymbol - centerX) * factor; // Usar xSymbol do objeto colocado
-                const y1 = centerY + (p1.ySymbol - centerY) * factor; // Usar ySymbol do objeto colocado
-                const x2 = centerX + (p2.xSymbol - centerX) * factor; // Usar xSymbol do objeto colocado
-                const y2 = centerY + (p2.ySymbol - centerY) * factor; // Usar ySymbol do objeto colocado
+                // Usar o novo aspectsLineMaxRadius para as linhas de aspecto
+                const x1 = centerX + aspectsLineMaxRadius * Math.cos(p1.angleRad);
+                const y1 = centerY + aspectsLineMaxRadius * Math.sin(p1.angleRad);
+                const x2 = centerX + aspectsLineMaxRadius * Math.cos(p2.angleRad);
+                const y2 = centerY + aspectsLineMaxRadius * Math.sin(p2.angleRad);
                 ctx.beginPath();
                 ctx.moveTo(x1, y1);
                 ctx.lineTo(x2, y2);
