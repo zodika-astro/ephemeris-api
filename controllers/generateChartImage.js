@@ -198,7 +198,7 @@ async function generateNatalChartImage(ephemerisData) {
         const xStart = centerX + zodiacRingInnerRadius * Math.cos(rad);
         const yStart = centerY + zodiacRingInnerRadius * Math.sin(rad);
         const xEnd = centerX + zodiacRingOuterRadius * Math.cos(rad);
-        const yEnd = centerY + zodiacRingOuterRadius * Math.sin(rad);
+        const yEnd = centerY + zodiacRingOuterRadius * Math.cos(rad); // Fixed yEnd calculation
         ctx.beginPath();
         ctx.moveTo(xStart, yStart);
         ctx.lineTo(xEnd, yEnd);
@@ -267,7 +267,7 @@ async function generateNatalChartImage(ephemerisData) {
 
     const placed = []; // Armazena as posições finais dos símbolos para desenhar aspectos
     const baseRadius = planetZoneInner + (planetZoneOuter - planetZoneInner) / 2;
-    const radialStep = 28; // Espaçamento radial entre símbolos de planetas agrupados
+    const radialStep = 40; // Aumentado para 40 para maior espaçamento radial entre símbolos de planetas agrupados
 
     clusters.forEach(cluster => {
         const totalRadialSpread = (cluster.length - 1) * radialStep;
@@ -298,9 +298,9 @@ async function generateNatalChartImage(ephemerisData) {
                 ctx.fillStyle = textColor; // Cor do texto
                 ctx.font = 'bold 18px Inter'; // Fonte menor para o 'R'
                 // Posição do 'R' ligeiramente deslocada do símbolo
-                const rOffsetAngle = angleRad + degToRad(25); // Deslocamento angular para o 'R'
-                const rX = xSymbol + (fontSize / 2) * Math.cos(rOffsetAngle);
-                const rY = ySymbol + (fontSize / 2) * Math.sin(rOffsetAngle);
+                const rOffsetAngle = angleRad + degToRad(35); // Deslocamento angular para o 'R'
+                const rX = xSymbol + (fontSize / 2.2) * Math.cos(rOffsetAngle); // Ajustado para maior afastamento
+                const rY = ySymbol + (fontSize / 2.2) * Math.sin(rOffsetAngle); // Ajustado para maior afastamento
                 ctx.fillText('R', rX, rY);
             }
 
