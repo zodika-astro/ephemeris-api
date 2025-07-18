@@ -233,94 +233,126 @@ async function generateNatalChartImage(ephemerisData) {
 
     // Usar Object.entries(planetPositions) para garantir que temos os graus
     const planets = Object.entries(planetPositions).sort((a, b) => a[1] - b[1]);
-    const collisionThreshold = 8; // Limiar de colisão para agrupamento de símbolos
-    const clusters = [];
+    const placed = []; // Armazena as posições finais dos símbolos para desenhar aspectos
 
-    if (planets.length > 0) {
-        let currentCluster = [planets[0]];
-        for (let i = 1; i < planets.length; i++) {
-            const prevPlanetDeg = currentCluster[currentCluster.length - 1][1];
-            const currentPlanetDeg = planets[i][1];
-            let diff = Math.abs(currentPlanetDeg - prevPlanetDeg);
-            if (diff > 180) diff = 360 - diff;
+    // Define a faixa radial onde os planetas podem ser colocados
+    const minPlanetRadius = planetZoneInner; // Começa da borda interna da zona de planetas
+    const maxPlanetRadius = planetZoneOuter; // Termina na borda externa da zona de planetas
 
-            if (diff < collisionThreshold) {
-                currentCluster.push(planets[i]);
+    // Determina o tamanho efetivo de um símbolo de planeta + seu texto associado (grau, R)
+    const symbolBaseFontSize = useSymbolaFont ? 52 : 32;
+    const symbolCircleRadius = symbolBaseFontSize / 1.6; // Raio do círculo de fundo do símbolo
+    const textFontSize = 18; // Tamanho da fonte para 'R' e grau
+    
+    // Distância radial mínima necessária entre os centros de dois planetas para evitar sobreposição
+    // Isso considera o círculo ao redor do símbolo e o texto ao redor dele.
+    // Usamos um valor fixo um pouco maior para garantir espaço.
+    const fixedRadialStep = 85; // Aumentado para garantir maior separação
+
+    for (const [name, deg] of planets) {
+        const angleRad = toChartCoords(deg);
+        let currentSymbolRadius = minPlanetRadius;
+        let foundPosition = false;
+
+        // Tenta encontrar uma posição sem sobreposição movendo-se radialmente para fora
+        while (currentSymbolRadius <= maxPlanetRadius && !foundPosition) {
+            const xSymbol = centerX + currentSymbolRadius * Math.cos(angleRad);
+            const ySymbol = centerY + currentSymbolRadius * Math.sin(angleRad);
+
+            let isOverlapping = false;
+            // Verifica sobreposição com planetas já posicionados
+            for (const p of placed) {
+                const distBetweenCenters = Math.sqrt(
+                    Math.pow(xSymbol - p.xSymbol, 2) + Math.pow(ySymbol - p.ySymbol, 2)
+                );
+                // A distância mínima necessária entre os centros para evitar sobreposição
+                // Considera a soma dos raios dos círculos dos símbolos e um espaço para o texto
+                const minDistanceRequired = p.symbolCircleRadius + symbolCircleRadius + textFontSize * 2; 
+                
+                if (distBetweenCenters < minDistanceRequired) {
+                    isOverlapping = true;
+                    break;
+                }
+            }
+
+            if (!isOverlapping) {
+                // Se não houver sobreposição, adiciona o planeta à lista de posicionados
+                placed.push({ 
+                    name, 
+                    deg, 
+                    angleRad, 
+                    xSymbol, 
+                    ySymbol, 
+                    symbolRadius: currentSymbolRadius, 
+                    symbolFontSize: symbolBaseFontSize,
+                    symbolCircleRadius: symbolCircleRadius // Armazena para futuras verificações de colisão
+                });
+                foundPosition = true;
             } else {
-                clusters.push(currentCluster);
-                currentCluster = [planets[i]];
+                // Se houver sobreposição, move para a próxima camada radial
+                currentSymbolRadius += fixedRadialStep; 
             }
         }
-        clusters.push(currentCluster);
 
-        // Lidar com o cluster que cruza o ponto 0/360 graus
-        if (clusters.length > 1) {
-            const firstPlanetDeg = clusters[0][0][1];
-            const lastPlanet = clusters[clusters.length - 1];
-            const lastPlanetDeg = lastPlanet[lastPlanet.length - 1][1];
-            let diff = Math.abs((firstPlanetDeg + 360) - lastPlanetDeg);
-            if (diff < collisionThreshold) {
-                const lastCluster = clusters.pop();
-                clusters[0] = [...lastCluster, ...clusters[0]];
-            }
+        if (!foundPosition) {
+            // Fallback: Se nenhuma posição sem sobreposição for encontrada dentro da zona permitida,
+            // posiciona no raio máximo. Isso pode ainda causar sobreposição, mas garante o posicionamento.
+            logger.warn(`Não foi possível encontrar uma posição sem sobreposição para o planeta ${name}. Posicionando no raio máximo.`);
+            const xSymbol = centerX + maxPlanetRadius * Math.cos(angleRad);
+            const ySymbol = centerY + maxPlanetRadius * Math.sin(angleRad);
+            placed.push({ 
+                name, 
+                deg, 
+                angleRad, 
+                xSymbol, 
+                ySymbol, 
+                symbolRadius: maxPlanetRadius, 
+                symbolFontSize: symbolBaseFontSize,
+                symbolCircleRadius: symbolCircleRadius
+            });
         }
     }
 
-    const placed = []; // Armazena as posições finais dos símbolos para desenhar aspectos
-    const baseRadius = planetZoneInner + (planetZoneOuter - planetZoneInner) / 2;
-    // Aumentado para 50 para maior espaçamento radial entre símbolos de planetas agrupados
-    const radialStep = 50; 
+    // Agora, desenha todos os planetas posicionados
+    placed.forEach(p => {
+        // Desenhar Símbolo do Planeta
+        const symbol = planetSymbols[p.name];
+        ctx.font = useSymbolaFont ? `${p.symbolFontSize}px Symbola` : `bold ${p.symbolFontSize}px Inter`;
+        ctx.fillStyle = 'rgba(255, 249, 237, 0.7)'; // Fundo translúcido para o símbolo
+        ctx.beginPath();
+        ctx.arc(p.xSymbol, p.ySymbol, p.symbolCircleRadius, 0, Math.PI * 2); // Círculo de fundo
+        ctx.fill();
+        ctx.fillStyle = symbolColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText((symbol && useSymbolaFont) ? symbol : p.name.substring(0, 3).toUpperCase(), p.xSymbol, p.ySymbol);
 
-    clusters.forEach(cluster => {
-        const totalRadialSpread = (cluster.length - 1) * radialStep;
-        const initialRadius = baseRadius - totalRadialSpread / 2; // Raio inicial para o primeiro planeta no cluster
+        // Desenhar Indicador de Retrógrado 'R' e Grau do Planeta
+        const planetInfo = planetSignData[p.name];
+        const textFontSize = 18; // Tamanho da fonte para 'R' e grau
+        ctx.font = `bold ${textFontSize}px Inter`;
+        ctx.fillStyle = textColor;
 
-        cluster.forEach(([name, deg], index) => {
-            const symbolRadius = initialRadius + index * radialStep; // Raio para o símbolo deste planeta
-            const angleRad = toChartCoords(deg);
-            const xSymbol = centerX + symbolRadius * Math.cos(angleRad);
-            const ySymbol = centerY + symbolRadius * Math.sin(angleRad);
+        // Posição para o 'R' (se retrógrado)
+        if (planetInfo && planetInfo.retrograde === "yes") {
+            // Ajuste o ângulo e o raio para posicionar o 'R' de forma que não colida
+            const rOffsetAngle = p.angleRad + degToRad(45); // Ângulo para o 'R'
+            const rRadiusOffset = p.symbolCircleRadius + 10; // Distância radial do centro do símbolo
+            const rX = p.xSymbol + rRadiusOffset * Math.cos(rOffsetAngle);
+            const rY = p.ySymbol + rRadiusOffset * Math.sin(rOffsetAngle);
+            ctx.fillText('R', rX, rY);
+        }
 
-            // Desenhar Símbolo do Planeta
-            const symbol = planetSymbols[name];
-            const fontSize = useSymbolaFont ? 52 : 32; // Tamanho base do símbolo
-            ctx.font = useSymbolaFont ? `${fontSize}px Symbola` : `bold ${fontSize}px Inter`;
-            ctx.fillStyle = 'rgba(255, 249, 237, 0.7)'; // Fundo translúcido para o símbolo
-            ctx.beginPath();
-            ctx.arc(xSymbol, ySymbol, fontSize / 1.6, 0, Math.PI * 2); // Círculo de fundo
-            ctx.fill();
-            ctx.fillStyle = symbolColor;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText((symbol && useSymbolaFont) ? symbol : name.substring(0, 3).toUpperCase(), xSymbol, ySymbol);
-
-            // Desenhar Indicador de Retrógrado 'R' e Grau do Planeta
-            const planetInfo = planetSignData[name];
-            const textFontSize = 18; // Tamanho da fonte para 'R' e grau
-            ctx.font = `bold ${textFontSize}px Inter`;
-            ctx.fillStyle = textColor;
-
-            // Posição para o 'R' (se retrógrado)
-            if (planetInfo && planetInfo.retrograde === "yes") {
-                const rOffsetAngle = angleRad + degToRad(45); // Ângulo para o 'R'
-                const rRadiusOffset = (fontSize / 2) + 5; // Distância radial do centro do símbolo
-                const rX = xSymbol + rRadiusOffset * Math.cos(rOffsetAngle);
-                const rY = ySymbol + rRadiusOffset * Math.sin(rOffsetAngle);
-                ctx.fillText('R', rX, rY);
-            }
-
-            // Posição para o Grau do Planeta
-            const degreeInSign = (deg % 30).toFixed(1);
-            const degOffsetAngle = angleRad - degToRad(45); // Ângulo para o grau (oposto ao 'R')
-            const degRadiusOffset = (fontSize / 2) + 5; // Distância radial do centro do símbolo
-            const degX = xSymbol + degRadiusOffset * Math.cos(degOffsetAngle);
-            const degY = ySymbol + degRadiusOffset * Math.sin(degOffsetAngle);
-            ctx.fillText(`${degreeInSign}°`, degX, degY);
-
-            placed.push({ x: xSymbol, y: ySymbol, degree: deg, name, angleRad, finalRadius: symbolRadius });
-        });
+        // Posição para o Grau do Planeta
+        const degreeInSign = (p.deg % 30).toFixed(1);
+        // Ajuste o ângulo e o raio para posicionar o grau de forma que não colida
+        const degOffsetAngle = p.angleRad - degToRad(45); // Ângulo para o grau (oposto ao 'R')
+        const degRadiusOffset = p.symbolCircleRadius + 10; // Distância radial do centro do símbolo
+        const degX = p.xSymbol + degRadiusOffset * Math.cos(degOffsetAngle);
+        const degY = p.ySymbol + degRadiusOffset * Math.sin(degOffsetAngle);
+        ctx.fillText(`${degreeInSign}°`, degX, degY);
     });
-    
+
     // ==================================================================
     // FIM DA LÓGICA DE POSICIONAMENTO DE PLANETAS
     // ==================================================================
@@ -336,10 +368,10 @@ async function generateNatalChartImage(ephemerisData) {
             const p2 = placed.find(p => p.name === a.planet2.name);
             if (p1 && p2) {
                 const factor = 0.85; // Ajuste para que as linhas de aspecto não cheguem até o símbolo
-                const x1 = centerX + (p1.x - centerX) * factor;
-                const y1 = centerY + (p1.y - centerY) * factor;
-                const x2 = centerX + (p2.x - centerX) * factor;
-                const y2 = centerY + (p2.y - centerY) * factor;
+                const x1 = centerX + (p1.xSymbol - centerX) * factor; // Usar xSymbol do objeto colocado
+                const y1 = centerY + (p1.ySymbol - centerY) * factor; // Usar ySymbol do objeto colocado
+                const x2 = centerX + (p2.xSymbol - centerX) * factor; // Usar xSymbol do objeto colocado
+                const y2 = centerY + (p2.ySymbol - centerY) * factor; // Usar ySymbol do objeto colocado
                 ctx.beginPath();
                 ctx.moveTo(x1, y1);
                 ctx.lineTo(x2, y2);
