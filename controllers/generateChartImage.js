@@ -47,7 +47,8 @@ const innerRadius = outerRadius * 0.25; // 150
 const aspectsLineMaxRadius = innerRadius + 50; // 150 + 50 = 200
 
 // Zona de posicionamento dos planetas
-const minPlanetRadius = aspectsLineMaxRadius + 10; // 200 + 10 = 210 (buffer de 10)
+// Aumentado para afastar do centro e das linhas de aspecto
+const minPlanetRadius = aspectsLineMaxRadius + 60; // 200 + 60 = 260
 const maxPlanetRadius = zodiacRingInnerRadius - 5; // 510 - 5 = 505 (buffer de 5 da borda do anel do zodíaco)
 
 const backgroundColor = '#FFFBF4';
@@ -247,7 +248,7 @@ async function generateNatalChartImage(ephemerisData) {
     
     // Distância radial mínima necessária entre os centros de dois planetas para evitar sobreposição
     // Isso considera o círculo ao redor do símbolo e o texto ao redor dele.
-    const fixedRadialStep = 105; // Aumentado para garantir maior separação e evitar sobreposição
+    const fixedRadialStep = 105; // Mantido para garantir maior separação e evitar sobreposição
 
     for (const [name, deg] of planets) {
         const angleRad = toChartCoords(deg);
