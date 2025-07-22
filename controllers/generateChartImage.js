@@ -235,7 +235,7 @@ async function generateNatalChartImage(ephemerisData) {
   const padding = 10;
   const minPlanetClearance = symbolFontSize / 2 + padding;
 
-  const numTracks = 3;
+  const numTracks = 8;
   const trackSpacing = (maxPlanetRadius - minPlanetRadius) / (numTracks - 1);
 
   for (const p of planets) {
