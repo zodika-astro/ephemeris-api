@@ -286,7 +286,7 @@ async function generateNatalChartImage(ephemerisData) {
         p.clearanceRadius = minPlanetClearance;
         placed.push(p);
     }
-  });
+  };
 
   // --- Draw Planets ---
   placed.forEach(p => {
