@@ -342,15 +342,15 @@ async function generateNatalChartImage(ephemerisData) {
   }
 
   // --- Center Text ---
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = centerTextColor;
-  ctx.font = 'bold 32px Inter';
-  ctx.fillText('MAPA NATAL', centerX, centerY - 25);
-  ctx.font = 'italic 26px Inter';
-  ctx.fillText('ZODIKA', centerX, centerY + 15);
-  ctx.font = '18px Inter';
-  ctx.fillText('www.zodika.com.br', centerX, centerY + 55);
+ ctx.textAlign = 'center';
+ ctx.textBaseline = 'middle';
+ ctx.fillStyle = centerTextColor;
+ ctx.font = 'bold 32px Inter';
+ ctx.fillText('MAPA NATAL', centerX, centerY - 25);
+ ctx.font = 'italic 26px Inter';
+ ctx.fillText('ZODIKA', centerX, centerY + 15);
+ ctx.font = '18px Inter';
+ ctx.fillText('www.zodika.com.br', centerX, centerY + 55);
 
   return canvas.toBuffer('image/png');
 }
