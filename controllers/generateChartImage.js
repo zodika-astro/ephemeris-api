@@ -264,18 +264,18 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.font = `bold ${labelSize}px Inter`;
     ctx.fillStyle = textColor;
 
-    if (info?.retrograde === 'yes') {
-      const rAngle = p.angle + degToRad(45);
-      const rX = p.x + (p.r + 10) * Math.cos(rAngle);
-      const rY = p.y + (p.r + 10) * Math.sin(rAngle);
-      ctx.fillText('R', rX, rY);
-    }
+    // if (info?.retrograde === 'yes') {
+    //  const rAngle = p.angle + degToRad(45);
+    //  const rX = p.x + (p.r + 10) * Math.cos(rAngle);
+    //  const rY = p.y + (p.r + 10) * Math.sin(rAngle);
+    //  ctx.fillText('R', rX, rY);
+    // }
 
-    const degInSign = (p.deg % 30).toFixed(1);
-    const dAngle = p.angle - degToRad(45);
-    const dX = p.x + (p.r + 10) * Math.cos(dAngle);
-    const dY = p.y + (p.r + 10) * Math.sin(dAngle);
-    ctx.fillText(`${degInSign}°`, dX, dY);
+   // const degInSign = (p.deg % 30).toFixed(1);
+   // const dAngle = p.angle - degToRad(45);
+   // const dX = p.x + (p.r + 10) * Math.cos(dAngle);
+   // const dY = p.y + (p.r + 10) * Math.sin(dAngle);
+   // ctx.fillText(`${degInSign}°`, dX, dY);
   });
 
   // --- Aspect Lines ---
