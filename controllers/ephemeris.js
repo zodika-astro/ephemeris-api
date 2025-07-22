@@ -294,7 +294,6 @@ const analyzeHouses = (cusps) => {
 
     const signsPresentInHouse = new Set();
     // Iterate through degrees within the house to find all signs present
-    // This is a simplified approach and might need refinement for edge cases near cusps
     for (let deg = Math.floor(startDegree); deg < Math.ceil(endDegree); deg++) {
       signsPresentInHouse.add(degreeToSign(deg % 360));
     }
@@ -357,7 +356,7 @@ const compute = async (reqBody) => {
     const { elements, qualities } = await analyzeElementalAndModalQualities(planetSignData, cusps);
     const analysis = analyzeHouses(cusps);
 
-    // New structure for houses
+    // Structure for houses
     const formattedHouses = {};
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
@@ -389,7 +388,7 @@ const compute = async (reqBody) => {
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       geo,
-      planets: planetSignData, // Renamed 'signs' to 'planets'
+      planets: planetSignData, 
       houses: formattedHouses, // Use the new formattedHouses object directly
       aspects,
       elements,
