@@ -1,7 +1,11 @@
 'use strict';
 const swisseph = require('swisseph');
 const path = require('path');
+const util = require('util'); // Import Node.js 'util' module for promisify
 const logger = require('../logger');
+
+// Promisify swisseph.swe_calc_ut for async/await usage
+const sweCalcUtPromise = util.promisify(swisseph.swe_calc_ut);
 
 // Swiss Ephemeris Configuration
 const ephePath = path.join(__dirname, '..', 'ephe');
@@ -102,16 +106,15 @@ const determineAstrologicalHouse = (planetDegree, cusps) => {
   const normalizedPlanetDegree = ((planetDegree % 360) + 360) % 360;
   for (let i = 0; i < 12; i++) {
     const currentHouseCusp = cusps[i].degree;
+    // Calculate the next cusp point, handling the 360/0 degree wrap-around
     const nextHouseCusp = cusps[(i + 1) % 12].degree;
+    const nextCuspAdjusted = (nextHouseCusp < currentHouseCusp) ? nextHouseCusp + 360 : nextHouseCusp;
+    
+    // Adjust planet degree if it crosses the 0/360 boundary within the house segment
+    const planetDegreeAdjusted = (normalizedPlanetDegree < currentHouseCusp && nextCuspAdjusted > 360) ? normalizedPlanetDegree + 360 : normalizedPlanetDegree;
 
-    if (currentHouseCusp < nextHouseCusp) {
-      if (normalizedPlanetDegree >= currentHouseCusp && normalizedPlanetDegree < nextHouseCusp) {
-        return i + 1;
-      }
-    } else { // Handles cusp crossing Aries point (0 degrees)
-      if (normalizedPlanetDegree >= currentHouseCusp || normalizedPlanetDegree < nextHouseCusp) {
-        return i + 1;
-      }
+    if (planetDegreeAdjusted >= currentHouseCusp && planetDegreeAdjusted < nextCuspAdjusted) {
+      return i + 1;
     }
   }
   return null;
@@ -138,8 +141,9 @@ async function computePlanets(jd, cusps) {
 
   for (const [name, id] of Object.entries(planetsMap)) {
     try {
-      const current = await new Promise((resolve) => swisseph.swe_calc_ut(jd, id, flags, resolve));
-      const future = await new Promise((resolve) => swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve));
+      // Use promisified swe_calc_ut for cleaner async/await
+      const current = await sweCalcUtPromise(jd, id, flags);
+      const future = await sweCalcUtPromise(jd + 0.01, id, flags);
 
       const currentLongitude = current.longitude ?? current.position?.[0];
       const futureLongitude = future.longitude ?? future.position?.[0];
