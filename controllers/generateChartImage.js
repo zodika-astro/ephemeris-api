@@ -16,8 +16,9 @@ const MIN_PLANET_RADIUS = ASPECTS_LINE_MAX_RADIUS + 60;
 const MAX_PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS - 5;
 const PLANET_SYMBOL_SIZE = 52;
 const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
-const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 20;
+const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
+const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
 // Color Constants
 const COLORS = {
@@ -29,7 +30,8 @@ const COLORS = {
   SIGN: '#5A4A42',
   SIGN_DIVISION: 'rgba(89, 74, 66, 0.4)',
   ARROW: '#5A2A00',
-  CENTER_TEXT: '#807B74'
+  CENTER_TEXT: '#807B74',
+  DEGREE_TICK: 'rgba(89, 74, 66, 0.6)'
 };
 
 // Font registration
@@ -82,7 +84,6 @@ const SIGN_SYMBOLS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑
 const degToRad = (degrees) => degrees * Math.PI / 180;
 
 function toChartCoords(degree) {
-  // Convert to standard chart orientation: 0° at right, increasing clockwise
   return degToRad(360 - degree);
 }
 
@@ -155,6 +156,30 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI); 
   ctx.stroke();
 
+  // Draw degree ticks in the zodiac ring
+  ctx.strokeStyle = COLORS.DEGREE_TICK;
+  ctx.lineWidth = 1;
+  
+  for (let deg = 0; deg < 360; deg++) {
+    const rad = toChartCoords(deg);
+    
+    // Determine tick size based on degree
+    const isMajorTick = deg % 10 === 0;
+    const tickLength = isMajorTick ? 10 : 5;
+    const tickStart = DEGREE_TICK_RADIUS;
+    const tickEnd = tickStart + tickLength;
+    
+    const xStart = CENTER_X + tickStart * Math.cos(rad);
+    const yStart = CENTER_Y + tickStart * Math.sin(rad);
+    const xEnd = CENTER_X + tickEnd * Math.cos(rad);
+    const yEnd = CENTER_Y + tickEnd * Math.sin(rad);
+    
+    ctx.beginPath();
+    ctx.moveTo(xStart, yStart);
+    ctx.lineTo(xEnd, yEnd);
+    ctx.stroke();
+  }
+
   // Draw house cusps and numbers
   rotatedHouseCusps.forEach((cusp, index) => {
     const angleRad = toChartCoords(cusp.degree);
@@ -173,7 +198,7 @@ async function generateNatalChartImage(ephemerisData) {
     drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12);
     
     // Draw house number near cusp line (inside circle)
-    const r = INNER_RADIUS + 35;
+    const r = HOUSE_NUMBER_RADIUS;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
     
@@ -182,6 +207,25 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(cusp.house.toString(), x, y);
+  });
+
+  // Draw sign and degree labels on house cusps
+  ctx.font = 'bold 16px Inter';
+  ctx.fillStyle = '#5A2A00';
+  rotatedHouseCusps.forEach((cusp) => {
+    const angleRad = toChartCoords(cusp.degree);
+    const r = ZODIAC_RING_INNER_RADIUS - 20;
+    const x = CENTER_X + r * Math.cos(angleRad);
+    const y = CENTER_Y + r * Math.sin(angleRad);
+    const signIndex = Math.floor(cusp.degree / 30);
+    const degreeInSign = (cusp.degree % 30).toFixed(1);
+    const label = `${degreeInSign}° ${SIGN_SYMBOLS[signIndex]}`;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angleRad + Math.PI / 2);
+    ctx.textAlign = 'left';
+    ctx.fillText(label, 5, 0);
+    ctx.restore();
   });
 
   // Draw sign divisions
@@ -233,7 +277,7 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
   // ==================================================================
-  // PLANET POSITIONING LOGIC (IMPROVED VERSION)
+  // PLANET POSITIONING LOGIC (PLACED ON DEGREE TICKS)
   // ==================================================================
   const planets = Object.entries(planetPositions)
     .map(([name, deg]) => ({ name, deg }))
@@ -241,53 +285,24 @@ async function generateNatalChartImage(ephemerisData) {
 
   const placedPlanets = [];
   const MIN_DISTANCE = PLANET_CIRCLE_RADIUS * 2 + 20;
+  const PLANET_RADIUS = DEGREE_TICK_RADIUS + 25; // Position on outer degree ticks
 
   planets.forEach(planet => {
     const angleRad = toChartCoords(planet.deg);
     
-    // Find optimal radius that avoids collisions
-    let radius = MIN_PLANET_RADIUS;
-    let collision;
-    let attempts = 0;
+    // Place planet on the degree ticks ring
+    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad);
+    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad);
     
-    do {
-      collision = false;
-      const x = CENTER_X + radius * Math.cos(angleRad);
-      const y = CENTER_Y + radius * Math.sin(angleRad);
-      
-      // Check collisions with existing planets
-      for (const placed of placedPlanets) {
-        const dx = x - placed.x;
-        const dy = y - placed.y;
-        const distance = Math.sqrt(dx*dx + dy*dy);
-        
-        if (distance < MIN_DISTANCE) {
-          collision = true;
-          radius += 15; // Move outward
-          break;
-        }
-      }
-      
-      // Ensure we don't go too far out
-      if (radius > MAX_PLANET_RADIUS) {
-        radius = MAX_PLANET_RADIUS;
-        break;
-      }
-      
-      attempts++;
-    } while (collision && attempts < 20);
-    
-    // Final position
     placedPlanets.push({
       ...planet,
       angleRad,
-      x: CENTER_X + radius * Math.cos(angleRad),
-      y: CENTER_Y + radius * Math.sin(angleRad),
-      radius
+      x,
+      y
     });
   });
 
-  // Draw planets with larger symbols
+  // Draw planets
   placedPlanets.forEach(planet => {
     const symbol = PLANET_SYMBOLS[planet.name];
     
@@ -308,7 +323,7 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
   // ==================================================================
-  // ASPECT LINES (PROPERLY POSITIONED)
+  // ASPECT LINES
   // ==================================================================
   for (const aspectType in aspectsData) {
     const style = ASPECT_STYLES[aspectType];
