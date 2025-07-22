@@ -46,7 +46,7 @@ const innerRadius = outerRadius * 0.25;
 const aspectsLineMaxRadius = innerRadius + 50;
 
 const minPlanetRadius = aspectsLineMaxRadius + 60;
-const maxPlanetRadius = zodiacRingInnerRadius - 50;
+const maxPlanetRadius = zodiacRingInnerRadius - 70;
 
 // --- Color Palette ---
 const backgroundColor = '#FFFBF4';
