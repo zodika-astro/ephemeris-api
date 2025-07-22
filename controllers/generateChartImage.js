@@ -161,26 +161,29 @@ async function generateNatalChartImage(ephemerisData) {
   // --- Degrees on Cusps ---
   ctx.font = 'bold 16px Inter';
   ctx.fillStyle = arrowColor;
-  houseCusps.forEach((cusp) => {
-    const angleRad = toChartCoords(cusp.degree);
-    const r = zodiacRingInnerRadius - 20;
-    const x = centerX + r * Math.cos(angleRad);
-    const y = centerY + r * Math.sin(angleRad);
-    const signIndex = Math.floor(cusp.degree / 30);
-    const degreeInSign = (cusp.degree % 30).toFixed(1);
-    const label = `${degreeInSign}° ${signSymbols[signIndex]}`;
+houseCusps.forEach((cusp, index) => {
+  const angleRad = toChartCoords(cusp.degree);
+  const x1 = centerX + innerRadius * Math.cos(angleRad);
+  const y1 = centerY + innerRadius * Math.sin(angleRad);
+  const x2 = centerX + zodiacRingInnerRadius * Math.cos(angleRad);
+  const y2 = centerY + zodiacRingInnerRadius * Math.sin(angleRad);
 
-    ctx.save();
-    ctx.translate(x, y);
-    let rotationAngle = angleRad + Math.PI / 2;
-    if (angleRad > Math.PI / 2 && angleRad < 3 * Math.PI / 2) {
-        rotationAngle += Math.PI;
-    }
-    ctx.rotate(rotationAngle);
-    ctx.textAlign = 'center';
-    ctx.fillText(label, 0, -5);
-    ctx.restore();
-  });
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  drawArrow(ctx, x2, y2, angleRad, 12);
+
+  const labelOffset = 25;
+  const labelX = centerX + (zodiacRingInnerRadius + labelOffset) * Math.cos(angleRad);
+  const labelY = centerY + (zodiacRingInnerRadius + labelOffset) * Math.sin(angleRad);
+
+  ctx.fillStyle = cuspNumberColor;
+  ctx.font = 'bold 28px Inter';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(cusp.house.toString(), labelX, labelY);
+});
 
   // --- Sign Divisions & Labels ---
   ctx.strokeStyle = signDivisionColor;
