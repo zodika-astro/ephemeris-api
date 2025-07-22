@@ -1,23 +1,21 @@
 'use strict';
+
 const swisseph = require('swisseph');
 const path = require('path');
-const util = require('util'); // Import Node.js 'util' module for promisify
 const logger = require('../logger');
 
-// Promisify swisseph.swe_calc_ut for async/await usage
-const sweCalcUtPromise = util.promisify(swisseph.swe_calc_ut);
-
-// Swiss Ephemeris Configuration
+// Set Swiss Ephemeris path
 const ephePath = path.join(__dirname, '..', 'ephe');
 swisseph.swe_set_ephe_path(ephePath);
 logger.info(`Swiss Ephemeris path set to: ${ephePath}`);
 
-// Astrological Constants
+// Zodiac signs
 const signs = [
   "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
   "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ];
 
+// Aspect definitions and default orb
 const ASPECT_DEFINITIONS = [
   { name: "conjunction", degree: 0 },
   { name: "sextile", degree: 60 },
@@ -25,7 +23,6 @@ const ASPECT_DEFINITIONS = [
   { name: "trine", degree: 120 },
   { name: "opposition", degree: 180 }
 ];
-
 const DEFAULT_ORB = 6;
 
 const PLANETS_FOR_ASPECTS = [
@@ -33,6 +30,7 @@ const PLANETS_FOR_ASPECTS = [
   "uranus", "neptune", "pluto", "trueNode", "lilith", "chiron"
 ];
 
+// Element and modality classification
 const SIGN_ELEMENT_MAP = {
   "Aries": "fire", "Leo": "fire", "Sagittarius": "fire",
   "Taurus": "earth", "Virgo": "earth", "Capricorn": "earth",
@@ -46,29 +44,20 @@ const SIGN_QUALITY_MAP = {
   "Gemini": "mutable", "Virgo": "mutable", "Sagittarius": "mutable", "Pisces": "mutable"
 };
 
+// Weight used for elemental/modality analysis
 const WEIGHT_PER_POINT = {
   sun: 3, moon: 3, ascendant: 3, mc: 3,
   mercury: 2, venus: 2, mars: 2, jupiter: 2,
   saturn: 1, uranus: 1, neptune: 1, pluto: 1
 };
 
-// --- Utility Functions ---
-
-/**
- * Converts a degree to its astrological sign.
- * @param {number} degree - The degree (0-359.99...).
- * @returns {string} Astrological sign name.
- */
+// Converts a degree to its corresponding zodiac sign
 const degreeToSign = (degree) => {
   const normalized = ((degree % 360) + 360) % 360;
   return signs[Math.floor(normalized / 30)];
 };
 
-/**
- * Determines status based on weighted point count.
- * @param {number} count - Weighted point count.
- * @returns {string} Status ('lack', 'balance', 'excess').
- */
+// Returns status based on point count
 const getStatusByCount = (count) => {
   const LACK_MAX = 3;
   const BALANCE_MAX = 8;
@@ -77,16 +66,7 @@ const getStatusByCount = (count) => {
   return "excess";
 };
 
-// --- Astrological Calculation Functions ---
-
-/**
- * Computes house cusps using Swiss Ephemeris.
- * @param {number} jd - Julian Day number.
- * @param {number} lat - Latitude.
- * @param {number} lng - Longitude.
- * @param {string} [houseSystem='P'] - House system code.
- * @returns {Promise<Array<Object>>} Array of house cusps.
- */
+// Calculates house cusps using Swiss Ephemeris
 const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   return new Promise((resolve, reject) => {
     swisseph.swe_houses_ex(jd, swisseph.SEFLG_SWIEPH, lat, lng, houseSystem, (res) => {
@@ -96,36 +76,22 @@ const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   });
 };
 
-/**
- * Determines the astrological house a planet falls into.
- * @param {number} planetDegree - Planet's degree.
- * @param {Array<Object>} cusps - Array of house cusps.
- * @returns {number|null} House number (1-12) or null.
- */
+// Determines which house a planet is in
 const determineAstrologicalHouse = (planetDegree, cusps) => {
   const normalizedPlanetDegree = ((planetDegree % 360) + 360) % 360;
   for (let i = 0; i < 12; i++) {
-    const currentHouseCusp = cusps[i].degree;
-    // Calculate the next cusp point, handling the 360/0 degree wrap-around
-    const nextHouseCusp = cusps[(i + 1) % 12].degree;
-    const nextCuspAdjusted = (nextHouseCusp < currentHouseCusp) ? nextHouseCusp + 360 : nextHouseCusp;
-    
-    // Adjust planet degree if it crosses the 0/360 boundary within the house segment
-    const planetDegreeAdjusted = (normalizedPlanetDegree < currentHouseCusp && nextCuspAdjusted > 360) ? normalizedPlanetDegree + 360 : normalizedPlanetDegree;
-
-    if (planetDegreeAdjusted >= currentHouseCusp && planetDegreeAdjusted < nextCuspAdjusted) {
-      return i + 1;
+    const current = cusps[i].degree;
+    const next = cusps[(i + 1) % 12].degree;
+    if (current < next) {
+      if (normalizedPlanetDegree >= current && normalizedPlanetDegree < next) return i + 1;
+    } else {
+      if (normalizedPlanetDegree >= current || normalizedPlanetDegree < next) return i + 1;
     }
   }
   return null;
 };
 
-/**
- * Computes planet positions and related data using Swiss Ephemeris.
- * @param {number} jd - Julian Day number.
- * @param {Array<Object>} cusps - Array of house cusps.
- * @returns {Promise<Object>} Geo positions and sign data for planets.
- */
+// Computes planetary positions, signs, retrogradation, and houses
 async function computePlanets(jd, cusps) {
   const planetsMap = {
     sun: swisseph.SE_SUN, moon: swisseph.SE_MOON, mercury: swisseph.SE_MERCURY,
@@ -141,10 +107,8 @@ async function computePlanets(jd, cusps) {
 
   for (const [name, id] of Object.entries(planetsMap)) {
     try {
-      // Use promisified swe_calc_ut for cleaner async/await
-      const current = await sweCalcUtPromise(jd, id, flags);
-      const future = await sweCalcUtPromise(jd + 0.01, id, flags);
-
+      const current = await new Promise((resolve) => swisseph.swe_calc_ut(jd, id, flags, resolve));
+      const future = await new Promise((resolve) => swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve));
       const currentLongitude = current.longitude ?? current.position?.[0];
       const futureLongitude = future.longitude ?? future.position?.[0];
 
@@ -154,7 +118,6 @@ async function computePlanets(jd, cusps) {
       }
 
       const astrologicalHouse = determineAstrologicalHouse(currentLongitude, cusps);
-
       const delta = ((futureLongitude - currentLongitude + 540) % 360) - 180;
       const isRetrograde = delta < 0;
 
@@ -171,13 +134,7 @@ async function computePlanets(jd, cusps) {
   return { geo: geoPositions, signs: signData };
 }
 
-/**
- * Computes astrological aspects between planets.
- * @param {Object} planetGeoPositions - Planet longitudes.
- * @param {Object} planetSignData - Planet sign and house data.
- * @param {number} [orb=DEFAULT_ORB] - Orb (tolerance) for aspects.
- * @returns {Object} Aspects grouped by type.
- */
+// Computes aspects between all planetary pairs
 async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_ORB) {
   const groupedAspects = {
     conjunction: [], sextile: [], square: [], trine: [], opposition: []
@@ -187,39 +144,26 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
 
   for (let i = 0; i < planetKeys.length; i++) {
     for (let j = i + 1; j < planetKeys.length; j++) {
-      const planet1Name = planetKeys[i];
-      const planet2Name = planetKeys[j];
+      const [p1, p2] = [planetKeys[i], planetKeys[j]];
+      const [pos1, pos2] = [planetGeoPositions[p1], planetGeoPositions[p2]];
+      const [info1, info2] = [planetSignData[p1], planetSignData[p2]];
 
-      const pos1 = planetGeoPositions[planet1Name];
-      const pos2 = planetGeoPositions[planet2Name];
-      const infoPlanet1 = planetSignData[planet1Name];
-      const infoPlanet2 = planetSignData[planet2Name];
-
-      if (pos1 === undefined || pos2 === undefined || !infoPlanet1 || !infoPlanet2) {
-        logger.warn(`Invalid position or info for ${planet1Name} or ${planet2Name} when computing aspects.`);
+      if (pos1 === undefined || pos2 === undefined || !info1 || !info2) {
+        logger.warn(`Invalid position or info for ${p1} or ${p2} when computing aspects.`);
         continue;
       }
 
-      let angularDifference = Math.abs(pos1 - pos2);
-      if (angularDifference > 180) { // Normalize angular difference to 0-180 degrees
-        angularDifference = 360 - angularDifference;
-      }
+      let diff = Math.abs(pos1 - pos2);
+      if (diff > 180) diff = 360 - diff;
 
-      for (const aspectDef of ASPECT_DEFINITIONS) {
-        const idealDegree = aspectDef.degree;
-        const aspectName = aspectDef.name;
-
-        if (angularDifference >= (idealDegree - orb) && angularDifference <= (idealDegree + orb)) {
-          const description = `${aspectName.charAt(0).toUpperCase() + aspectName.slice(1)} - ` +
-            `${planet1Name.charAt(0).toUpperCase() + planet1Name.slice(1)} (${infoPlanet1.sign}) - ` +
-            `house ${infoPlanet1.house} x ` +
-            `${planet2Name.charAt(0).toUpperCase() + planet2Name.slice(1)} (${infoPlanet2.sign}), ` +
-            `house ${infoPlanet2.house}`;
-
-          groupedAspects[aspectName].push({
-            planet1: { name: planet1Name, sign: infoPlanet1.sign, house: infoPlanet1.house },
-            planet2: { name: planet2Name, sign: infoPlanet2.sign, house: infoPlanet2.house },
-            description: description
+      for (const { name, degree } of ASPECT_DEFINITIONS) {
+        if (diff >= (degree - orb) && diff <= (degree + orb)) {
+          groupedAspects[name].push({
+            planet1: { name: p1, sign: info1.sign, house: info1.house },
+            planet2: { name: p2, sign: info2.sign, house: info2.house },
+            description: `${name.charAt(0).toUpperCase() + name.slice(1)} - ` +
+              `${p1.charAt(0).toUpperCase() + p1.slice(1)} (${info1.sign}) - house ${info1.house} x ` +
+              `${p2.charAt(0).toUpperCase() + p2.slice(1)} (${info2.sign}), house ${info2.house}`
           });
         }
       }
@@ -228,80 +172,61 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
   return groupedAspects;
 }
 
-/**
- * Analyzes elemental and quality distributions of points.
- * @param {Object} planetSignData - Planet data including signs.
- * @param {Array<Object>} cusps - House cusps (for Asc/MC).
- * @returns {Object} Elemental and quality analysis results.
- */
+// Analyzes elemental and modal distributions
 async function analyzeElementalAndModalQualities(planetSignData, cusps) {
   const elementCounts = { fire: 0, earth: 0, air: 0, water: 0 };
   const qualityCounts = { cardinal: 0, fixed: 0, mutable: 0 };
-  const additionalPoints = {
+
+  const extraPoints = {
     ascendant: { sign: degreeToSign(cusps[0]?.degree) },
     mc: { sign: degreeToSign(cusps[9]?.degree) }
   };
 
-  const allPoints = { ...planetSignData, ...additionalPoints };
+  const allPoints = { ...planetSignData, ...extraPoints };
 
-  for (const pointName in allPoints) {
-    if (WEIGHT_PER_POINT[pointName] !== undefined) {
-      const weight = WEIGHT_PER_POINT[pointName];
-      const signOfPoint = allPoints[pointName].sign;
-
-      if (SIGN_ELEMENT_MAP[signOfPoint]) {
-        elementCounts[SIGN_ELEMENT_MAP[signOfPoint]] += weight;
-      }
-      if (SIGN_QUALITY_MAP[signOfPoint]) {
-        qualityCounts[SIGN_QUALITY_MAP[signOfPoint]] += weight;
-      }
+  for (const point in allPoints) {
+    const sign = allPoints[point].sign;
+    const weight = WEIGHT_PER_POINT[point];
+    if (weight !== undefined) {
+      if (SIGN_ELEMENT_MAP[sign]) elementCounts[SIGN_ELEMENT_MAP[sign]] += weight;
+      if (SIGN_QUALITY_MAP[sign]) qualityCounts[SIGN_QUALITY_MAP[sign]] += weight;
     }
   }
 
   const elementsResult = {};
-  for (const element in elementCounts) {
-    elementsResult[element] = {
-      count: elementCounts[element],
-      status: getStatusByCount(elementCounts[element])
-    };
+  const qualitiesResult = {};
+
+  for (const el in elementCounts) {
+    elementsResult[el] = { count: elementCounts[el], status: getStatusByCount(elementCounts[el]) };
   }
 
-  const qualitiesResult = {};
-  for (const quality in qualityCounts) {
-    qualitiesResult[quality] = {
-      count: qualityCounts[quality],
-      status: getStatusByCount(qualityCounts[quality])
-    };
+  for (const ql in qualityCounts) {
+    qualitiesResult[ql] = { count: qualityCounts[ql], status: getStatusByCount(qualityCounts[ql]) };
   }
+
   return { elements: elementsResult, qualities: qualitiesResult };
 }
 
-/**
- * Analyzes houses for intercepted signs and double rulership.
- * @param {Array<Object>} cusps - Array of house cusps.
- * @returns {Object} Analysis results for houses.
- */
+// Detects intercepted signs and signs ruling multiple houses
 const analyzeHouses = (cusps) => {
   const signsOnCusps = new Set(cusps.map(c => degreeToSign(c.degree)));
   const housesWithInterceptedSigns = [];
   const interceptedSigns = new Set();
 
   for (let i = 0; i < cusps.length; i++) {
-    const currentCusp = cusps[i];
-    const nextCusp = cusps[(i + 1) % cusps.length];
-    let startDegree = currentCusp.degree;
-    let endDegree = nextCusp.degree > startDegree ? nextCusp.degree : nextCusp.degree + 360;
+    const current = cusps[i];
+    const next = cusps[(i + 1) % cusps.length];
+    let start = current.degree;
+    let end = next.degree > start ? next.degree : next.degree + 360;
 
-    const signsPresentInHouse = new Set();
-    // Iterate through degrees within the house to find all signs present
-    for (let deg = Math.floor(startDegree); deg < Math.ceil(endDegree); deg++) {
-      signsPresentInHouse.add(degreeToSign(deg % 360));
+    const signsPresent = new Set();
+    for (let deg = Math.floor(start); deg < Math.ceil(end); deg++) {
+      signsPresent.add(degreeToSign(deg % 360));
     }
 
-    signsPresentInHouse.forEach(sign => {
-      // If a sign is present in a house but not on any cusp, it's intercepted
+    signsPresent.forEach(sign => {
       if (!signsOnCusps.has(sign)) {
-        housesWithInterceptedSigns.push({ house: currentCusp.house, interceptedSign: sign });
+        housesWithInterceptedSigns.push({ house: current.house, interceptedSign: sign });
         interceptedSigns.add(sign);
       }
     });
@@ -329,13 +254,7 @@ const analyzeHouses = (cusps) => {
   };
 };
 
-// --- Main Computation Function ---
-
-/**
- * Main function to compute the complete astrological chart data.
- * @param {Object} reqBody - Request body containing chart parameters.
- * @returns {Object} Formatted astrological chart data.
- */
+// Main computation wrapper
 const compute = async (reqBody) => {
   try {
     const {
@@ -345,7 +264,6 @@ const compute = async (reqBody) => {
       config = {}
     } = reqBody;
 
-    // Calculate Julian Day (JD) for UTC time
     const decimalHours = hours + minutes / 60 + seconds / 3600;
     const jd = swisseph.swe_julday(year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL);
 
@@ -356,30 +274,28 @@ const compute = async (reqBody) => {
     const { elements, qualities } = await analyzeElementalAndModalQualities(planetSignData, cusps);
     const analysis = analyzeHouses(cusps);
 
-    // Structure for houses
     const formattedHouses = {};
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
       const hasInterceptedSign = analysis.housesWithInterceptedSigns.some(item => item.house === i);
-      
-      // Create an object to hold planets in this house, similar to the top-level 'planets' object
       const planetsInThisHouse = {};
-      for (const planetName in planetSignData) {
-        const planetInfo = planetSignData[planetName];
-        if (planetInfo.house === i) {
-          planetsInThisHouse[planetName] = { // Use planet name as key
-            sign: planetInfo.sign,
-            retrograde: planetInfo.retrograde,
-            house: planetInfo.house // Redundant but keeps structure consistent if needed elsewhere
+
+      for (const planet in planetSignData) {
+        const data = planetSignData[planet];
+        if (data.house === i) {
+          planetsInThisHouse[planet] = {
+            sign: data.sign,
+            retrograde: data.retrograde,
+            house: data.house
           };
         }
       }
 
       formattedHouses[`house${i}`] = {
-        sign: cuspInfo ? cuspInfo.sign : null,
-        cuspDegree: cuspInfo ? cuspInfo.degree : null,
+        sign: cuspInfo?.sign || null,
+        cuspDegree: cuspInfo?.degree || null,
         intercepted: hasInterceptedSign ? "yes" : "no",
-        planets: planetsInThisHouse, // Now an object, similar to top-level 'planets'
+        planets: planetsInThisHouse
       };
     }
 
@@ -388,8 +304,8 @@ const compute = async (reqBody) => {
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       geo,
-      planets: planetSignData, 
-      houses: formattedHouses, // Use the new formattedHouses object directly
+      planets: planetSignData,
+      houses: formattedHouses,
       aspects,
       elements,
       qualities
