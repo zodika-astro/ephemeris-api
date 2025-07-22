@@ -4,7 +4,6 @@ const { createCanvas, registerFont } = require('canvas');
 const path = require('path');
 const fs = require('fs');
 
-// Logger (replace with a structured logger if needed)
 const logger = console;
 
 // --- Font Configuration ---
@@ -45,8 +44,8 @@ const zodiacRingInnerRadius = outerRadius * 0.85;
 const innerRadius = outerRadius * 0.25;
 const aspectsLineMaxRadius = innerRadius + 50;
 
-const minPlanetRadius = aspectsLineMaxRadius + 60;
-const maxPlanetRadius = zodiacRingInnerRadius - 70;
+const minPlanetRadius = innerRadius + 80;
+const maxPlanetRadius = zodiacRingInnerRadius - 90;
 
 // --- Color Palette ---
 const backgroundColor = '#FFFBF4';
@@ -79,7 +78,7 @@ const signSymbols = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑'
 
 // --- Utility Functions ---
 const degToRad = (deg) => deg * Math.PI / 180;
-const toChartCoords = (deg) => degToRad(360 - deg);
+const toChartCoords = (deg) => degToRad(270 - deg);
 
 // Draws directional arrows for house cusps
 function drawArrow(ctx, x, y, angle, size) {
@@ -173,9 +172,13 @@ async function generateNatalChartImage(ephemerisData) {
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angleRad + Math.PI / 2);
-    ctx.textAlign = 'left';
-    ctx.fillText(label, 5, 0);
+    let rotationAngle = angleRad + Math.PI / 2;
+    if (angleRad > Math.PI / 2 && angleRad < 3 * Math.PI / 2) {
+        rotationAngle += Math.PI;
+    }
+    ctx.rotate(rotationAngle);
+    ctx.textAlign = 'center';
+    ctx.fillText(label, 0, -5);
     ctx.restore();
   });
 
@@ -201,7 +204,14 @@ async function generateNatalChartImage(ephemerisData) {
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angle + Math.PI / 2);
+    let rotationAngle = angle + Math.PI / 2;
+    if (angle > Math.PI / 2 && angle < 3 * Math.PI / 2) {
+        rotationAngle += Math.PI;
+    }
+    ctx.rotate(rotationAngle);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
     ctx.fillStyle = '#8B4513';
     ctx.font = useSymbolaFont ? '38px Symbola' : 'bold 24px Inter';
     ctx.fillText(signSymbols[i], 0, -15);
@@ -212,70 +222,101 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
   // --- Planet Positioning ---
-  const planets = Object.entries(planetPositions).sort((a, b) => a[1] - b[1]);
+  const planets = Object.entries(planetPositions).map(([name, deg]) => ({
+    name,
+    deg,
+    symbol: planetSymbols[name] || name.toUpperCase().slice(0, 3),
+    info: planetSignData[name]
+  })).sort((a, b) => a.deg - b.deg);
+
   const placed = [];
   const symbolFontSize = useSymbolaFont ? 52 : 32;
-  const symbolRadius = symbolFontSize / 1.6;
   const labelSize = 18;
-  const step = 105;
+  const padding = 10;
+  const minPlanetClearance = symbolFontSize / 2 + padding;
 
-  for (const [name, deg] of planets) {
-    const angle = toChartCoords(deg);
-    let radius = minPlanetRadius;
-    let found = false;
+  const numTracks = 3;
+  const trackSpacing = (maxPlanetRadius - minPlanetRadius) / (numTracks - 1);
 
-    while (radius <= maxPlanetRadius && !found) {
-      const x = centerX + radius * Math.cos(angle);
-      const y = centerY + radius * Math.sin(angle);
-      const overlap = placed.some(p => {
-        const d = Math.hypot(x - p.x, y - p.y);
-        return d < p.r + symbolRadius + labelSize * 2;
-      });
+  for (const p of planets) {
+    let foundPosition = false;
+    let bestRadius = minPlanetRadius;
+    let bestAngle = toChartCoords(p.deg);
 
-      if (!overlap) {
-        placed.push({ name, deg, angle, x, y, r: symbolRadius });
-        found = true;
-      } else {
-        radius += step;
-      }
+    for (let i = 0; i < numTracks; i++) {
+        const currentRadius = minPlanetRadius + i * trackSpacing;
+
+        for (let angleOffset = 0; angleOffset <= degToRad(15); angleOffset += degToRad(1)) {
+            const anglesToTry = [bestAngle + angleOffset, bestAngle - angleOffset];
+            for (const tryAngle of anglesToTry) {
+                const x = centerX + currentRadius * Math.cos(tryAngle);
+                const y = centerY + currentRadius * Math.sin(tryAngle);
+
+                let overlap = false;
+                for (const existingP of placed) {
+                    const d = Math.hypot(x - existingP.x, y - existingP.y);
+                    if (d < existingP.clearanceRadius + minPlanetClearance) {
+                        overlap = true;
+                        break;
+                    }
+                }
+
+                if (!overlap) {
+                    p.x = x;
+                    p.y = y;
+                    p.angle = tryAngle;
+                    p.radius = currentRadius;
+                    p.clearanceRadius = minPlanetClearance;
+                    placed.push(p);
+                    foundPosition = true;
+                    break;
+                }
+            }
+            if (foundPosition) break;
+        }
+        if (foundPosition) break;
     }
 
-    if (!found) {
-      logger.warn(`Could not find space for ${name}, placing at max radius.`);
-      const x = centerX + maxPlanetRadius * Math.cos(angle);
-      const y = centerY + maxPlanetRadius * Math.sin(angle);
-      placed.push({ name, deg, angle, x, y, r: symbolRadius });
+    if (!foundPosition) {
+        logger.warn(`Could not find space for ${p.name}, placing at max radius.`);
+        p.angle = toChartCoords(p.deg);
+        p.radius = maxPlanetRadius;
+        p.x = centerX + p.radius * Math.cos(p.angle);
+        p.y = centerY + p.radius * Math.sin(p.angle);
+        p.clearanceRadius = minPlanetClearance;
+        placed.push(p);
     }
-  }
+  });
 
   // --- Draw Planets ---
   placed.forEach(p => {
-    const symbol = planetSymbols[p.name];
-    ctx.font = useSymbolaFont ? `${symbolFontSize}px Symbola` : `bold ${symbolFontSize}px Inter`;
     ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, symbolFontSize / 2 + padding / 2, 0, 2 * Math.PI);
+    ctx.fill();
 
     ctx.fillStyle = symbolColor;
+    ctx.font = useSymbolaFont ? `${symbolFontSize}px Symbola` : `bold ${symbolFontSize}px Inter`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(symbol || p.name.toUpperCase().slice(0, 3), p.x, p.y);
+    ctx.fillText(p.symbol, p.x, p.y);
 
-    const info = planetSignData[p.name];
     ctx.font = `bold ${labelSize}px Inter`;
     ctx.fillStyle = textColor;
 
-    // if (info?.retrograde === 'yes') {
-    //  const rAngle = p.angle + degToRad(45);
-    //  const rX = p.x + (p.r + 10) * Math.cos(rAngle);
-    //  const rY = p.y + (p.r + 10) * Math.sin(rAngle);
-    //  ctx.fillText('R', rX, rY);
-    // }
+    const degInSign = (p.deg % 30).toFixed(1);
+    const signIndex = Math.floor(p.deg / 30);
+    const fullLabel = `${degInSign}°${signSymbols[signIndex]}`;
 
-   // const degInSign = (p.deg % 30).toFixed(1);
-   // const dAngle = p.angle - degToRad(45);
-   // const dX = p.x + (p.r + 10) * Math.cos(dAngle);
-   // const dY = p.y + (p.r + 10) * Math.sin(dAngle);
-   // ctx.fillText(`${degInSign}°`, dX, dY);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(fullLabel, p.x + symbolFontSize / 2 + 5, p.y + symbolFontSize / 2 - 5);
+
+    if (p.info?.retrograde === 'yes') {
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillText('R', p.x - symbolFontSize / 2 - 5, p.y + symbolFontSize / 2 - 5);
+    }
   });
 
   // --- Aspect Lines ---
@@ -289,10 +330,10 @@ async function generateNatalChartImage(ephemerisData) {
       const p1 = placed.find(p => p.name === planet1.name);
       const p2 = placed.find(p => p.name === planet2.name);
       if (p1 && p2) {
-        const x1 = centerX + aspectsLineMaxRadius * Math.cos(p1.angle);
-        const y1 = centerY + aspectsLineMaxRadius * Math.sin(p1.angle);
-        const x2 = centerX + aspectsLineMaxRadius * Math.cos(p2.angle);
-        const y2 = centerY + aspectsLineMaxRadius * Math.sin(p2.angle);
+        const x1 = centerX + aspectsLineMaxRadius * Math.cos(toChartCoords(p1.deg));
+        const y1 = centerY + aspectsLineMaxRadius * Math.sin(toChartCoords(p1.deg));
+        const x2 = centerX + aspectsLineMaxRadius * Math.cos(toChartCoords(p2.deg));
+        const y2 = centerY + aspectsLineMaxRadius * Math.sin(toChartCoords(p2.deg));
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
       }
     });
