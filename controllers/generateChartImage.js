@@ -304,19 +304,21 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.font = `bold ${labelSize}px Inter`;
     ctx.fillStyle = textColor;
 
-    const degInSign = (p.deg % 30).toFixed(1);
-    const signIndex = Math.floor(p.deg / 30);
-    const fullLabel = `${degInSign}°${signSymbols[signIndex]}`;
+    // // Logic to display the degree and sign symbol near the planet
+    // const degInSign = (p.deg % 30).toFixed(1);
+    // const signIndex = Math.floor(p.deg / 30);
+    // const fullLabel = `${degInSign}°${signSymbols[signIndex]}`;
 
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(fullLabel, p.x + symbolFontSize / 2 + 5, p.y + symbolFontSize / 2 - 5);
+    // ctx.textAlign = 'left';
+    // ctx.textBaseline = 'top';
+    // ctx.fillText(fullLabel, p.x + symbolFontSize / 2 + 5, p.y + symbolFontSize / 2 - 5);
 
-    if (p.info?.retrograde === 'yes') {
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'top';
-      ctx.fillText('R', p.x - symbolFontSize / 2 - 5, p.y + symbolFontSize / 2 - 5);
-    }
+    // // Logic to display the retrograde 'R' symbol
+    // if (p.info?.retrograde === 'yes') {
+    //   ctx.textAlign = 'right';
+    //   ctx.textBaseline = 'top';
+    //   ctx.fillText('R', p.x - symbolFontSize / 2 - 5, p.y + symbolFontSize / 2 - 5);
+    // }
   });
 
   // --- Aspect Lines ---
