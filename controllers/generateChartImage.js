@@ -83,32 +83,32 @@ const SIGN_SYMBOLS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑
 const degToRad = (degrees) => degrees * Math.PI / 180;
 
 /**
- * Converts an astrological degree to chart coordinates (radians).
- * The chart's 0-degree (top) corresponds to the astrological degree
- * that is set as the rotation reference.
- * Astrological degrees typically increase counter-clockwise from 0 (Aries on the left).
- * Canvas angles typically increase clockwise from 0 (right).
- * This function converts astrological degrees to a clockwise system where 0 is at the top.
+ * Converts an astrological degree to chart coordinates (radians) with a specific rotation.
+ * This function is designed to initially map astrological degrees to canvas coordinates as follows:
+ * - Astrological 0° (Áries) maps to the left (180° canvas).
+ * - Astrological 90° (Câncer) maps to the bottom (90° canvas).
+ * - Astrological 180° (Libra) maps to the right (0° canvas).
+ * - Astrological 270° (Capricórnio) maps to the top (270° canvas).
  *
- * @param {number} degree - The astrological degree (0-360).
- * @param {number} rotation - The astrological degree that should appear at the top of the chart.
- * @returns {number} The angle in radians for drawing on the canvas.
+ * A 'rotationOffset' é então aplicado para girar todo o gráfico.
+ *
+ * @param {number} degree - O grau astrológico (0-360).
+ * @param {number} rotationOffset - A rotação adicional em graus a ser aplicada ao gráfico.
+ * Este valor é calculado para trazer um ponto astrológico específico
+ * (por exemplo, MC) para uma posição desejada no canvas (por exemplo, topo).
+ * @returns {number} O ângulo em radianos para desenho no canvas.
  */
-function toChartCoords(degree, rotation = 0) {
-  // First, convert the astrological degree (counter-clockwise from left)
-  // to a clockwise system where 0 is at the top.
-  // Astrological 0 (Aries) -> 0 (top)
-  // Astrological 90 (Cancer) -> 270 (left)
-  // Astrological 180 (Libra) -> 180 (bottom)
-  // Astrological 270 (Capricorn) -> 90 (right)
-  const baseAdjusted = (360 - degree) % 360;
+function toChartCoords(degree, rotationOffset = 0) {
+  // Passo 1: Mapeia o grau astrológico para coordenadas padrão do canvas (sentido horário a partir da direita, 0=direita).
+  // Astrológico 0 (Áries) está geralmente à esquerda.
+  // Canvas 0 está à direita.
+  // Para mapear Áries (0) para a esquerda (180 canvas), Câncer (90) para baixo (90 canvas), etc.:
+  let canvasDegree = (180 - degree + 360) % 360;
 
-  // Now, apply the rotation. The 'rotation' parameter is the astrological degree
-  // that we want to align with the top of the chart (0 degrees in our baseAdjusted system).
-  // So, we shift all degrees by this amount.
-  const finalAdjusted = (baseAdjusted + rotation) % 360;
-  
-  return degToRad(finalAdjusted);
+  // Passo 2: Aplica o offset de rotação calculado.
+  const finalCanvasDegree = (canvasDegree + rotationOffset + 360) % 360;
+
+  return degToRad(finalCanvasDegree);
 }
 
 function drawArrow(ctx, x, y, angle, size) {
@@ -153,14 +153,17 @@ async function generateNatalChartImage(ephemerisData) {
   }
   
   // ==================================================================
-  // MODIFICATION START: Calculate rotation to place MC at top (0° in chart coords)
-  // The 'rotation' value passed to toChartCoords should be the astrological degree
-  // that corresponds to the top of the chart. To place MC (House 10) at the top,
-  // we use its astrological degree directly as the rotation.
+  // MODIFICAÇÃO INÍCIO: Calcula a rotação para posicionar o MC no topo (ângulo de 270° no canvas)
   // ==================================================================
-  const rotation = mcDegree; // This will align the MC's astrological degree with the top of the chart.
+  // Primeiro, encontra o ângulo do canvas do MC sem nenhuma rotação adicional.
+  // Isso usa o mapeamento inicial (Áries à esquerda, Câncer embaixo, Libra à direita, Capricórnio no topo).
+  const mcCanvasAngleInitial = (180 - mcDegree + 360) % 360;
+
+  // Queremos que o MC esteja no topo do gráfico, o que corresponde a 270 graus nas coordenadas do canvas.
+  // Calcula o offset de rotação necessário para mover a posição inicial do MC para o topo.
+  const rotationOffset = (270 - mcCanvasAngleInitial + 360) % 360;
   // ==================================================================
-  // MODIFICATION END
+  // MODIFICAÇÃO FIM
   // ==================================================================
 
   // Draw chart base
@@ -185,7 +188,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.lineWidth = 1;
   
   for (let deg = 0; deg < 360; deg++) {
-    const rad = toChartCoords(deg, rotation);
+    const rad = toChartCoords(deg, rotationOffset); // Usa o novo rotationOffset
     
     // Determine tick size based on degree
     const isMajorTick = deg % 10 === 0;
@@ -206,24 +209,21 @@ async function generateNatalChartImage(ephemerisData) {
 
   // Draw house cusps and numbers
   houseCusps.forEach((cusp) => {
-    const angleRad = toChartCoords(cusp.degree, rotation);
+    const angleRad = toChartCoords(cusp.degree, rotationOffset); // Usa o novo rotationOffset
     
     // Draw cusp line
     const xInner = CENTER_X + INNER_RADIUS * Math.cos(angleRad);
     const yInner = CENTER_Y + INNER_RADIUS * Math.sin(angleRad);
     const xZodiacInner = CENTER_X + ZODIAC_RING_INNER_RADIUS * Math.cos(angleRad);
-    const yZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.cos(angleRad); // This line had a typo, should be Math.sin(angleRad) for yZodiacInner
+    const yZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(angleRad); // Corrigido para Math.sin
     
-    // Corrected line for yZodiacInner:
-    const correctYZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(angleRad);
-
     ctx.beginPath();
     ctx.moveTo(xInner, yInner);
-    ctx.lineTo(xZodiacInner, correctYZodiacInner); // Use the corrected Y coordinate
+    ctx.lineTo(xZodiacInner, yZodiacInner); 
     ctx.stroke();
     
     // Draw arrow
-    drawArrow(ctx, xZodiacInner, correctYZodiacInner, angleRad, 12); // Use the corrected Y coordinate
+    drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12); 
     
     // Draw house number near cusp line (inside circle)
     const r = HOUSE_NUMBER_RADIUS;
@@ -241,7 +241,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.font = 'bold 16px Inter';
   ctx.fillStyle = '#5A2A00';
   houseCusps.forEach((cusp) => {
-    const angleRad = toChartCoords(cusp.degree, rotation);
+    const angleRad = toChartCoords(cusp.degree, rotationOffset); // Usa o novo rotationOffset
     const r = ZODIAC_RING_INNER_RADIUS - 20;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
@@ -262,7 +262,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.setLineDash([8, 6]);
   
   for (let deg = 0; deg < 360; deg += 30) {
-    const rad = toChartCoords(deg, rotation);
+    const rad = toChartCoords(deg, rotationOffset); // Usa o novo rotationOffset
     const xStart = CENTER_X + ZODIAC_RING_INNER_RADIUS * Math.cos(rad);
     const yStart = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(rad);
     const xEnd = CENTER_X + OUTER_RADIUS * Math.cos(rad);
@@ -283,7 +283,7 @@ async function generateNatalChartImage(ephemerisData) {
   ZODIAC_SIGNS.forEach((sign, i) => {
     const angleDeg = i * 30;
     // Position sign symbols in the middle of each 30-degree segment
-    const angleRad = toChartCoords(angleDeg + 15, rotation); 
+    const angleRad = toChartCoords(angleDeg + 15, rotationOffset); // Usa o novo rotationOffset
     const r = (OUTER_RADIUS + ZODIAC_RING_INNER_RADIUS) / 2;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
@@ -317,7 +317,7 @@ async function generateNatalChartImage(ephemerisData) {
   const placedPlanets = [];
 
   planets.forEach(planet => {
-    const angleRad = toChartCoords(planet.deg, rotation);
+    const angleRad = toChartCoords(planet.deg, rotationOffset); // Usa o novo rotationOffset
     const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad);
     const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad);
     
