@@ -84,6 +84,7 @@ const SIGN_SYMBOLS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑
 const degToRad = (degrees) => degrees * Math.PI / 180;
 
 function toChartCoords(degree) {
+  // Convert to standard chart orientation: 0° at right, increasing clockwise
   return degToRad(360 - degree);
 }
 
@@ -106,7 +107,9 @@ function rotateHouseToStandardPosition(houseCusps) {
   const house10 = houseCusps.find(c => c.house === 10);
   if (!house10) return houseCusps;
   
+  // Calculate rotation needed to place house 10 at 0°
   const rotation = house10.degree;
+  
   return houseCusps.map(c => ({
     ...c,
     degree: (c.degree - rotation + 360) % 360
@@ -277,7 +280,7 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
   // ==================================================================
-  // PLANET POSITIONING LOGIC (PLACED ON DEGREE TICKS)
+  // PLANET POSITIONING LOGIC (PRECISE DEGREE-BASED PLACEMENT)
   // ==================================================================
   const planets = Object.entries(planetPositions)
     .map(([name, deg]) => ({ name, deg }))
@@ -285,7 +288,7 @@ async function generateNatalChartImage(ephemerisData) {
 
   const placedPlanets = [];
   const MIN_DISTANCE = PLANET_CIRCLE_RADIUS * 2 + 20;
-  const PLANET_RADIUS = DEGREE_TICK_RADIUS + 25; // Position on outer degree ticks
+  const PLANET_RADIUS = DEGREE_TICK_RADIUS + 5; // Position on outer degree ticks
 
   planets.forEach(planet => {
     const angleRad = toChartCoords(planet.deg);
