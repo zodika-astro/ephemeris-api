@@ -37,10 +37,9 @@ const COLORS = {
   ARROW: '#5A2A00',
   CENTER_TEXT: '#807B74',
   DEGREE_TICK: 'rgba(89, 74, 66, 0.6)',
-  // MODIFICAÇÃO: Nova cor para o círculo dos aspectos (linha)
-  ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)', 
-  // MODIFICAÇÃO: Nova cor para o preenchimento do círculo dos aspectos
-  ASPECT_CIRCLE_FILL: '#FFFACD' // Uma cor amarelada clara (Lemon Chiffon)
+  // MODIFICAÇÃO: Nova cor para o círculo dos aspectos (linha) - mantida como antes da última alteração
+  ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)' // Uma versão mais clara da cor da linha principal
+  // REMOVIDO: ASPECT_CIRCLE_FILL
 };
 
 // Font registration
@@ -193,14 +192,12 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI);  
   ctx.stroke();
 
-  // MODIFICAÇÃO: Desenhar e preencher o novo círculo para os aspectos
+  // MODIFICAÇÃO: Desenhar o novo círculo para os aspectos (sem preenchimento)
+  ctx.strokeStyle = COLORS.ASPECT_CIRCLE; // Usar a cor da linha
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(CENTER_X, CENTER_Y, ASPECT_LINE_RADIUS, 0, 2 * Math.PI);
-  ctx.fillStyle = COLORS.ASPECT_CIRCLE_FILL; // Usar a nova cor de preenchimento
-  ctx.fill(); // Preencher o círculo
-  ctx.strokeStyle = COLORS.ASPECT_CIRCLE; // Usar a cor da linha para o contorno
-  ctx.lineWidth = 2;
-  ctx.stroke(); // Desenhar o contorno
+  ctx.stroke(); // Apenas desenhar o contorno
 
 
   // Draw degree ticks in the zodiac ring
@@ -404,7 +401,7 @@ async function generateNatalChartImage(ephemerisData) {
       const p2 = placedPlanets.find(p => p.name === aspect.planet2.name);
       
       if (p1 && p2) {
-        // MODIFICAÇÃO: Desenhar as linhas de aspecto no novo raio ASPECT_LINE_RADIUS
+        // Desenhar as linhas de aspecto no novo raio ASPECT_LINE_RADIUS
         const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
         const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
         const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
