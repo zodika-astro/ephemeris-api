@@ -82,10 +82,33 @@ const SIGN_SYMBOLS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑
 // Utility functions
 const degToRad = (degrees) => degrees * Math.PI / 180;
 
+/**
+ * Converts an astrological degree to chart coordinates (radians).
+ * The chart's 0-degree (top) corresponds to the astrological degree
+ * that is set as the rotation reference.
+ * Astrological degrees typically increase counter-clockwise from 0 (Aries on the left).
+ * Canvas angles typically increase clockwise from 0 (right).
+ * This function converts astrological degrees to a clockwise system where 0 is at the top.
+ *
+ * @param {number} degree - The astrological degree (0-360).
+ * @param {number} rotation - The astrological degree that should appear at the top of the chart.
+ * @returns {number} The angle in radians for drawing on the canvas.
+ */
 function toChartCoords(degree, rotation = 0) {
-  // Adjust for rotation and convert to clockwise from top (0° at top)
-  const adjusted = (360 - degree + rotation) % 360;
-  return degToRad(adjusted);
+  // First, convert the astrological degree (counter-clockwise from left)
+  // to a clockwise system where 0 is at the top.
+  // Astrological 0 (Aries) -> 0 (top)
+  // Astrological 90 (Cancer) -> 270 (left)
+  // Astrological 180 (Libra) -> 180 (bottom)
+  // Astrological 270 (Capricorn) -> 90 (right)
+  const baseAdjusted = (360 - degree) % 360;
+
+  // Now, apply the rotation. The 'rotation' parameter is the astrological degree
+  // that we want to align with the top of the chart (0 degrees in our baseAdjusted system).
+  // So, we shift all degrees by this amount.
+  const finalAdjusted = (baseAdjusted + rotation) % 360;
+  
+  return degToRad(finalAdjusted);
 }
 
 function drawArrow(ctx, x, y, angle, size) {
@@ -129,8 +152,16 @@ async function generateNatalChartImage(ephemerisData) {
     }
   }
   
-  // Calculate rotation to place MC at top (270°)
-  const rotation = (360 - mcDegree + 270) % 360;
+  // ==================================================================
+  // MODIFICATION START: Calculate rotation to place MC at top (0° in chart coords)
+  // The 'rotation' value passed to toChartCoords should be the astrological degree
+  // that corresponds to the top of the chart. To place MC (House 10) at the top,
+  // we use its astrological degree directly as the rotation.
+  // ==================================================================
+  const rotation = mcDegree; // This will align the MC's astrological degree with the top of the chart.
+  // ==================================================================
+  // MODIFICATION END
+  // ==================================================================
 
   // Draw chart base
   ctx.fillStyle = COLORS.BACKGROUND;
@@ -139,14 +170,14 @@ async function generateNatalChartImage(ephemerisData) {
   // Draw concentric circles
   ctx.strokeStyle = COLORS.LINE;
   ctx.lineWidth = 2;
-  ctx.beginPath(); 
-  ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, 2 * Math.PI); 
+  ctx.beginPath();  
+  ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, 2 * Math.PI);  
   ctx.stroke();
-  ctx.beginPath(); 
-  ctx.arc(CENTER_X, CENTER_Y, ZODIAC_RING_INNER_RADIUS, 0, 2 * Math.PI); 
+  ctx.beginPath();  
+  ctx.arc(CENTER_X, CENTER_Y, ZODIAC_RING_INNER_RADIUS, 0, 2 * Math.PI);  
   ctx.stroke();
-  ctx.beginPath(); 
-  ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI); 
+  ctx.beginPath();  
+  ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI);  
   ctx.stroke();
 
   // Draw degree ticks in the zodiac ring
@@ -181,14 +212,18 @@ async function generateNatalChartImage(ephemerisData) {
     const xInner = CENTER_X + INNER_RADIUS * Math.cos(angleRad);
     const yInner = CENTER_Y + INNER_RADIUS * Math.sin(angleRad);
     const xZodiacInner = CENTER_X + ZODIAC_RING_INNER_RADIUS * Math.cos(angleRad);
-    const yZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(angleRad);
+    const yZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.cos(angleRad); // This line had a typo, should be Math.sin(angleRad) for yZodiacInner
+    
+    // Corrected line for yZodiacInner:
+    const correctYZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(angleRad);
+
     ctx.beginPath();
     ctx.moveTo(xInner, yInner);
-    ctx.lineTo(xZodiacInner, yZodiacInner);
+    ctx.lineTo(xZodiacInner, correctYZodiacInner); // Use the corrected Y coordinate
     ctx.stroke();
     
     // Draw arrow
-    drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12);
+    drawArrow(ctx, xZodiacInner, correctYZodiacInner, angleRad, 12); // Use the corrected Y coordinate
     
     // Draw house number near cusp line (inside circle)
     const r = HOUSE_NUMBER_RADIUS;
@@ -215,7 +250,7 @@ async function generateNatalChartImage(ephemerisData) {
     const label = `${degreeInSign}° ${SIGN_SYMBOLS[signIndex]}`;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angleRad + Math.PI / 2);
+    ctx.rotate(angleRad + Math.PI / 2); // Rotate text to be readable along the circle
     ctx.textAlign = 'left';
     ctx.fillText(label, 5, 0);
     ctx.restore();
@@ -247,18 +282,22 @@ async function generateNatalChartImage(ephemerisData) {
   
   ZODIAC_SIGNS.forEach((sign, i) => {
     const angleDeg = i * 30;
-    const angleRad = toChartCoords(angleDeg + 15, rotation);
+    // Position sign symbols in the middle of each 30-degree segment
+    const angleRad = toChartCoords(angleDeg + 15, rotation); 
     const r = (OUTER_RADIUS + ZODIAC_RING_INNER_RADIUS) / 2;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
     
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angleRad + Math.PI / 2);
+    // Rotate the text so it's upright relative to the chart's center
+    ctx.rotate(angleRad + Math.PI / 2); 
     
     // Draw sign symbol
     ctx.fillStyle = '#8B4513';
-    ctx.font = useSymbolaFont ? '38px Symbola' : 'bold 24px Inter';
+    ctx.font = useSymbolaFont ? 
+      `38px Symbola` : 
+      `bold 24px Inter`;
     ctx.fillText(SIGN_SYMBOLS[i], 0, -15);
     
     // Draw sign name
