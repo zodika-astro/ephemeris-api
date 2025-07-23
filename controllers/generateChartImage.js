@@ -20,15 +20,13 @@ const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
-// MODIFICAÇÃO: Calcular o novo raio para os planetas
-// 1. Posição de referência dos planetas (a posição original antes das últimas modificações)
-const PLANET_RADIUS_ORIGINAL = DEGREE_TICK_RADIUS + 5;
+// MODIFICAÇÃO: Recalcular o raio para os planetas
+// Retornando à posição que foi ajustada em 5% internamente na penúltima iteração.
+const PLANET_RADIUS_REFERENCE = DEGREE_TICK_RADIUS + 5; // Posição original de referência dos planetas
 
-// 2. Primeiro ajuste de 5% internamente (da iteração anterior)
-const PLANET_RADIUS_FIRST_ADJUSTMENT = PLANET_RADIUS_ORIGINAL - (PLANET_RADIUS_ORIGINAL - INNER_RADIUS) * 0.05;
+// O planeta deve ser movido 5% internamente a partir da sua posição original.
+const PLANET_RADIUS = PLANET_RADIUS_REFERENCE - (PLANET_RADIUS_REFERENCE - INNER_RADIUS) * 0.05;
 
-// 3. SEGUNDO AJUSTE DE 5% INTERNAMENTE: Mover mais 5% internamente a partir da posição já ajustada.
-const PLANET_RADIUS = PLANET_RADIUS_FIRST_ADJUSTMENT - (PLANET_RADIUS_FIRST_ADJUSTMENT - INNER_RADIUS) * 0.05;
 
 // MODIFICAÇÃO: Novo raio para as linhas de aspecto, posicionado a 75% da distância do círculo interno
 // e 25% da distância do NOVO raio dos planetas.
@@ -36,7 +34,7 @@ const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
 
 // NOVAS CONSTANTES para distribuição de planetas próximos
 const PLANET_PROXIMITY_THRESHOLD = 4; // Graus dentro dos quais planetas são considerados "próximos"
-const PLANET_ANGULAR_SPREAD_STEP = 1.8; // Offset angular em graus para cada planeta em um cluster
+const PLANET_ANGULAR_SPREAD_STEP = 6.5; // Offset angular em graus para cada planeta em um cluster (Mantido em 6.5)
 
 
 // Color Constants
