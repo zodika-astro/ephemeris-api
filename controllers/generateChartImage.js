@@ -12,13 +12,12 @@ const OUTER_RADIUS = 600;
 const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
 const INNER_RADIUS = OUTER_RADIUS * 0.25;
 const ASPECTS_LINE_MAX_RADIUS = INNER_RADIUS + 50;
-const MIN_PLANET_RADIUS = ASPECTS_LINE_MAX_RADIUS + 60;
-const MAX_PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS - 5;
 const PLANET_SYMBOL_SIZE = 52;
 const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
 const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
+const PLANET_RADIUS = DEGREE_TICK_RADIUS + 5;
 
 // Color Constants
 const COLORS = {
@@ -83,9 +82,10 @@ const SIGN_SYMBOLS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑
 // Utility functions
 const degToRad = (degrees) => degrees * Math.PI / 180;
 
-function toChartCoords(degree) {
-  // Convert to standard chart orientation: 0° at right, increasing clockwise
-  return degToRad(360 - degree);
+function toChartCoords(degree, rotation = 0) {
+  // Adjust for rotation and convert to clockwise from top (0° at top)
+  const adjusted = (360 - degree + rotation) % 360;
+  return degToRad(adjusted);
 }
 
 function drawArrow(ctx, x, y, angle, size) {
@@ -102,20 +102,6 @@ function drawArrow(ctx, x, y, angle, size) {
   ctx.restore();
 }
 
-function rotateHouseToStandardPosition(houseCusps) {
-  // Find house 10 (Midheaven) to position at top
-  const house10 = houseCusps.find(c => c.house === 10);
-  if (!house10) return houseCusps;
-  
-  // Calculate rotation needed to place house 10 at 0°
-  const rotation = house10.degree;
-  
-  return houseCusps.map(c => ({
-    ...c,
-    degree: (c.degree - rotation + 360) % 360
-  }));
-}
-
 async function generateNatalChartImage(ephemerisData) {
   const canvas = createCanvas(CHART_WIDTH, CHART_HEIGHT);
   const ctx = canvas.getContext('2d');
@@ -127,6 +113,8 @@ async function generateNatalChartImage(ephemerisData) {
 
   // Prepare house cusps
   const houseCusps = [];
+  let mcDegree = 0;
+  
   for (let i = 1; i <= 12; i++) {
     const houseKey = `house${i}`;
     if (houses[houseKey]) {
@@ -135,12 +123,14 @@ async function generateNatalChartImage(ephemerisData) {
         degree: houses[houseKey].cuspDegree,
         sign: houses[houseKey].sign
       });
+      
+      // Get MC degree (House 10)
+      if (i === 10) mcDegree = houses[houseKey].cuspDegree;
     }
   }
   
-  // Rotate houses to standard position (House 10 at top)
-  const rotatedHouseCusps = rotateHouseToStandardPosition(houseCusps);
-  rotatedHouseCusps.sort((a, b) => a.degree - b.degree);
+  // Calculate rotation to place MC at top (270°)
+  const rotation = (360 - mcDegree + 270) % 360;
 
   // Draw chart base
   ctx.fillStyle = COLORS.BACKGROUND;
@@ -164,7 +154,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.lineWidth = 1;
   
   for (let deg = 0; deg < 360; deg++) {
-    const rad = toChartCoords(deg);
+    const rad = toChartCoords(deg, rotation);
     
     // Determine tick size based on degree
     const isMajorTick = deg % 10 === 0;
@@ -184,8 +174,8 @@ async function generateNatalChartImage(ephemerisData) {
   }
 
   // Draw house cusps and numbers
-  rotatedHouseCusps.forEach((cusp, index) => {
-    const angleRad = toChartCoords(cusp.degree);
+  houseCusps.forEach((cusp) => {
+    const angleRad = toChartCoords(cusp.degree, rotation);
     
     // Draw cusp line
     const xInner = CENTER_X + INNER_RADIUS * Math.cos(angleRad);
@@ -215,8 +205,8 @@ async function generateNatalChartImage(ephemerisData) {
   // Draw sign and degree labels on house cusps
   ctx.font = 'bold 16px Inter';
   ctx.fillStyle = '#5A2A00';
-  rotatedHouseCusps.forEach((cusp) => {
-    const angleRad = toChartCoords(cusp.degree);
+  houseCusps.forEach((cusp) => {
+    const angleRad = toChartCoords(cusp.degree, rotation);
     const r = ZODIAC_RING_INNER_RADIUS - 20;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
@@ -237,7 +227,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.setLineDash([8, 6]);
   
   for (let deg = 0; deg < 360; deg += 30) {
-    const rad = toChartCoords(deg);
+    const rad = toChartCoords(deg, rotation);
     const xStart = CENTER_X + ZODIAC_RING_INNER_RADIUS * Math.cos(rad);
     const yStart = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(rad);
     const xEnd = CENTER_X + OUTER_RADIUS * Math.cos(rad);
@@ -256,8 +246,8 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.fillStyle = COLORS.SIGN;
   
   ZODIAC_SIGNS.forEach((sign, i) => {
-    const angleDeg = i * 30 + 15;
-    const angleRad = toChartCoords(angleDeg);
+    const angleDeg = i * 30;
+    const angleRad = toChartCoords(angleDeg + 15, rotation);
     const r = (OUTER_RADIUS + ZODIAC_RING_INNER_RADIUS) / 2;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
@@ -280,20 +270,15 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
   // ==================================================================
-  // PLANET POSITIONING LOGIC (PRECISE DEGREE-BASED PLACEMENT)
+  // PLANET POSITIONING (FIXED RADIUS ON DEGREE TICKS)
   // ==================================================================
   const planets = Object.entries(planetPositions)
-    .map(([name, deg]) => ({ name, deg }))
-    .sort((a, b) => a.deg - b.deg);
+    .map(([name, deg]) => ({ name, deg }));
 
   const placedPlanets = [];
-  const MIN_DISTANCE = PLANET_CIRCLE_RADIUS * 2 + 20;
-  const PLANET_RADIUS = DEGREE_TICK_RADIUS + 5; // Position on outer degree ticks
 
   planets.forEach(planet => {
-    const angleRad = toChartCoords(planet.deg);
-    
-    // Place planet on the degree ticks ring
+    const angleRad = toChartCoords(planet.deg, rotation);
     const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad);
     const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad);
     
@@ -340,7 +325,6 @@ async function generateNatalChartImage(ephemerisData) {
       const p2 = placedPlanets.find(p => p.name === aspect.planet2.name);
       
       if (p1 && p2) {
-        // Start from planet's actual position
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
