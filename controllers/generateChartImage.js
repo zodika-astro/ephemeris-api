@@ -12,13 +12,18 @@ const OUTER_RADIUS = 600;
 const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
 // MODIFICAÇÃO: Diminuir o círculo interno para metade do tamanho
 const INNER_RADIUS = OUTER_RADIUS * 0.125; // Era 0.25, agora 0.25 / 2 = 0.125
-const ASPECTS_LINE_MAX_RADIUS = INNER_RADIUS + 50;
+const ASPECTS_LINE_MAX_RADIUS = INNER_RADIUS + 50; // Esta constante não será mais usada para o posicionamento das linhas de aspecto
+
 const PLANET_SYMBOL_SIZE = 52;
 const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
 const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
-const PLANET_RADIUS = DEGREE_TICK_RADIUS + 5;
+const PLANET_RADIUS = DEGREE_TICK_RADIUS + 5; // Raio onde os símbolos dos planetas são desenhados
+
+// MODIFICAÇÃO: Novo raio para as linhas de aspecto, a meio caminho entre INNER_RADIUS e PLANET_RADIUS
+const ASPECT_LINE_RADIUS = (INNER_RADIUS + PLANET_RADIUS) / 2;
+
 
 // Color Constants
 const COLORS = {
@@ -31,7 +36,9 @@ const COLORS = {
   SIGN_DIVISION: 'rgba(89, 74, 66, 0.4)',
   ARROW: '#5A2A00',
   CENTER_TEXT: '#807B74',
-  DEGREE_TICK: 'rgba(89, 74, 66, 0.6)'
+  DEGREE_TICK: 'rgba(89, 74, 66, 0.6)',
+  // MODIFICAÇÃO: Nova cor para o círculo dos aspectos
+  ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)' // Uma versão mais clara da cor da linha principal
 };
 
 // Font registration
@@ -184,12 +191,20 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI);  
   ctx.stroke();
 
+  // MODIFICAÇÃO: Desenhar o novo círculo para os aspectos
+  ctx.strokeStyle = COLORS.ASPECT_CIRCLE; // Usar a nova cor
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(CENTER_X, CENTER_Y, ASPECT_LINE_RADIUS, 0, 2 * Math.PI);
+  ctx.stroke();
+
+
   // Draw degree ticks in the zodiac ring
   ctx.strokeStyle = COLORS.DEGREE_TICK;
   ctx.lineWidth = 1;
   
   for (let deg = 0; deg < 360; deg++) {
-    const rad = toChartCoords(deg, rotationOffset); // Usa o novo rotationOffset
+    const rad = toChartCoords(deg, rotationOffset); 
     
     // Determine tick size based on degree
     const isMajorTick = deg % 10 === 0;
@@ -209,7 +224,7 @@ async function generateNatalChartImage(ephemerisData) {
   }
 
   // Draw house cusps and numbers
-  houseCusps.forEach((cusp, index) => { // Adicionado 'index' para iterar
+  houseCusps.forEach((cusp, index) => { 
     const angleRad = toChartCoords(cusp.degree, rotationOffset); 
     
     // Draw cusp line
@@ -226,9 +241,7 @@ async function generateNatalChartImage(ephemerisData) {
     // Draw arrow
     drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12); 
     
-    // ==================================================================
-    // MODIFICAÇÃO INÍCIO: Calcular o ponto central da casa para posicionar o número
-    // ==================================================================
+    // Calcular o ponto central da casa para posicionar o número
     let nextCuspDegree;
     if (index < houseCusps.length - 1) {
       nextCuspDegree = houseCusps[index + 1].degree;
@@ -246,15 +259,12 @@ async function generateNatalChartImage(ephemerisData) {
     }
     
     const midHouseDegree = (startDeg + endDeg) / 2;
-    const midHouseAngleRad = toChartCoords(midHouseDegree, rotationOffset); // Usa o offset de rotação
+    const midHouseAngleRad = toChartCoords(midHouseDegree, rotationOffset); 
     
     // Draw house number in the center of the house
-    const r = HOUSE_NUMBER_RADIUS; // Mantém a mesma distância radial
+    const r = HOUSE_NUMBER_RADIUS; 
     const x = CENTER_X + r * Math.cos(midHouseAngleRad);
     const y = CENTER_Y + r * Math.sin(midHouseAngleRad);
-    // ==================================================================
-    // MODIFICAÇÃO FIM
-    // ==================================================================
     
     ctx.fillStyle = COLORS.CUSP_NUMBER;
     ctx.font = `bold ${HOUSE_NUMBER_FONT_SIZE}px Inter`;
@@ -267,7 +277,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.font = 'bold 16px Inter';
   ctx.fillStyle = '#5A2A00';
   houseCusps.forEach((cusp) => {
-    const angleRad = toChartCoords(cusp.degree, rotationOffset); // Usa o novo rotationOffset
+    const angleRad = toChartCoords(cusp.degree, rotationOffset); 
     const r = ZODIAC_RING_INNER_RADIUS - 20;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
@@ -288,7 +298,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.setLineDash([8, 6]);
   
   for (let deg = 0; deg < 360; deg += 30) {
-    const rad = toChartCoords(deg, rotationOffset); // Usa o novo rotationOffset
+    const rad = toChartCoords(deg, rotationOffset); 
     const xStart = CENTER_X + ZODIAC_RING_INNER_RADIUS * Math.cos(rad);
     const yStart = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(rad);
     const xEnd = CENTER_X + OUTER_RADIUS * Math.cos(rad);
@@ -309,7 +319,7 @@ async function generateNatalChartImage(ephemerisData) {
   ZODIAC_SIGNS.forEach((sign, i) => {
     const angleDeg = i * 30;
     // Position sign symbols in the middle of each 30-degree segment
-    const angleRad = toChartCoords(angleDeg + 15, rotationOffset); // Usa o novo rotationOffset
+    const angleRad = toChartCoords(angleDeg + 15, rotationOffset); 
     const r = (OUTER_RADIUS + ZODIAC_RING_INNER_RADIUS) / 2;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
@@ -343,7 +353,7 @@ async function generateNatalChartImage(ephemerisData) {
   const placedPlanets = [];
 
   planets.forEach(planet => {
-    const angleRad = toChartCoords(planet.deg, rotationOffset); // Usa o novo rotationOffset
+    const angleRad = toChartCoords(planet.deg, rotationOffset); 
     const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad);
     const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad);
     
@@ -390,25 +400,19 @@ async function generateNatalChartImage(ephemerisData) {
       const p2 = placedPlanets.find(p => p.name === aspect.planet2.name);
       
       if (p1 && p2) {
+        // MODIFICAÇÃO: Desenhar as linhas de aspecto no novo raio ASPECT_LINE_RADIUS
+        const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
+        const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
+        const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
+        const aspectY2 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p2.angleRad);
+
         ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
+        ctx.moveTo(aspectX1, aspectY1);
+        ctx.lineTo(aspectX2, aspectY2);
         ctx.stroke();
       }
     });
   }
-
-  // MODIFICAÇÃO: Removido o desenho do texto central
-  // Originalmente:
-  // ctx.textAlign = 'center';
-  // ctx.textBaseline = 'middle';
-  // ctx.fillStyle = COLORS.CENTER_TEXT;
-  // ctx.font = 'bold 32px Inter';
-  // ctx.fillText('MAPA NATAL', CENTER_X, CENTER_Y - 25);
-  // ctx.font = 'italic 26px Inter';
-  // ctx.fillText('ZODIKA', CENTER_X, CENTER_Y + 15);
-  // ctx.font = '18px Inter';
-  // ctx.fillText('www.zodika.com.br', CENTER_X, CENTER_Y + 55);
 
   return canvas.toBuffer('image/png');
 }
