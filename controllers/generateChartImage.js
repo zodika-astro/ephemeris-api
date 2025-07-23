@@ -27,9 +27,12 @@ const PLANET_RADIUS_ORIGINAL_REFERENCE = DEGREE_TICK_RADIUS + 5;
 // Primeiro ajuste: mover 5% internamente a partir da referência original.
 const PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT = PLANET_RADIUS_ORIGINAL_REFERENCE - (PLANET_RADIUS_ORIGINAL_REFERENCE - INNER_RADIUS) * 0.05;
 
-// SEGUNDO AJUSTE: Mover MAIS 5% internamente a partir da posição já ajustada.
+// Segundo ajuste: Mover MAIS 5% internamente a partir da posição já ajustada.
+const PLANET_RADIUS_AFTER_SECOND_ADJUSTMENT = PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT - (PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT - INNER_RADIUS) * 0.05;
+
+// TERCEIRO AJUSTE: Mover MAIS 3% internamente a partir da posição já ajustada.
 // Isso é o que você solicitou para corrigir a leve sobreposição restante.
-const PLANET_RADIUS = PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT - (PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT - INNER_RADIUS) * 0.05;
+const PLANET_RADIUS = PLANET_RADIUS_AFTER_SECOND_ADJUSTMENT - (PLANET_RADIUS_AFTER_SECOND_ADJUSTMENT - INNER_RADIUS) * 0.03;
 
 
 // MODIFICAÇÃO: Novo raio para as linhas de aspecto, posicionado a 75% da distância do círculo interno
@@ -319,7 +322,6 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.lineWidth = 1;
   
   // Criar um set de graus ajustados dos planetas para fácil consulta
-  // MODIFICAÇÃO: Esta linha foi movida para depois da declaração e preenchimento de placedPlanets
   const planetDegrees = new Set(placedPlanets.map(p => Math.round(p.adjustedDeg)));
 
   for (let deg = 0; deg < 360; deg++) {
