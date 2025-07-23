@@ -46,6 +46,9 @@ const PLANET_ANGULAR_SPREAD_STEP = 6.5; // Offset angular em graus para cada pla
 // Nova constante para a espessura da linha de destaque da régua
 const BOLD_TICK_LINE_WIDTH = 3; // Espessura da linha quando há um planeta
 
+// Nova constante para a espessura das linhas das cúspides principais
+const BOLD_CUSP_LINE_WIDTH = 3;
+
 
 // Color Constants
 const COLORS = {
@@ -357,6 +360,14 @@ async function generateNatalChartImage(ephemerisData) {
   houseCusps.forEach((cusp, index) => { 
     const angleRad = toChartCoords(cusp.degree, rotationOffset); 
     
+    // MODIFICAÇÃO: Definir a espessura da linha da cúspide
+    const originalCuspLineWidth = ctx.lineWidth;
+    if ([1, 4, 7, 10].includes(cusp.house)) { // Verifica se é AC, IC, DC ou MC
+        ctx.lineWidth = BOLD_CUSP_LINE_WIDTH;
+    } else {
+        ctx.lineWidth = 2; // Espessura padrão para outras cúspides
+    }
+
     // Draw cusp line
     const xInner = CENTER_X + INNER_RADIUS * Math.cos(angleRad);
     const yInner = CENTER_Y + INNER_RADIUS * Math.sin(angleRad);
@@ -368,6 +379,9 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.lineTo(xZodiacInner, yZodiacInner); 
     ctx.stroke();
     
+    // Restaura a espessura da linha para o que era antes de desenhar a cúspide
+    ctx.lineWidth = originalCuspLineWidth;
+
     // Draw arrow
     drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12); 
     
