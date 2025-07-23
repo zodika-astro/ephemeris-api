@@ -34,6 +34,10 @@ const PLANET_RADIUS = PLANET_RADIUS_FIRST_ADJUSTMENT - (PLANET_RADIUS_FIRST_ADJU
 // e 25% da distância do NOVO raio dos planetas.
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
 
+// NOVAS CONSTANTES para distribuição de planetas próximos
+const PLANET_PROXIMITY_THRESHOLD = 4; // Graus dentro dos quais planetas são considerados "próximos"
+const PLANET_ANGULAR_SPREAD_STEP = 1.8; // Offset angular em graus para cada planeta em um cluster
+
 
 // Color Constants
 const COLORS = {
@@ -141,6 +145,48 @@ function drawArrow(ctx, x, y, angle, size) {
   ctx.fill();
   ctx.restore();
 }
+
+/**
+ * Distribui angularmente um cluster de planetas para evitar sobreposição.
+ * @param {Array<Object>} cluster - Um array de objetos de planeta ({ name, deg }).
+ * @param {Array<Object>} targetArray - O array onde os planetas ajustados serão adicionados.
+ */
+function distributeCluster(cluster, targetArray) {
+  const numPlanets = cluster.length;
+  if (numPlanets <= 1) {
+    targetArray.push({ ...cluster[0], adjustedDeg: cluster[0].deg }); // Garante que adjustedDeg exista
+    return;
+  }
+
+  // Ordena os planetas por grau original para garantir uma distribuição consistente
+  cluster.sort((a, b) => a.deg - b.deg);
+
+  // Calcula um ponto central para o cluster, ajustando para a passagem de 0/360 graus
+  let tempDegrees = cluster.map(p => p.deg);
+  // Se o cluster cruza a linha 0/360 (ex: 350, 5, 10), ajusta os graus menores para > 360
+  if (tempDegrees[0] > 180 && tempDegrees[tempDegrees.length - 1] < 180) {
+      for (let i = 0; i < tempDegrees.length; i++) {
+          if (tempDegrees[i] < 180) { 
+              tempDegrees[i] += 360;
+          }
+      }
+  }
+  const clusterCenterDegree = (tempDegrees.reduce((sum, deg) => sum + deg, 0) / numPlanets + 360) % 360;
+
+  // Calcula o offset inicial para centralizar o spread
+  const totalAngularSpread = (numPlanets - 1) * PLANET_ANGULAR_SPREAD_STEP;
+  const startOffset = -totalAngularSpread / 2;
+
+  cluster.forEach((planet, index) => {
+    const individualOffset = startOffset + index * PLANET_ANGULAR_SPREAD_STEP;
+    const adjustedDeg = (clusterCenterDegree + individualOffset + 360) % 360;
+    targetArray.push({
+      ...planet,
+      adjustedDeg: adjustedDeg
+    });
+  });
+}
+
 
 async function generateNatalChartImage(ephemerisData) {
   const canvas = createCanvas(CHART_WIDTH, CHART_HEIGHT);
@@ -356,16 +402,46 @@ async function generateNatalChartImage(ephemerisData) {
 
   // ==================================================================
   // PLANET POSITIONING (FIXED RADIUS ON DEGREE TICKS)
+  // E DISTRIBUIÇÃO PARA EVITAR SOBREPOSIÇÃO
   // ==================================================================
   const planets = Object.entries(planetPositions)
     .map(([name, deg]) => ({ name, deg }));
 
+  const adjustedPlanets = [];
+  let currentCluster = [];
+
+  // Ordena os planetas por grau para facilitar a identificação de clusters
+  planets.sort((a, b) => a.deg - b.deg);
+
+  for (let i = 0; i < planets.length; i++) {
+    const currentPlanet = planets[i];
+    const prevPlanet = planets[i - 1];
+
+    // Verifica se o planeta atual está próximo do anterior, considerando a passagem de 0/360 graus
+    const degreeDifference = Math.abs(currentPlanet.deg - (prevPlanet ? prevPlanet.deg : currentPlanet.deg));
+    const wrappedDifference = 360 - degreeDifference; // Diferença no outro sentido do círculo
+
+    if (prevPlanet && Math.min(degreeDifference, wrappedDifference) < PLANET_PROXIMITY_THRESHOLD) {
+      currentCluster.push(currentPlanet);
+    } else {
+      if (currentCluster.length > 0) {
+        distributeCluster(currentCluster, adjustedPlanets);
+      }
+      currentCluster = [currentPlanet]; // Inicia um novo cluster
+    }
+  }
+  // Processa o último cluster após o loop
+  if (currentCluster.length > 0) {
+    distributeCluster(currentCluster, adjustedPlanets);
+  }
+
   const placedPlanets = [];
 
-  planets.forEach(planet => {
-    const angleRad = toChartCoords(planet.deg, rotationOffset); 
-    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad); // Usa o novo PLANET_RADIUS
-    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad); // Usa o novo PLANET_RADIUS
+  // MODIFICAÇÃO: Iterar sobre adjustedPlanets em vez de planets
+  adjustedPlanets.forEach(planet => {
+    const angleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Usa o adjustedDeg
+    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad); 
+    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad); 
     
     placedPlanets.push({
       ...planet,
