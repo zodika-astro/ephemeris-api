@@ -37,8 +37,10 @@ const COLORS = {
   ARROW: '#5A2A00',
   CENTER_TEXT: '#807B74',
   DEGREE_TICK: 'rgba(89, 74, 66, 0.6)',
-  // MODIFICAÇÃO: Nova cor para o círculo dos aspectos
-  ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)' // Uma versão mais clara da cor da linha principal
+  // MODIFICAÇÃO: Nova cor para o círculo dos aspectos (linha)
+  ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)', 
+  // MODIFICAÇÃO: Nova cor para o preenchimento do círculo dos aspectos
+  ASPECT_CIRCLE_FILL: '#FFFACD' // Uma cor amarelada clara (Lemon Chiffon)
 };
 
 // Font registration
@@ -191,12 +193,14 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI);  
   ctx.stroke();
 
-  // MODIFICAÇÃO: Desenhar o novo círculo para os aspectos
-  ctx.strokeStyle = COLORS.ASPECT_CIRCLE; // Usar a nova cor
-  ctx.lineWidth = 2;
+  // MODIFICAÇÃO: Desenhar e preencher o novo círculo para os aspectos
   ctx.beginPath();
   ctx.arc(CENTER_X, CENTER_Y, ASPECT_LINE_RADIUS, 0, 2 * Math.PI);
-  ctx.stroke();
+  ctx.fillStyle = COLORS.ASPECT_CIRCLE_FILL; // Usar a nova cor de preenchimento
+  ctx.fill(); // Preencher o círculo
+  ctx.strokeStyle = COLORS.ASPECT_CIRCLE; // Usar a cor da linha para o contorno
+  ctx.lineWidth = 2;
+  ctx.stroke(); // Desenhar o contorno
 
 
   // Draw degree ticks in the zodiac ring
