@@ -10,7 +10,8 @@ const CENTER_X = CHART_WIDTH / 2;
 const CENTER_Y = CHART_HEIGHT / 2;
 const OUTER_RADIUS = 600;
 const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
-const INNER_RADIUS = OUTER_RADIUS * 0.25;
+// MODIFICAÇÃO: Diminuir o círculo interno para metade do tamanho
+const INNER_RADIUS = OUTER_RADIUS * 0.125; // Era 0.25, agora 0.25 / 2 = 0.125
 const ASPECTS_LINE_MAX_RADIUS = INNER_RADIUS + 50;
 const PLANET_SYMBOL_SIZE = 52;
 const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
@@ -215,7 +216,7 @@ async function generateNatalChartImage(ephemerisData) {
     const xInner = CENTER_X + INNER_RADIUS * Math.cos(angleRad);
     const yInner = CENTER_Y + INNER_RADIUS * Math.sin(angleRad);
     const xZodiacInner = CENTER_X + ZODIAC_RING_INNER_RADIUS * Math.cos(angleRad);
-    const yZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(angleRad); // Corrigido para Math.sin
+    const yZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(angleRad); 
     
     ctx.beginPath();
     ctx.moveTo(xInner, yInner);
@@ -250,7 +251,7 @@ async function generateNatalChartImage(ephemerisData) {
     const label = `${degreeInSign}° ${SIGN_SYMBOLS[signIndex]}`;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angleRad + Math.PI / 2); // Rotate text to be readable along the circle
+    ctx.rotate(angleRad + Math.PI / 2); 
     ctx.textAlign = 'left';
     ctx.fillText(label, 5, 0);
     ctx.restore();
@@ -372,16 +373,17 @@ async function generateNatalChartImage(ephemerisData) {
     });
   }
 
-  // Draw center text
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = COLORS.CENTER_TEXT;
-  ctx.font = 'bold 32px Inter';
-  ctx.fillText('MAPA NATAL', CENTER_X, CENTER_Y - 25);
-  ctx.font = 'italic 26px Inter';
-  ctx.fillText('ZODIKA', CENTER_X, CENTER_Y + 15);
-  ctx.font = '18px Inter';
-  ctx.fillText('www.zodika.com.br', CENTER_X, CENTER_Y + 55);
+  // MODIFICAÇÃO: Removido o desenho do texto central
+  // Originalmente:
+  // ctx.textAlign = 'center';
+  // ctx.textBaseline = 'middle';
+  // ctx.fillStyle = COLORS.CENTER_TEXT;
+  // ctx.font = 'bold 32px Inter';
+  // ctx.fillText('MAPA NATAL', CENTER_X, CENTER_Y - 25);
+  // ctx.font = 'italic 26px Inter';
+  // ctx.fillText('ZODIKA', CENTER_X, CENTER_Y + 15);
+  // ctx.font = '18px Inter';
+  // ctx.fillText('www.zodika.com.br', CENTER_X, CENTER_Y + 55);
 
   return canvas.toBuffer('image/png');
 }
