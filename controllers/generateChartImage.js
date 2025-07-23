@@ -477,6 +477,28 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText(symbol, planet.x, planet.y);
   });
 
+      // Draw planet degree label
+    const degreeText = `${planet.deg.toFixed(1)}°`; // Format degree to one decimal place
+    const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Use adjusted degree for label position
+
+    // Calculate position for the degree label, slightly outside the planet symbol
+    const labelX = CENTER_X + (PLANET_RADIUS + PLANET_DEGREE_LABEL_OFFSET) * Math.cos(labelAngleRad);
+    const labelY = CENTER_Y + (PLANET_RADIUS + PLANET_DEGREE_LABEL_OFFSET) * Math.sin(labelAngleRad);
+
+    ctx.save();
+    ctx.translate(labelX, labelY);
+    // Rotate the label to be readable radially
+    ctx.rotate(labelAngleRad + Math.PI / 2); // Adjust rotation for readability
+
+    ctx.fillStyle = COLORS.TEXT; // Use general text color
+    ctx.font = `bold ${PLANET_DEGREE_FONT_SIZE}px Inter`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(degreeText, 0, 0); // Draw at translated origin
+
+    ctx.restore();
+  });
+
   // Draw aspect lines
   for (const aspectType in aspectsData) {
     const style = ASPECT_STYLES[aspectType];
