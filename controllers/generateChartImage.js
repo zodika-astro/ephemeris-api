@@ -40,6 +40,9 @@ const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
 const PLANET_PROXIMITY_THRESHOLD = 4; // Graus dentro dos quais planetas são considerados "próximos"
 const PLANET_ANGULAR_SPREAD_STEP = 6.5; // Offset angular em graus para cada planeta em um cluster (Mantido em 6.5)
 
+// Nova constante para a espessura da linha de destaque da régua
+const BOLD_TICK_LINE_WIDTH = 3; // Espessura da linha quando há um planeta
+
 
 // Color Constants
 const COLORS = {
@@ -260,13 +263,22 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.strokeStyle = COLORS.DEGREE_TICK;
   ctx.lineWidth = 1;
   
+  // Criar um set de graus ajustados dos planetas para fácil consulta
+  const planetDegrees = new Set(placedPlanets.map(p => Math.round(p.adjustedDeg)));
+
   for (let deg = 0; deg < 360; deg++) {
     const rad = toChartCoords(deg, rotationOffset); 
     
     // Determine tick size based on degree
     const isMajorTick = deg % 10 === 0;
-    // MODIFICAÇÃO: Aumentar o tamanho das linhas da régua em 20%
     const tickLength = isMajorTick ? 10 * 1.2 : 5 * 1.2; 
+    
+    // MODIFICAÇÃO: Ajustar a espessura da linha se houver um planeta neste grau
+    const originalLineWidth = ctx.lineWidth; // Salva a espessura original
+    if (planetDegrees.has(deg)) {
+        ctx.lineWidth = BOLD_TICK_LINE_WIDTH;
+    }
+
     const tickStart = DEGREE_TICK_RADIUS;
     const tickEnd = tickStart + tickLength;
     
@@ -279,6 +291,8 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.moveTo(xStart, yStart);
     ctx.lineTo(xEnd, yEnd);
     ctx.stroke();
+    
+    ctx.lineWidth = originalLineWidth; // Restaura a espessura original
   }
 
   // Draw house cusps and numbers
@@ -439,7 +453,7 @@ async function generateNatalChartImage(ephemerisData) {
 
   const placedPlanets = [];
 
-  // MODIFICAÇÃO: Iterar sobre adjustedPlanets em vez de planets
+  // Iterar sobre adjustedPlanets em vez de planets
   adjustedPlanets.forEach(planet => {
     const angleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Usa o adjustedDeg
     const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad); 
