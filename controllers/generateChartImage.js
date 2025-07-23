@@ -19,10 +19,20 @@ const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
 const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
-const PLANET_RADIUS = DEGREE_TICK_RADIUS + 5; // Raio onde os símbolos dos planetas são desenhados
 
-// MODIFICAÇÃO: Novo raio para as linhas de aspecto, a meio caminho entre INNER_RADIUS e PLANET_RADIUS
-const ASPECT_LINE_RADIUS = (INNER_RADIUS + PLANET_RADIUS) / 2;
+// MODIFICAÇÃO: Definir uma referência para o raio original dos planetas
+// Este valor é usado para calcular ASPECT_LINE_RADIUS conforme a lógica anterior
+const OLD_PLANET_RADIUS_REFERENCE = DEGREE_TICK_RADIUS + 5;
+
+// MODIFICAÇÃO: Novo raio para as linhas de aspecto, posicionado a 75% da distância do círculo interno
+// Este cálculo usa o OLD_PLANET_RADIUS_REFERENCE para manter a lógica anterior de posicionamento do aspecto.
+const ASPECT_LINE_RADIUS = INNER_RADIUS + (OLD_PLANET_RADIUS_REFERENCE - INNER_RADIUS) * 0.75;
+
+// MODIFICAÇÃO: Calcular o novo raio para os planetas
+// 1. Posição inicial dos planetas: 25% da distância entre o círculo de aspectos e o anel do zodíaco.
+const PLANET_RADIUS_CANDIDATE = ASPECT_LINE_RADIUS + (ZODIAC_RING_INNER_RADIUS - ASPECT_LINE_RADIUS) * 0.25;
+// 2. Ajuste final: mover 5% internamente a partir da posição candidata em direção ao círculo de aspectos.
+const PLANET_RADIUS = PLANET_RADIUS_CANDIDATE - (PLANET_RADIUS_CANDIDATE - ASPECT_LINE_RADIUS) * 0.05;
 
 
 // Color Constants
@@ -37,9 +47,7 @@ const COLORS = {
   ARROW: '#5A2A00',
   CENTER_TEXT: '#807B74',
   DEGREE_TICK: 'rgba(89, 74, 66, 0.6)',
-  // MODIFICAÇÃO: Nova cor para o círculo dos aspectos (linha) - mantida como antes da última alteração
-  ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)' // Uma versão mais clara da cor da linha principal
-  // REMOVIDO: ASPECT_CIRCLE_FILL
+  ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)'
 };
 
 // Font registration
@@ -192,7 +200,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI);  
   ctx.stroke();
 
-  // MODIFICAÇÃO: Desenhar o novo círculo para os aspectos (sem preenchimento)
+  // Desenhar o novo círculo para os aspectos (sem preenchimento)
   ctx.strokeStyle = COLORS.ASPECT_CIRCLE; // Usar a cor da linha
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -355,8 +363,8 @@ async function generateNatalChartImage(ephemerisData) {
 
   planets.forEach(planet => {
     const angleRad = toChartCoords(planet.deg, rotationOffset); 
-    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad);
-    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad);
+    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad); // Usa o novo PLANET_RADIUS
+    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad); // Usa o novo PLANET_RADIUS
     
     placedPlanets.push({
       ...planet,
@@ -401,7 +409,7 @@ async function generateNatalChartImage(ephemerisData) {
       const p2 = placedPlanets.find(p => p.name === aspect.planet2.name);
       
       if (p1 && p2) {
-        // Desenhar as linhas de aspecto no novo raio ASPECT_LINE_RADIUS
+        // Desenhar as linhas de aspecto no raio ASPECT_LINE_RADIUS
         const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
         const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
         const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
