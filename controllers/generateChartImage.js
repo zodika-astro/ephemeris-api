@@ -18,11 +18,10 @@ const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
-// Calculate planet radius with combined inward adjustments
-// Equivalent to successive adjustments of 5%, 5%, and 3% inwards from original reference towards INNER_RADIUS.
+// Calculate planet radius 
 const PLANET_RADIUS = (DEGREE_TICK_RADIUS + 5) * 0.875425 + INNER_RADIUS * 0.124575;
 
-// Radius for aspect lines, positioned 75% from the inner circle and 25% from the planet circle
+// Radius for aspect lines
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
 
 // Constants for distributing close planets to avoid overlap
@@ -33,7 +32,7 @@ const PLANET_ANGULAR_SPREAD_STEP = 6.5; // Angular offset in degrees for each pl
 const BOLD_TICK_LINE_WIDTH = 3;
 
 // Line width for main house cusps (AC, IC, DC, MC)
-const BOLD_CUSP_LINE_WIDTH = 3;
+const BOLD_CUSP_LINE_WIDTH = 5;
 
 
 // Color Constants
@@ -51,7 +50,7 @@ const COLORS = {
   ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)'
 };
 
-// Font registration (executed once when the module is loaded)
+// Font registration
 const interFontPath = path.join(__dirname, '../fonts/Inter-Bold.ttf');
 const symbolaFontPath = path.join(__dirname, '../fonts/symbola.ttf');
 let useSymbolaFont = false;
@@ -83,7 +82,7 @@ const PLANET_SYMBOLS = {
 // Aspect styles
 const ASPECT_STYLES = {
   conjunction: { color: null, lineWidth: 0 },
-  opposition: { color: '#FF0000', lineWidth: 3 },
+  opposition: { color: '#FF0000', lineWidth: 4 },
   square: { color: '#FF4500', lineWidth: 2.5 },
   sextile: { color: '#0000FF', lineWidth: 2 },
   trine: { color: '#008000', lineWidth: 2 }
@@ -103,8 +102,6 @@ const degToRad = (degrees) => degrees * Math.PI / 180;
 /**
  * Converts an astrological degree to chart coordinates (radians) with a specific rotation.
  * This function maps astrological degrees to canvas coordinates.
- * Astrological 0° (Aries) is typically on the left. Canvas 0° is to the right, increasing clockwise.
- * The rotationOffset aligns a specific astrological degree (e.g., MC) to a desired canvas position (e.g., top).
  *
  * @param {number} degree - The astrological degree (0-360).
  * @param {number} rotationOffset - The additional rotation in degrees to apply to the chart.
@@ -112,7 +109,6 @@ const degToRad = (degrees) => degrees * Math.PI / 180;
  */
 function toChartCoords(degree, rotationOffset = 0) {
   // Step 1: Map astrological degree to standard canvas coordinates (clockwise from right, 0=right).
-  // Astrological 0 (Aries) is generally on the left. Canvas 0 is to the right.
   let canvasDegree = (180 - degree + 360) % 360;
 
   // Step 2: Apply the calculated rotation offset.
@@ -237,7 +233,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI);
   ctx.stroke();
 
-  // Draw the aspect circle (no fill)
+  // Draw the aspect circle
   ctx.strokeStyle = COLORS.ASPECT_CIRCLE;
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -315,12 +311,18 @@ async function generateNatalChartImage(ephemerisData) {
     const tickStart = DEGREE_TICK_RADIUS;
     const tickEnd = tickStart + tickLength;
 
+    // Declare xStart, yStart, xEnd, yEnd before use
+    const xStart = CENTER_X + tickStart * Math.cos(rad);
+    const yStart = CENTER_Y + tickStart * Math.sin(rad);
+    const xEnd = CENTER_X + tickEnd * Math.cos(rad);
+    const yEnd = CENTER_Y + tickEnd * Math.sin(rad);
+
     ctx.beginPath();
     ctx.moveTo(xStart, yStart);
     ctx.lineTo(xEnd, yEnd);
     ctx.stroke();
 
-    ctx.lineWidth = originalLineWidth; // Restore original line width
+    ctx.lineWidth = originalLineWidth; 
   }
 
   // Draw house cusps and numbers
