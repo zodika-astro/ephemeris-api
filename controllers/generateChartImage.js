@@ -258,12 +258,68 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.arc(CENTER_X, CENTER_Y, ASPECT_LINE_RADIUS, 0, 2 * Math.PI);
   ctx.stroke(); // Apenas desenhar o contorno
 
+  // ==================================================================
+  // PLANET POSITIONING (FIXED RADIUS ON DEGREE TICKS)
+  // E DISTRIBUIÇÃO PARA EVITAR SOBREPOSIÇÃO
+  // ==================================================================
+  // Esta seção foi movida para antes do desenho da régua para que placedPlanets esteja disponível
+  const planets = Object.entries(planetPositions)
+    .map(([name, deg]) => ({ name, deg }));
+
+  const adjustedPlanets = [];
+  let currentCluster = [];
+
+  // Ordena os planetas por grau para facilitar a identificação de clusters
+  planets.sort((a, b) => a.deg - b.deg);
+
+  for (let i = 0; i < planets.length; i++) {
+    const currentPlanet = planets[i];
+    const prevPlanet = planets[i - 1];
+
+    // Verifica se o planeta atual está próximo do anterior, considerando a passagem de 0/360 graus
+    const degreeDifference = Math.abs(currentPlanet.deg - (prevPlanet ? prevPlanet.deg : currentPlanet.deg));
+    const wrappedDifference = 360 - degreeDifference; // Diferença no outro sentido do círculo
+
+    if (prevPlanet && Math.min(degreeDifference, wrappedDifference) < PLANET_PROXIMITY_THRESHOLD) {
+      currentCluster.push(currentPlanet);
+    } else {
+      if (currentCluster.length > 0) {
+        distributeCluster(currentCluster, adjustedPlanets);
+      }
+      currentCluster = [currentPlanet]; // Inicia um novo cluster
+    }
+  }
+  // Processa o último cluster após o loop
+  if (currentCluster.length > 0) {
+    distributeCluster(currentCluster, adjustedPlanets);
+  }
+
+  const placedPlanets = [];
+
+  // Iterar sobre adjustedPlanets em vez de planets
+  adjustedPlanets.forEach(planet => {
+    const angleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Usa o adjustedDeg
+    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad); 
+    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad); 
+    
+    placedPlanets.push({
+      ...planet,
+      angleRad,
+      x,
+      y
+    });
+  });
+  // ==================================================================
+  // FIM DA SEÇÃO DE POSICIONAMENTO DOS PLANETAS
+  // ==================================================================
+
 
   // Draw degree ticks in the zodiac ring
   ctx.strokeStyle = COLORS.DEGREE_TICK;
   ctx.lineWidth = 1;
   
   // Criar um set de graus ajustados dos planetas para fácil consulta
+  // MODIFICAÇÃO: Esta linha foi movida para depois da declaração e preenchimento de placedPlanets
   const planetDegrees = new Set(placedPlanets.map(p => Math.round(p.adjustedDeg)));
 
   for (let deg = 0; deg < 360; deg++) {
@@ -414,57 +470,6 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText(sign.toUpperCase(), 0, 20);
     
     ctx.restore();
-  });
-
-  // ==================================================================
-  // PLANET POSITIONING (FIXED RADIUS ON DEGREE TICKS)
-  // E DISTRIBUIÇÃO PARA EVITAR SOBREPOSIÇÃO
-  // ==================================================================
-  const planets = Object.entries(planetPositions)
-    .map(([name, deg]) => ({ name, deg }));
-
-  const adjustedPlanets = [];
-  let currentCluster = [];
-
-  // Ordena os planetas por grau para facilitar a identificação de clusters
-  planets.sort((a, b) => a.deg - b.deg);
-
-  for (let i = 0; i < planets.length; i++) {
-    const currentPlanet = planets[i];
-    const prevPlanet = planets[i - 1];
-
-    // Verifica se o planeta atual está próximo do anterior, considerando a passagem de 0/360 graus
-    const degreeDifference = Math.abs(currentPlanet.deg - (prevPlanet ? prevPlanet.deg : currentPlanet.deg));
-    const wrappedDifference = 360 - degreeDifference; // Diferença no outro sentido do círculo
-
-    if (prevPlanet && Math.min(degreeDifference, wrappedDifference) < PLANET_PROXIMITY_THRESHOLD) {
-      currentCluster.push(currentPlanet);
-    } else {
-      if (currentCluster.length > 0) {
-        distributeCluster(currentCluster, adjustedPlanets);
-      }
-      currentCluster = [currentPlanet]; // Inicia um novo cluster
-    }
-  }
-  // Processa o último cluster após o loop
-  if (currentCluster.length > 0) {
-    distributeCluster(currentCluster, adjustedPlanets);
-  }
-
-  const placedPlanets = [];
-
-  // Iterar sobre adjustedPlanets em vez de planets
-  adjustedPlanets.forEach(planet => {
-    const angleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Usa o adjustedDeg
-    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad); 
-    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad); 
-    
-    placedPlanets.push({
-      ...planet,
-      angleRad,
-      x,
-      y
-    });
   });
 
   // Draw planets
