@@ -21,11 +21,15 @@ const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
 // MODIFICAÇÃO: Recalcular o raio para os planetas
-// Retornando à posição que foi ajustada em 5% internamente na penúltima iteração.
-const PLANET_RADIUS_REFERENCE = DEGREE_TICK_RADIUS + 5; // Posição original de referência dos planetas
+// Posição original de referência dos planetas (antes de qualquer ajuste radial para dentro)
+const PLANET_RADIUS_ORIGINAL_REFERENCE = DEGREE_TICK_RADIUS + 5;
 
-// O planeta deve ser movido 5% internamente a partir da sua posição original.
-const PLANET_RADIUS = PLANET_RADIUS_REFERENCE - (PLANET_RADIUS_REFERENCE - INNER_RADIUS) * 0.05;
+// Primeiro ajuste: mover 5% internamente a partir da referência original.
+const PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT = PLANET_RADIUS_ORIGINAL_REFERENCE - (PLANET_RADIUS_ORIGINAL_REFERENCE - INNER_RADIUS) * 0.05;
+
+// SEGUNDO AJUSTE: Mover MAIS 5% internamente a partir da posição já ajustada.
+// Isso é o que você solicitou para corrigir a leve sobreposição restante.
+const PLANET_RADIUS = PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT - (PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT - INNER_RADIUS) * 0.05;
 
 
 // MODIFICAÇÃO: Novo raio para as linhas de aspecto, posicionado a 75% da distância do círculo interno
