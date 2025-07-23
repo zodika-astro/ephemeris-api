@@ -3,16 +3,14 @@ const { createCanvas, registerFont } = require('canvas');
 const path = require('path');
 const fs = require('fs');
 
-// Configuration Constants
+// Chart Configuration Constants
 const CHART_WIDTH = 1536;
 const CHART_HEIGHT = 1536;
 const CENTER_X = CHART_WIDTH / 2;
 const CENTER_Y = CHART_HEIGHT / 2;
 const OUTER_RADIUS = 600;
 const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
-// MODIFICAÇÃO: Diminuir o círculo interno para metade do tamanho
-const INNER_RADIUS = OUTER_RADIUS * 0.125; // Era 0.25, agora 0.25 / 2 = 0.125
-const ASPECTS_LINE_MAX_RADIUS = INNER_RADIUS + 50; // Esta constante não será mais usada para o posicionamento das linhas de aspecto
+const INNER_RADIUS = OUTER_RADIUS * 0.125; // Inner circle radius
 
 const PLANET_SYMBOL_SIZE = 52;
 const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
@@ -20,33 +18,21 @@ const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
-// MODIFICAÇÃO: Recalcular o raio para os planetas
-// Posição original de referência dos planetas (antes de qualquer ajuste radial para dentro)
-const PLANET_RADIUS_ORIGINAL_REFERENCE = DEGREE_TICK_RADIUS + 5;
+// Calculate planet radius with combined inward adjustments
+// Equivalent to successive adjustments of 5%, 5%, and 3% inwards from original reference towards INNER_RADIUS.
+const PLANET_RADIUS = (DEGREE_TICK_RADIUS + 5) * 0.875425 + INNER_RADIUS * 0.124575;
 
-// Primeiro ajuste: mover 5% internamente a partir da referência original.
-const PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT = PLANET_RADIUS_ORIGINAL_REFERENCE - (PLANET_RADIUS_ORIGINAL_REFERENCE - INNER_RADIUS) * 0.05;
-
-// Segundo ajuste: Mover MAIS 5% internamente a partir da posição já ajustada.
-const PLANET_RADIUS_AFTER_SECOND_ADJUSTMENT = PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT - (PLANET_RADIUS_AFTER_FIRST_ADJUSTMENT - INNER_RADIUS) * 0.05;
-
-// TERCEIRO AJUSTE: Mover MAIS 3% internamente a partir da posição já ajustada.
-// Isso é o que você solicitou para corrigir a leve sobreposição restante.
-const PLANET_RADIUS = PLANET_RADIUS_AFTER_SECOND_ADJUSTMENT - (PLANET_RADIUS_AFTER_SECOND_ADJUSTMENT - INNER_RADIUS) * 0.03;
-
-
-// MODIFICAÇÃO: Novo raio para as linhas de aspecto, posicionado a 75% da distância do círculo interno
-// e 25% da distância do NOVO raio dos planetas.
+// Radius for aspect lines, positioned 75% from the inner circle and 25% from the planet circle
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
 
-// NOVAS CONSTANTES para distribuição de planetas próximos
-const PLANET_PROXIMITY_THRESHOLD = 4; // Graus dentro dos quais planetas são considerados "próximos"
-const PLANET_ANGULAR_SPREAD_STEP = 6.5; // Offset angular em graus para cada planeta em um cluster (Mantido em 6.5)
+// Constants for distributing close planets to avoid overlap
+const PLANET_PROXIMITY_THRESHOLD = 4; // Degrees within which planets are considered "close"
+const PLANET_ANGULAR_SPREAD_STEP = 6.5; // Angular offset in degrees for each planet in a cluster
 
-// Nova constante para a espessura da linha de destaque da régua
-const BOLD_TICK_LINE_WIDTH = 3; // Espessura da linha quando há um planeta
+// Line width for highlighted ruler ticks
+const BOLD_TICK_LINE_WIDTH = 3;
 
-// Nova constante para a espessura das linhas das cúspides principais
+// Line width for main house cusps (AC, IC, DC, MC)
 const BOLD_CUSP_LINE_WIDTH = 3;
 
 
@@ -65,16 +51,16 @@ const COLORS = {
   ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)'
 };
 
-// Font registration
+// Font registration (executed once when the module is loaded)
 const interFontPath = path.join(__dirname, '../fonts/Inter-Bold.ttf');
 const symbolaFontPath = path.join(__dirname, '../fonts/symbola.ttf');
 let useSymbolaFont = false;
 
 if (fs.existsSync(interFontPath)) {
   registerFont(interFontPath, { family: 'Inter', weight: 'bold' });
-  registerFont(interFontPath.replace('-Bold', '-Regular'), { 
-    family: 'Inter', 
-    weight: 'normal' 
+  registerFont(interFontPath.replace('-Bold', '-Regular'), {
+    family: 'Inter',
+    weight: 'normal'
   });
 }
 
@@ -105,8 +91,8 @@ const ASPECT_STYLES = {
 
 // Zodiac signs and symbols
 const ZODIAC_SIGNS = [
-  "Áries", "Touro", "Gêmeos", "Câncer", "Leão", 
-  "Virgem", "Libra", "Escorpião", "Sagitário", 
+  "Áries", "Touro", "Gêmeos", "Câncer", "Leão",
+  "Virgem", "Libra", "Escorpião", "Sagitário",
   "Capricórnio", "Aquário", "Peixes"
 ];
 const SIGN_SYMBOLS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
@@ -116,33 +102,33 @@ const degToRad = (degrees) => degrees * Math.PI / 180;
 
 /**
  * Converts an astrological degree to chart coordinates (radians) with a specific rotation.
- * This function is designed to initially map astrological degrees to canvas coordinates as follows:
- * - Astrological 0° (Áries) maps to the left (180° canvas).
- * - Astrological 90° (Câncer) maps to the bottom (90° canvas).
- * - Astrological 180° (Libra) maps to the right (0° canvas).
- * - Astrological 270° (Capricórnio) maps to the top (270° canvas).
+ * This function maps astrological degrees to canvas coordinates.
+ * Astrological 0° (Aries) is typically on the left. Canvas 0° is to the right, increasing clockwise.
+ * The rotationOffset aligns a specific astrological degree (e.g., MC) to a desired canvas position (e.g., top).
  *
- * A 'rotationOffset' é então aplicado para girar todo o gráfico.
- *
- * @param {number} degree - O grau astrológico (0-360).
- * @param {number} rotationOffset - A rotação adicional em graus a ser aplicada ao gráfico.
- * Este valor é calculado para trazer um ponto astrológico específico
- * (por exemplo, MC) para uma posição desejada no canvas (por exemplo, topo).
- * @returns {number} O ângulo em radianos para desenho no canvas.
+ * @param {number} degree - The astrological degree (0-360).
+ * @param {number} rotationOffset - The additional rotation in degrees to apply to the chart.
+ * @returns {number} The angle in radians for drawing on the canvas.
  */
 function toChartCoords(degree, rotationOffset = 0) {
-  // Passo 1: Mapeia o grau astrológico para coordenadas padrão do canvas (sentido horário a partir da direita, 0=direita).
-  // Astrológico 0 (Áries) está geralmente à esquerda.
-  // Canvas 0 está à direita.
-  // Para mapear Áries (0) para a esquerda (180 canvas), Câncer (90) para baixo (90 canvas), etc.:
+  // Step 1: Map astrological degree to standard canvas coordinates (clockwise from right, 0=right).
+  // Astrological 0 (Aries) is generally on the left. Canvas 0 is to the right.
   let canvasDegree = (180 - degree + 360) % 360;
 
-  // Passo 2: Aplica o offset de rotação calculado.
+  // Step 2: Apply the calculated rotation offset.
   const finalCanvasDegree = (canvasDegree + rotationOffset + 360) % 360;
 
   return degToRad(finalCanvasDegree);
 }
 
+/**
+ * Draws an arrow on the canvas.
+ * @param {CanvasRenderingContext2D} ctx - The canvas rendering context.
+ * @param {number} x - The x-coordinate of the arrow's base.
+ * @param {number} y - The y-coordinate of the arrow's base.
+ * @param {number} angle - The rotation angle of the arrow in radians.
+ * @param {number} size - The size of the arrow.
+ */
 function drawArrow(ctx, x, y, angle, size) {
   ctx.save();
   ctx.translate(x, y);
@@ -158,33 +144,33 @@ function drawArrow(ctx, x, y, angle, size) {
 }
 
 /**
- * Distribui angularmente um cluster de planetas para evitar sobreposição.
- * @param {Array<Object>} cluster - Um array de objetos de planeta ({ name, deg }).
- * @param {Array<Object>} targetArray - O array onde os planetas ajustados serão adicionados.
+ * Distributes planets within a close angular cluster to prevent symbol overlap.
+ * @param {Array<Object>} cluster - An array of planet objects ({ name, deg }).
+ * @param {Array<Object>} targetArray - The array where adjusted planets will be added.
  */
 function distributeCluster(cluster, targetArray) {
   const numPlanets = cluster.length;
   if (numPlanets <= 1) {
-    targetArray.push({ ...cluster[0], adjustedDeg: cluster[0].deg }); // Garante que adjustedDeg exista
+    targetArray.push({ ...cluster[0], adjustedDeg: cluster[0].deg });
     return;
   }
 
-  // Ordena os planetas por grau original para garantir uma distribuição consistente
+  // Sort planets by original degree for consistent distribution
   cluster.sort((a, b) => a.deg - b.deg);
 
-  // Calcula um ponto central para o cluster, ajustando para a passagem de 0/360 graus
+  // Calculate a central point for the cluster, adjusting for 0/360 degree wrap-around
   let tempDegrees = cluster.map(p => p.deg);
-  // Se o cluster cruza a linha 0/360 (ex: 350, 5, 10), ajusta os graus menores para > 360
+  // If the cluster crosses the 0/360 line (e.g., 350, 5, 10), adjust smaller degrees to be > 360
   if (tempDegrees[0] > 180 && tempDegrees[tempDegrees.length - 1] < 180) {
       for (let i = 0; i < tempDegrees.length; i++) {
-          if (tempDegrees[i] < 180) { 
+          if (tempDegrees[i] < 180) {
               tempDegrees[i] += 360;
           }
       }
   }
   const clusterCenterDegree = (tempDegrees.reduce((sum, deg) => sum + deg, 0) / numPlanets + 360) % 360;
 
-  // Calcula o offset inicial para centralizar o spread
+  // Calculate the starting offset to center the spread
   const totalAngularSpread = (numPlanets - 1) * PLANET_ANGULAR_SPREAD_STEP;
   const startOffset = -totalAngularSpread / 2;
 
@@ -198,7 +184,11 @@ function distributeCluster(cluster, targetArray) {
   });
 }
 
-
+/**
+ * Generates a natal chart image based on ephemeris data.
+ * @param {Object} ephemerisData - Data containing planet positions, house cusps, and aspects.
+ * @returns {Buffer} A PNG image buffer of the natal chart.
+ */
 async function generateNatalChartImage(ephemerisData) {
   const canvas = createCanvas(CHART_WIDTH, CHART_HEIGHT);
   const ctx = canvas.getContext('2d');
@@ -211,7 +201,7 @@ async function generateNatalChartImage(ephemerisData) {
   // Prepare house cusps
   const houseCusps = [];
   let mcDegree = 0;
-  
+
   for (let i = 1; i <= 12; i++) {
     const houseKey = `house${i}`;
     if (houses[houseKey]) {
@@ -220,71 +210,57 @@ async function generateNatalChartImage(ephemerisData) {
         degree: houses[houseKey].cuspDegree,
         sign: houses[houseKey].sign
       });
-      
+
       // Get MC degree (House 10)
       if (i === 10) mcDegree = houses[houseKey].cuspDegree;
     }
   }
-  
-  // ==================================================================
-  // MODIFICAÇÃO INÍCIO: Calcula a rotação para posicionar o MC no topo (ângulo de 270° no canvas)
-  // ==================================================================
-  // Primeiro, encontra o ângulo do canvas do MC sem nenhuma rotação adicional.
-  // Isso usa o mapeamento inicial (Áries à esquerda, Câncer embaixo, Libra à direita, Capricórnio no topo).
-  const mcCanvasAngleInitial = (180 - mcDegree + 360) % 360;
 
-  // Queremos que o MC esteja no topo do gráfico, o que corresponde a 270 graus nas coordenadas do canvas.
-  // Calcula o offset de rotação necessário para mover a posição inicial do MC para o topo.
+  // Calculate rotation to place MC at top (270° canvas angle)
+  const mcCanvasAngleInitial = (180 - mcDegree + 360) % 360;
   const rotationOffset = (270 - mcCanvasAngleInitial + 360) % 360;
-  // ==================================================================
-  // MODIFICAÇÃO FIM
-  // ==================================================================
 
   // Draw chart base
   ctx.fillStyle = COLORS.BACKGROUND;
   ctx.fillRect(0, 0, CHART_WIDTH, CHART_HEIGHT);
-  
+
   // Draw concentric circles
   ctx.strokeStyle = COLORS.LINE;
   ctx.lineWidth = 2;
-  ctx.beginPath();  
-  ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, 2 * Math.PI);  
+  ctx.beginPath();
+  ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, 2 * Math.PI);
   ctx.stroke();
-  ctx.beginPath();  
-  ctx.arc(CENTER_X, CENTER_Y, ZODIAC_RING_INNER_RADIUS, 0, 2 * Math.PI);  
+  ctx.beginPath();
+  ctx.arc(CENTER_X, CENTER_Y, ZODIAC_RING_INNER_RADIUS, 0, 2 * Math.PI);
   ctx.stroke();
-  ctx.beginPath();  
-  ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI);  
+  ctx.beginPath();
+  ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, 2 * Math.PI);
   ctx.stroke();
 
-  // Desenhar o novo círculo para os aspectos (sem preenchimento)
-  ctx.strokeStyle = COLORS.ASPECT_CIRCLE; // Usar a cor da linha
+  // Draw the aspect circle (no fill)
+  ctx.strokeStyle = COLORS.ASPECT_CIRCLE;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(CENTER_X, CENTER_Y, ASPECT_LINE_RADIUS, 0, 2 * Math.PI);
-  ctx.stroke(); // Apenas desenhar o contorno
+  ctx.stroke();
 
-  // ==================================================================
-  // PLANET POSITIONING (FIXED RADIUS ON DEGREE TICKS)
-  // E DISTRIBUIÇÃO PARA EVITAR SOBREPOSIÇÃO
-  // ==================================================================
-  // Esta seção foi movida para antes do desenho da régua para que placedPlanets esteja disponível
+  // Planet positioning and distribution to avoid overlap
   const planets = Object.entries(planetPositions)
     .map(([name, deg]) => ({ name, deg }));
 
   const adjustedPlanets = [];
   let currentCluster = [];
 
-  // Ordena os planetas por grau para facilitar a identificação de clusters
+  // Sort planets by degree to facilitate cluster identification
   planets.sort((a, b) => a.deg - b.deg);
 
   for (let i = 0; i < planets.length; i++) {
     const currentPlanet = planets[i];
     const prevPlanet = planets[i - 1];
 
-    // Verifica se o planeta atual está próximo do anterior, considerando a passagem de 0/360 graus
+    // Check if the current planet is close to the previous one, considering 0/360 wrap-around
     const degreeDifference = Math.abs(currentPlanet.deg - (prevPlanet ? prevPlanet.deg : currentPlanet.deg));
-    const wrappedDifference = 360 - degreeDifference; // Diferença no outro sentido do círculo
+    const wrappedDifference = 360 - degreeDifference;
 
     if (prevPlanet && Math.min(degreeDifference, wrappedDifference) < PLANET_PROXIMITY_THRESHOLD) {
       currentCluster.push(currentPlanet);
@@ -292,124 +268,115 @@ async function generateNatalChartImage(ephemerisData) {
       if (currentCluster.length > 0) {
         distributeCluster(currentCluster, adjustedPlanets);
       }
-      currentCluster = [currentPlanet]; // Inicia um novo cluster
+      currentCluster = [currentPlanet]; // Start a new cluster
     }
   }
-  // Processa o último cluster após o loop
+  // Process the last cluster after the loop
   if (currentCluster.length > 0) {
     distributeCluster(currentCluster, adjustedPlanets);
   }
 
-  const placedPlanets = [];
-
-  // Iterar sobre adjustedPlanets em vez de planets
+  // Optimize: Use a Map for faster planet lookup by name in aspect drawing
+  const placedPlanetsMap = new Map();
   adjustedPlanets.forEach(planet => {
-    const angleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Usa o adjustedDeg
-    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad); 
-    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad); 
-    
-    placedPlanets.push({
+    const angleRad = toChartCoords(planet.adjustedDeg, rotationOffset);
+    const x = CENTER_X + PLANET_RADIUS * Math.cos(angleRad);
+    const y = CENTER_Y + PLANET_RADIUS * Math.sin(angleRad);
+
+    const placedPlanet = {
       ...planet,
       angleRad,
       x,
       y
-    });
+    };
+    placedPlanetsMap.set(planet.name, placedPlanet);
   });
-  // ==================================================================
-  // FIM DA SEÇÃO DE POSICIONAMENTO DOS PLANETAS
-  // ==================================================================
-
 
   // Draw degree ticks in the zodiac ring
   ctx.strokeStyle = COLORS.DEGREE_TICK;
   ctx.lineWidth = 1;
-  
-  // Criar um set de graus ajustados dos planetas para fácil consulta
-  const planetDegrees = new Set(placedPlanets.map(p => Math.round(p.adjustedDeg)));
+
+  // Create a set of rounded adjusted planet degrees for efficient lookup
+  const planetDegrees = new Set(Array.from(placedPlanetsMap.values()).map(p => Math.round(p.adjustedDeg)));
 
   for (let deg = 0; deg < 360; deg++) {
-    const rad = toChartCoords(deg, rotationOffset); 
-    
+    const rad = toChartCoords(deg, rotationOffset);
+
     // Determine tick size based on degree
     const isMajorTick = deg % 10 === 0;
-    const tickLength = isMajorTick ? 10 * 1.2 : 5 * 1.2; 
-    
-    // MODIFICAÇÃO: Ajustar a espessura da linha se houver um planeta neste grau
-    const originalLineWidth = ctx.lineWidth; // Salva a espessura original
+    const tickLength = isMajorTick ? 10 * 1.2 : 5 * 1.2;
+
+    // Adjust line width if a planet is positioned at this degree
+    const originalLineWidth = ctx.lineWidth;
     if (planetDegrees.has(deg)) {
         ctx.lineWidth = BOLD_TICK_LINE_WIDTH;
     }
 
     const tickStart = DEGREE_TICK_RADIUS;
     const tickEnd = tickStart + tickLength;
-    
-    const xStart = CENTER_X + tickStart * Math.cos(rad);
-    const yStart = CENTER_Y + tickStart * Math.sin(rad);
-    const xEnd = CENTER_X + tickEnd * Math.cos(rad);
-    const yEnd = CENTER_Y + tickEnd * Math.sin(rad);
-    
+
     ctx.beginPath();
     ctx.moveTo(xStart, yStart);
     ctx.lineTo(xEnd, yEnd);
     ctx.stroke();
-    
-    ctx.lineWidth = originalLineWidth; // Restaura a espessura original
+
+    ctx.lineWidth = originalLineWidth; // Restore original line width
   }
 
   // Draw house cusps and numbers
-  houseCusps.forEach((cusp, index) => { 
-    const angleRad = toChartCoords(cusp.degree, rotationOffset); 
-    
-    // MODIFICAÇÃO: Definir a espessura da linha da cúspide
+  houseCusps.forEach((cusp, index) => {
+    const angleRad = toChartCoords(cusp.degree, rotationOffset);
+
+    // Set line width for main cusps (AC, IC, DC, MC)
     const originalCuspLineWidth = ctx.lineWidth;
-    if ([1, 4, 7, 10].includes(cusp.house)) { // Verifica se é AC, IC, DC ou MC
+    if ([1, 4, 7, 10].includes(cusp.house)) { // Check if it's AC, IC, DC, or MC
         ctx.lineWidth = BOLD_CUSP_LINE_WIDTH;
     } else {
-        ctx.lineWidth = 2; // Espessura padrão para outras cúspides
+        ctx.lineWidth = 2; // Default width for other cusps
     }
 
     // Draw cusp line
     const xInner = CENTER_X + INNER_RADIUS * Math.cos(angleRad);
     const yInner = CENTER_Y + INNER_RADIUS * Math.sin(angleRad);
     const xZodiacInner = CENTER_X + ZODIAC_RING_INNER_RADIUS * Math.cos(angleRad);
-    const yZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(angleRad); 
-    
+    const yZodiacInner = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(angleRad);
+
     ctx.beginPath();
     ctx.moveTo(xInner, yInner);
-    ctx.lineTo(xZodiacInner, yZodiacInner); 
+    ctx.lineTo(xZodiacInner, yZodiacInner);
     ctx.stroke();
-    
-    // Restaura a espessura da linha para o que era antes de desenhar a cúspide
+
+    // Restore line width after drawing the cusp
     ctx.lineWidth = originalCuspLineWidth;
 
     // Draw arrow
-    drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12); 
-    
-    // Calcular o ponto central da casa para posicionar o número
+    drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12);
+
+    // Calculate the center point of the house to position the number
     let nextCuspDegree;
     if (index < houseCusps.length - 1) {
       nextCuspDegree = houseCusps[index + 1].degree;
     } else {
-      // Para a última casa (12), sua extremidade é o início da casa 1
+      // For the last house (12), its end is the beginning of house 1
       nextCuspDegree = houseCusps[0].degree;
     }
 
     let startDeg = cusp.degree;
     let endDeg = nextCuspDegree;
 
-    // Lida com a passagem da marca de 0/360 graus
+    // Handle 0/360 degree wrap-around
     if (endDeg < startDeg) {
         endDeg += 360;
     }
-    
+
     const midHouseDegree = (startDeg + endDeg) / 2;
-    const midHouseAngleRad = toChartCoords(midHouseDegree, rotationOffset); 
-    
+    const midHouseAngleRad = toChartCoords(midHouseDegree, rotationOffset);
+
     // Draw house number in the center of the house
-    const r = HOUSE_NUMBER_RADIUS; 
+    const r = HOUSE_NUMBER_RADIUS;
     const x = CENTER_X + r * Math.cos(midHouseAngleRad);
     const y = CENTER_Y + r * Math.sin(midHouseAngleRad);
-    
+
     ctx.fillStyle = COLORS.CUSP_NUMBER;
     ctx.font = `bold ${HOUSE_NUMBER_FONT_SIZE}px Inter`;
     ctx.textAlign = 'center';
@@ -421,7 +388,7 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.font = 'bold 16px Inter';
   ctx.fillStyle = '#5A2A00';
   houseCusps.forEach((cusp) => {
-    const angleRad = toChartCoords(cusp.degree, rotationOffset); 
+    const angleRad = toChartCoords(cusp.degree, rotationOffset);
     const r = ZODIAC_RING_INNER_RADIUS - 20;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
@@ -430,7 +397,7 @@ async function generateNatalChartImage(ephemerisData) {
     const label = `${degreeInSign}° ${SIGN_SYMBOLS[signIndex]}`;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angleRad + Math.PI / 2); 
+    ctx.rotate(angleRad + Math.PI / 2);
     ctx.textAlign = 'left';
     ctx.fillText(label, 5, 0);
     ctx.restore();
@@ -440,9 +407,9 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.strokeStyle = COLORS.SIGN_DIVISION;
   ctx.lineWidth = 1.2;
   ctx.setLineDash([8, 6]);
-  
+
   for (let deg = 0; deg < 360; deg += 30) {
-    const rad = toChartCoords(deg, rotationOffset); 
+    const rad = toChartCoords(deg, rotationOffset);
     const xStart = CENTER_X + ZODIAC_RING_INNER_RADIUS * Math.cos(rad);
     const yStart = CENTER_Y + ZODIAC_RING_INNER_RADIUS * Math.sin(rad);
     const xEnd = CENTER_X + OUTER_RADIUS * Math.cos(rad);
@@ -452,78 +419,77 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.lineTo(xEnd, yEnd);
     ctx.stroke();
   }
-  
+
   ctx.setLineDash([]);
 
   // Draw zodiac signs and symbols
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = COLORS.SIGN;
-  
+
   ZODIAC_SIGNS.forEach((sign, i) => {
     const angleDeg = i * 30;
     // Position sign symbols in the middle of each 30-degree segment
-    const angleRad = toChartCoords(angleDeg + 15, rotationOffset); 
+    const angleRad = toChartCoords(angleDeg + 15, rotationOffset);
     const r = (OUTER_RADIUS + ZODIAC_RING_INNER_RADIUS) / 2;
     const x = CENTER_X + r * Math.cos(angleRad);
     const y = CENTER_Y + r * Math.sin(angleRad);
-    
+
     ctx.save();
     ctx.translate(x, y);
     // Rotate the text so it's upright relative to the chart's center
-    ctx.rotate(angleRad + Math.PI / 2); 
-    
+    ctx.rotate(angleRad + Math.PI / 2);
+
     // Draw sign symbol
     ctx.fillStyle = '#8B4513';
-    ctx.font = useSymbolaFont ? 
-      `38px Symbola` : 
+    ctx.font = useSymbolaFont ?
+      `38px Symbola` :
       `bold 24px Inter`;
     ctx.fillText(SIGN_SYMBOLS[i], 0, -15);
-    
+
     // Draw sign name
     ctx.fillStyle = COLORS.SIGN;
     ctx.font = 'bold 18px Inter';
     ctx.fillText(sign.toUpperCase(), 0, 20);
-    
+
     ctx.restore();
   });
 
   // Draw planets
-  placedPlanets.forEach(planet => {
+  placedPlanetsMap.forEach(planet => { // Optimized to iterate over the Map values
     const symbol = PLANET_SYMBOLS[planet.name];
-    
+
     // Draw background circle
     ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
     ctx.beginPath();
     ctx.arc(planet.x, planet.y, PLANET_CIRCLE_RADIUS, 0, Math.PI * 2);
     ctx.fill();
-    
+
     // Draw planet symbol
     ctx.fillStyle = COLORS.SYMBOL;
-    ctx.font = useSymbolaFont ? 
-      `bold ${PLANET_SYMBOL_SIZE}px Symbola` : 
+    ctx.font = useSymbolaFont ?
+      `bold ${PLANET_SYMBOL_SIZE}px Symbola` :
       `bold ${PLANET_SYMBOL_SIZE}px Inter`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(symbol, planet.x, planet.y);
   });
 
-  // ==================================================================
-  // ASPECT LINES
-  // ==================================================================
+  // Draw aspect lines
   for (const aspectType in aspectsData) {
     const style = ASPECT_STYLES[aspectType];
     if (!style || !style.color) continue;
-    
+
     ctx.strokeStyle = style.color;
     ctx.lineWidth = style.lineWidth;
-    
+
     aspectsData[aspectType].forEach(aspect => {
-      const p1 = placedPlanets.find(p => p.name === aspect.planet1.name);
-      const p2 = placedPlanets.find(p => p.name === aspect.planet2.name);
-      
+      // Optimized: Use map.get() for O(1) lookup instead of array.find()
+      const p1 = placedPlanetsMap.get(aspect.planet1.name);
+      const p2 = placedPlanetsMap.get(aspect.planet2.name);
+
       if (p1 && p2) {
-        // Desenhar as linhas de aspecto no raio ASPECT_LINE_RADIUS
+        // Draw aspect lines at the ASPECT_LINE_RADIUS
         const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
         const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
         const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
