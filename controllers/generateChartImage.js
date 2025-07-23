@@ -22,11 +22,13 @@ const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
 // MODIFICAÇÃO: Calcular o novo raio para os planetas
 // 1. Posição de referência dos planetas (a posição original antes das últimas modificações)
-const PLANET_RADIUS_PREVIOUS_VERSION = DEGREE_TICK_RADIUS + 5;
+const PLANET_RADIUS_ORIGINAL = DEGREE_TICK_RADIUS + 5;
 
-// 2. Calcular o novo PLANET_RADIUS movendo 5% internamente em relação à distância entre a posição anterior e o INNER_RADIUS.
-// Isso garante que os planetas se movam ligeiramente para dentro para evitar sobreposição com os signos.
-const PLANET_RADIUS = PLANET_RADIUS_PREVIOUS_VERSION - (PLANET_RADIUS_PREVIOUS_VERSION - INNER_RADIUS) * 0.05;
+// 2. Primeiro ajuste de 5% internamente (da iteração anterior)
+const PLANET_RADIUS_FIRST_ADJUSTMENT = PLANET_RADIUS_ORIGINAL - (PLANET_RADIUS_ORIGINAL - INNER_RADIUS) * 0.05;
+
+// 3. SEGUNDO AJUSTE DE 5% INTERNAMENTE: Mover mais 5% internamente a partir da posição já ajustada.
+const PLANET_RADIUS = PLANET_RADIUS_FIRST_ADJUSTMENT - (PLANET_RADIUS_FIRST_ADJUSTMENT - INNER_RADIUS) * 0.05;
 
 // MODIFICAÇÃO: Novo raio para as linhas de aspecto, posicionado a 75% da distância do círculo interno
 // e 25% da distância do NOVO raio dos planetas.
@@ -215,7 +217,8 @@ async function generateNatalChartImage(ephemerisData) {
     
     // Determine tick size based on degree
     const isMajorTick = deg % 10 === 0;
-    const tickLength = isMajorTick ? 10 : 5;
+    // MODIFICAÇÃO: Aumentar o tamanho das linhas da régua em 20%
+    const tickLength = isMajorTick ? 10 * 1.2 : 5 * 1.2; 
     const tickStart = DEGREE_TICK_RADIUS;
     const tickEnd = tickStart + tickLength;
     
