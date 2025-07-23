@@ -209,8 +209,8 @@ async function generateNatalChartImage(ephemerisData) {
   }
 
   // Draw house cusps and numbers
-  houseCusps.forEach((cusp) => {
-    const angleRad = toChartCoords(cusp.degree, rotationOffset); // Usa o novo rotationOffset
+  houseCusps.forEach((cusp, index) => { // Adicionado 'index' para iterar
+    const angleRad = toChartCoords(cusp.degree, rotationOffset); 
     
     // Draw cusp line
     const xInner = CENTER_X + INNER_RADIUS * Math.cos(angleRad);
@@ -226,10 +226,35 @@ async function generateNatalChartImage(ephemerisData) {
     // Draw arrow
     drawArrow(ctx, xZodiacInner, yZodiacInner, angleRad, 12); 
     
-    // Draw house number near cusp line (inside circle)
-    const r = HOUSE_NUMBER_RADIUS;
-    const x = CENTER_X + r * Math.cos(angleRad);
-    const y = CENTER_Y + r * Math.sin(angleRad);
+    // ==================================================================
+    // MODIFICAÇÃO INÍCIO: Calcular o ponto central da casa para posicionar o número
+    // ==================================================================
+    let nextCuspDegree;
+    if (index < houseCusps.length - 1) {
+      nextCuspDegree = houseCusps[index + 1].degree;
+    } else {
+      // Para a última casa (12), sua extremidade é o início da casa 1
+      nextCuspDegree = houseCusps[0].degree;
+    }
+
+    let startDeg = cusp.degree;
+    let endDeg = nextCuspDegree;
+
+    // Lida com a passagem da marca de 0/360 graus
+    if (endDeg < startDeg) {
+        endDeg += 360;
+    }
+    
+    const midHouseDegree = (startDeg + endDeg) / 2;
+    const midHouseAngleRad = toChartCoords(midHouseDegree, rotationOffset); // Usa o offset de rotação
+    
+    // Draw house number in the center of the house
+    const r = HOUSE_NUMBER_RADIUS; // Mantém a mesma distância radial
+    const x = CENTER_X + r * Math.cos(midHouseAngleRad);
+    const y = CENTER_Y + r * Math.sin(midHouseAngleRad);
+    // ==================================================================
+    // MODIFICAÇÃO FIM
+    // ==================================================================
     
     ctx.fillStyle = COLORS.CUSP_NUMBER;
     ctx.font = `bold ${HOUSE_NUMBER_FONT_SIZE}px Inter`;
