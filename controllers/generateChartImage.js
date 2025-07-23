@@ -20,19 +20,17 @@ const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
-// MODIFICAÇÃO: Definir uma referência para o raio original dos planetas
-// Este valor é usado para calcular ASPECT_LINE_RADIUS conforme a lógica anterior
-const OLD_PLANET_RADIUS_REFERENCE = DEGREE_TICK_RADIUS + 5;
+// MODIFICAÇÃO: Calcular o novo raio para os planetas
+// 1. Posição de referência dos planetas (a posição original antes das últimas modificações)
+const PLANET_RADIUS_PREVIOUS_VERSION = DEGREE_TICK_RADIUS + 5;
+
+// 2. Calcular o novo PLANET_RADIUS movendo 5% internamente em relação à distância entre a posição anterior e o INNER_RADIUS.
+// Isso garante que os planetas se movam ligeiramente para dentro para evitar sobreposição com os signos.
+const PLANET_RADIUS = PLANET_RADIUS_PREVIOUS_VERSION - (PLANET_RADIUS_PREVIOUS_VERSION - INNER_RADIUS) * 0.05;
 
 // MODIFICAÇÃO: Novo raio para as linhas de aspecto, posicionado a 75% da distância do círculo interno
-// Este cálculo usa o OLD_PLANET_RADIUS_REFERENCE para manter a lógica anterior de posicionamento do aspecto.
-const ASPECT_LINE_RADIUS = INNER_RADIUS + (OLD_PLANET_RADIUS_REFERENCE - INNER_RADIUS) * 0.75;
-
-// MODIFICAÇÃO: Calcular o novo raio para os planetas
-// 1. Posição inicial dos planetas: 25% da distância entre o círculo de aspectos e o anel do zodíaco.
-const PLANET_RADIUS_CANDIDATE = ASPECT_LINE_RADIUS + (ZODIAC_RING_INNER_RADIUS - ASPECT_LINE_RADIUS) * 0.25;
-// 2. Ajuste final: mover 5% internamente a partir da posição candidata em direção ao círculo de aspectos.
-const PLANET_RADIUS = PLANET_RADIUS_CANDIDATE - (PLANET_RADIUS_CANDIDATE - ASPECT_LINE_RADIUS) * 0.05;
+// e 25% da distância do NOVO raio dos planetas.
+const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
 
 
 // Color Constants
