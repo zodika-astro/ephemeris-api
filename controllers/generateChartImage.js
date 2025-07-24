@@ -37,14 +37,14 @@ const BOLD_CUSP_LINE_WIDTH = 5;
 
 // Font size for planet degree labels (matching house cusp labels)
 const PLANET_DEGREE_FONT_SIZE = 16;
-// Radial offset for planet degree labels from the planet's center
+// Radial offset for planet degree labels from the planet's center.
 // This is a positive value representing how far inwards the text's center will be from PLANET_RADIUS.
 // It's calculated to be slightly inside the planet's symbol circle.
-const PLANET_DEGREE_LABEL_RADIAL_OFFSET = PLANET_CIRCLE_RADIUS + 5;
+const PLANET_DEGREE_LABEL_INNER_PADDING = 5; // Padding inwards from the planet circle's edge
 
-// Horizontal and Vertical offsets for fine-tuning horizontal text placement
-const PLANET_DEGREE_HORIZONTAL_OFFSET_FROM_RADIAL = 15; // Small horizontal shift from the radial line
-const PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL = 5; // Small vertical shift from the radial line
+// Offsets for fine-tuning horizontal text placement relative to the planet's position
+const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10; // Shift perpendicular to radial line
+const PLANET_DEGREE_TEXT_RADIAL_OFFSET_FINE_TUNE = 0; // Not used in this specific horizontal logic, but kept for clarity
 
 
 // Color Constants
@@ -493,48 +493,37 @@ async function generateNatalChartImage(ephemerisData) {
 
     const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Use adjusted degree for label position
 
-    // Calculate the position for the degree label
-    // It should be positioned horizontally, slightly inwards from the planet symbol.
-    // This requires calculating a new (x,y) for the label, not just rotating.
-    // The radial position for the text. It's PLANET_RADIUS minus the offset to move it inwards.
-    const textRadialPos = PLANET_RADIUS + PLANET_DEGREE_LABEL_RADIAL_OFFSET;
+    // Calculate the radial position for the text. This is a radius smaller than PLANET_RADIUS.
+    const textDisplayRadius = PLANET_RADIUS - PLANET_DEGREE_LABEL_INNER_PADDING;
 
     // Calculate initial x, y based on the radial position and adjusted angle
-    let labelX = CENTER_X + textRadialPos * Math.cos(labelAngleRad);
-    let labelY = CENTER_Y + textRadialPos * Math.sin(labelAngleRad);
-
-    // Adjust label position based on quadrant to ensure it stays "inside" and horizontal
-    // and doesn't overlap with the ruler.
-    // Convert labelAngleRad (canvas radians, 0=top, clockwise) to standard math degrees (0=right, counter-clockwise)
-    const standardMathAngle = (360 - (labelAngleRad * 180 / Math.PI) + 90) % 360;
+    let labelX = CENTER_X + textDisplayRadius * Math.cos(labelAngleRad);
+    let labelY = CENTER_Y + textDisplayRadius * Math.sin(labelAngleRad);
 
     let textAlignForLabel = 'center';
-    let finalOffsetX = 0;
-    let finalOffsetY = 0;
+    let offsetX = 0;
+    let offsetY = 0;
 
-    // Fine-tune offsets based on quadrant to push the text perpendicular to the radial line
-    // and ensure proper alignment for horizontal text.
-    if (standardMathAngle >= 0 && standardMathAngle < 90) { // Quadrant 1 (Top Right)
-        finalOffsetX = -10; // Shift left
-        finalOffsetY = 5;  // Shift down
+    // Determine quadrant based on canvas angle (0=top, clockwise)
+    // This logic adjusts the text position to be perpendicular to the radial line
+    // and ensures it's "inside" the planet symbol's orbit.
+    if (labelAngleRad >= -Math.PI / 4 && labelAngleRad < Math.PI / 4) { // Right side (approx 315 to 45 deg canvas)
+        offsetX = -PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift left
         textAlignForLabel = 'right';
-    } else if (standardMathAngle >= 90 && standardMathAngle < 180) { // Quadrant 2 (Top Left)
-        finalOffsetX = 10;  // Shift right
-        finalOffsetY = 5;   // Shift down
+    } else if (labelAngleRad >= Math.PI / 4 && labelAngleRad < 3 * Math.PI / 4) { // Bottom side (approx 45 to 135 deg canvas)
+        offsetY = -PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift up
+        textAlignForLabel = 'center';
+    } else if (labelAngleRad >= 3 * Math.PI / 4 && labelAngleRad < 5 * Math.PI / 4) { // Left side (approx 135 to 225 deg canvas)
+        offsetX = PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift right
         textAlignForLabel = 'left';
-    } else if (standardMathAngle >= 180 && standardMathAngle < 270) { // Quadrant 3 (Bottom Left)
-        finalOffsetX = 10;  // Shift right
-        finalOffsetY = -5;  // Shift up
-        textAlignForLabel = 'left';
-    } else { // Quadrant 4 (Bottom Right)
-        finalOffsetX = -10; // Shift left
-        finalOffsetY = -5;  // Shift up
-        textAlignForLabel = 'right';
+    } else { // Top side (approx 225 to 315 deg canvas)
+        offsetY = PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift down
+        textAlignForLabel = 'center';
     }
 
-    // Apply the final offsets to the label's position
-    labelX += finalOffsetX;
-    labelY += finalOffsetY;
+    // Apply the offsets to the label's position
+    labelX += offsetX;
+    labelY += offsetY;
 
     ctx.save();
     ctx.fillStyle = COLORS.TEXT;
