@@ -41,7 +41,7 @@ const PLANET_DEGREE_FONT_SIZE = 16;
 // This is a positive value representing how far inwards the text's center will be from PLANET_RADIUS.
 // It's calculated to be slightly inside the planet's symbol circle.
 // Adjusted to decrease the distance by approximately another 5%
-const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 7.5; // Adjusted from +7.875 to +7.5 (approx another 5% reduction)
+const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 7.125; // Adjusted from +7.5 to +7.125 (approx another 5% reduction)
 
 // Offsets for fine-tuning horizontal text placement relative to the planet's position
 const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10; // Shift perpendicular to radial line
@@ -463,6 +463,11 @@ async function generateNatalChartImage(ephemerisData) {
       `38px Symbola` :
       `bold 24px Inter`;
     ctx.fillText(SIGN_SYMBOLS[i], 0, -15);
+
+    // Re-add the sign name drawing logic
+    ctx.fillStyle = COLORS.SIGN;
+    ctx.font = 'bold 18px Inter';
+    ctx.fillText(sign.toUpperCase(), 0, 20);
 
     ctx.restore();
   });
