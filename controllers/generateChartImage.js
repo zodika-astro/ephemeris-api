@@ -41,7 +41,7 @@ const PLANET_DEGREE_FONT_SIZE = 16;
 // This is a positive value representing how far inwards the text's center will be from PLANET_RADIUS.
 // It's calculated to be slightly inside the planet's symbol circle.
 // Adjusted to decrease the distance by approximately another 5%
-const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 7.125; // Adjusted from +7.5 to +7.125 (approx another 5% reduction)
+const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 6.76875; // Adjusted from +7.125 to +6.76875 (approx another 5% reduction)
 
 // Offsets for fine-tuning horizontal text placement relative to the planet's position
 const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10; // Shift perpendicular to radial line
@@ -198,7 +198,7 @@ function distributeCluster(cluster, targetArray) {
 
 /**
  * Generates a natal chart image based on ephemeris data.
- * @param {Object} ephemerisData - Data containing planet positions, house cusps, and aspects.
+ * @param {Object} } ephemerisData - Data containing planet positions, house cusps, and aspects.
  * @returns {Buffer} A PNG image buffer of the natal chart.
  */
 async function generateNatalChartImage(ephemerisData) {
