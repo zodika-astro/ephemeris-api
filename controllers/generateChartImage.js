@@ -18,10 +18,11 @@ const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
-// Calculate planet radius 
+// Calculate planet radius with combined inward adjustments
+// Equivalent to successive adjustments of 5%, 5%, and 3% inwards from original reference towards INNER_RADIUS.
 const PLANET_RADIUS = (DEGREE_TICK_RADIUS + 5) * 0.875425 + INNER_RADIUS * 0.124575;
 
-// Radius for aspect lines
+// Radius for aspect lines, positioned 75% from the inner circle and 25% from the planet circle
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
 
 // Constants for distributing close planets to avoid overlap
@@ -33,6 +34,11 @@ const BOLD_TICK_LINE_WIDTH = 3;
 
 // Line width for main house cusps (AC, IC, DC, MC)
 const BOLD_CUSP_LINE_WIDTH = 5;
+
+// Font size for planet degree labels (matching house cusp labels)
+const PLANET_DEGREE_FONT_SIZE = 16;
+// Radial offset for planet degree labels from the planet's center
+const PLANET_DEGREE_LABEL_OFFSET = PLANET_CIRCLE_RADIUS + 15; // Increased offset to prevent overlap
 
 
 // Color Constants
@@ -50,7 +56,7 @@ const COLORS = {
   ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)'
 };
 
-// Font registration
+// Font registration (executed once when the module is loaded)
 const interFontPath = path.join(__dirname, '../fonts/Inter-Bold.ttf');
 const symbolaFontPath = path.join(__dirname, '../fonts/symbola.ttf');
 let useSymbolaFont = false;
@@ -102,6 +108,8 @@ const degToRad = (degrees) => degrees * Math.PI / 180;
 /**
  * Converts an astrological degree to chart coordinates (radians) with a specific rotation.
  * This function maps astrological degrees to canvas coordinates.
+ * Astrological 0° (Aries) is typically on the left. Canvas 0° is to the right, increasing clockwise.
+ * The rotationOffset aligns a specific astrological degree (e.g., MC) to a desired canvas position (e.g., top).
  *
  * @param {number} degree - The astrological degree (0-360).
  * @param {number} rotationOffset - The additional rotation in degrees to apply to the chart.
@@ -109,6 +117,7 @@ const degToRad = (degrees) => degrees * Math.PI / 180;
  */
 function toChartCoords(degree, rotationOffset = 0) {
   // Step 1: Map astrological degree to standard canvas coordinates (clockwise from right, 0=right).
+  // Astrological 0 (Aries) is generally on the left. Canvas 0 is to the right.
   let canvasDegree = (180 - degree + 360) % 360;
 
   // Step 2: Apply the calculated rotation offset.
@@ -311,7 +320,6 @@ async function generateNatalChartImage(ephemerisData) {
     const tickStart = DEGREE_TICK_RADIUS;
     const tickEnd = tickStart + tickLength;
 
-    // Declare xStart, yStart, xEnd, yEnd before use
     const xStart = CENTER_X + tickStart * Math.cos(rad);
     const yStart = CENTER_Y + tickStart * Math.sin(rad);
     const xEnd = CENTER_X + tickEnd * Math.cos(rad);
@@ -322,7 +330,7 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.lineTo(xEnd, yEnd);
     ctx.stroke();
 
-    ctx.lineWidth = originalLineWidth; 
+    ctx.lineWidth = originalLineWidth;
   }
 
   // Draw house cusps and numbers
@@ -457,8 +465,8 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.restore();
   });
 
-  // Draw planets
-  placedPlanetsMap.forEach(planet => { // Optimized to iterate over the Map values
+  // Draw planets and their degree labels
+  placedPlanetsMap.forEach(planet => {
     const symbol = PLANET_SYMBOLS[planet.name];
 
     // Draw background circle
@@ -475,9 +483,8 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(symbol, planet.x, planet.y);
-  });
 
-      // Draw planet degree label
+    // Draw planet degree label
     const degreeText = `${planet.deg.toFixed(1)}°`; // Format degree to one decimal place
     const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Use adjusted degree for label position
 
