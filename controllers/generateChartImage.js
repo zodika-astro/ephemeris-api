@@ -38,7 +38,8 @@ const BOLD_CUSP_LINE_WIDTH = 5;
 // Font size for planet degree labels (matching house cusp labels)
 const PLANET_DEGREE_FONT_SIZE = 16;
 // Radial offset for planet degree labels from the planet's center
-const PLANET_DEGREE_LABEL_OFFSET = PLANET_CIRCLE_RADIUS + 15; // Increased offset to prevent overlap
+// Negative value moves the label inwards from PLANET_RADIUS.
+const PLANET_DEGREE_LABEL_OFFSET = -(PLANET_CIRCLE_RADIUS + 5); // Placed 5px inside the planet's circle inner edge
 
 
 // Color Constants
@@ -457,11 +458,6 @@ async function generateNatalChartImage(ephemerisData) {
       `bold 24px Inter`;
     ctx.fillText(SIGN_SYMBOLS[i], 0, -15);
 
-    // Draw sign name
-    ctx.fillStyle = COLORS.SIGN;
-    ctx.font = 'bold 18px Inter';
-    ctx.fillText(sign.toUpperCase(), 0, 20);
-
     ctx.restore();
   });
 
@@ -488,7 +484,7 @@ async function generateNatalChartImage(ephemerisData) {
     const degreeText = `${planet.deg.toFixed(1)}°`; // Format degree to one decimal place
     const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Use adjusted degree for label position
 
-    // Calculate position for the degree label, slightly outside the planet symbol
+    // Calculate position for the degree label, slightly inside the planet symbol
     const labelX = CENTER_X + (PLANET_RADIUS + PLANET_DEGREE_LABEL_OFFSET) * Math.cos(labelAngleRad);
     const labelY = CENTER_Y + (PLANET_RADIUS + PLANET_DEGREE_LABEL_OFFSET) * Math.sin(labelAngleRad);
 
