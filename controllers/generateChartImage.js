@@ -18,34 +18,30 @@ const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
-// Calculate planet radius with combined inward adjustments
-// Equivalent to successive adjustments of 5%, 5%, and 3% inwards from original reference towards INNER_RADIUS.
-const PLANET_RADIUS = (DEGREE_TICK_RADIUS + 5) * 0.875425 + INNER_RADIUS * 0.124575;
+// Calculate planet radius
+const PLANET_RADIUS = (DEGREE_TICK_RADIUS + 5) * 0.9 + INNER_RADIUS * 0.125;
 
-// Radius for aspect lines, positioned 75% from the inner circle and 25% from the planet circle
+// Radius for aspect lines
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
 
 // Constants for distributing close planets to avoid overlap
-const PLANET_PROXIMITY_THRESHOLD = 4; // Degrees within which planets are considered "close"
+const PLANET_PROXIMITY_THRESHOLD = 5; // Degrees within which planets are considered "close"
 const PLANET_ANGULAR_SPREAD_STEP = 6.5; // Angular offset in degrees for each planet in a cluster
 
 // Line width for highlighted ruler ticks
-const BOLD_TICK_LINE_WIDTH = 3;
+const BOLD_TICK_LINE_WIDTH = 2;
 
 // Line width for main house cusps (AC, IC, DC, MC)
-const BOLD_CUSP_LINE_WIDTH = 5;
+const BOLD_CUSP_LINE_WIDTH = 4;
 
-// Font size for planet degree labels (matching house cusp labels)
-const PLANET_DEGREE_FONT_SIZE = 16;
+// Font size for planet degree labels
+const PLANET_DEGREE_FONT_SIZE = 15;
 // Radial offset for planet degree labels from the planet's center.
-// This is a positive value representing how far inwards the text's center will be from PLANET_RADIUS.
-// It's calculated to be slightly inside the planet's symbol circle.
-// Adjusted to decrease the distance by approximately another 5%
-const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 6.76875; // Adjusted from +7.125 to +6.76875 (approx another 5% reduction)
+const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 6.5;
 
 // Offsets for fine-tuning horizontal text placement relative to the planet's position
-const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10; // Shift perpendicular to radial line
-const PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL = 10; // Vertical shift for top/bottom quadrants
+const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10;
+const PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL = 10; 
 
 
 // Color Constants
@@ -63,7 +59,7 @@ const COLORS = {
   ASPECT_CIRCLE: 'rgba(41, 40, 30, 0.2)'
 };
 
-// Font registration (executed once when the module is loaded)
+// Font registration
 const interFontPath = path.join(__dirname, '../fonts/Inter-Bold.ttf');
 const symbolaFontPath = path.join(__dirname, '../fonts/symbola.ttf');
 let useSymbolaFont = false;
@@ -95,8 +91,8 @@ const PLANET_SYMBOLS = {
 // Aspect styles
 const ASPECT_STYLES = {
   conjunction: { color: null, lineWidth: 0 },
-  opposition: { color: '#FF0000', lineWidth: 4 },
-  square: { color: '#FF4500', lineWidth: 2.5 },
+  opposition: { color: '#FF0000', lineWidth: 3.5 },
+  square: { color: '#FF4500', lineWidth: 2 },
   sextile: { color: '#0000FF', lineWidth: 2 },
   trine: { color: '#008000', lineWidth: 2 }
 };
@@ -115,8 +111,6 @@ const degToRad = (degrees) => degrees * Math.PI / 180;
 /**
  * Converts an astrological degree to chart coordinates (radians) with a specific rotation.
  * This function maps astrological degrees to canvas coordinates.
- * Astrological 0° (Aries) is typically on the left. Canvas 0° is to the right, increasing clockwise.
- * The rotationOffset aligns a specific astrological degree (e.g., MC) to a desired canvas position (e.g., top).
  *
  * @param {number} degree - The astrological degree (0-360).
  * @param {number} rotationOffset - The additional rotation in degrees to apply to the chart.
@@ -124,7 +118,6 @@ const degToRad = (degrees) => degrees * Math.PI / 180;
  */
 function toChartCoords(degree, rotationOffset = 0) {
   // Step 1: Map astrological degree to standard canvas coordinates (clockwise from right, 0=right).
-  // Astrological 0 (Aries) is generally on the left. Canvas 0 is to the right.
   let canvasDegree = (180 - degree + 360) % 360;
 
   // Step 2: Apply the calculated rotation offset.
@@ -463,8 +456,6 @@ async function generateNatalChartImage(ephemerisData) {
       `38px Symbola` :
       `bold 24px Inter`;
     ctx.fillText(SIGN_SYMBOLS[i], 0, -15);
-
-    // Re-add the sign name drawing logic
     ctx.fillStyle = COLORS.SIGN;
     ctx.font = 'bold 18px Inter';
     ctx.fillText(sign.toUpperCase(), 0, 20);
@@ -492,14 +483,14 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText(symbol, planet.x, planet.y);
 
     // Draw planet degree label
-    const degreeInSign = Math.floor(planet.deg % 30); // Get integer degree within sign
+    const degreeInSign = Math.floor(planet.deg % 30);
     const signIndex = Math.floor(planet.deg / 30);
     const signSymbol = SIGN_SYMBOLS[signIndex];
     const degreeText = `${degreeInSign}° ${signSymbol}`; // Format: "Degree° SignSymbol"
 
-    const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Use adjusted degree for label position
+    const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset);
 
-    // Calculate the radial position for the text. This is a radius smaller than PLANET_RADIUS.
+    // Calculate the radial position for the text.
     const textDisplayRadius = PLANET_RADIUS - PLANET_DEGREE_LABEL_INNER_PADDING;
 
     // Calculate initial x, y based on the radial position and adjusted angle
@@ -519,7 +510,7 @@ async function generateNatalChartImage(ephemerisData) {
     } else if (labelAngleRad >= Math.PI / 4 && labelAngleRad < 3 * Math.PI / 4) { // Bottom side (approx 45 to 135 deg canvas)
         offsetY = -PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL; // Shift up
         textAlignForLabel = 'center';
-    } else if (labelAngleRad >= 3 * Math.PI / 4 && labelAngleRad < 5 * Math.PI / 4) { // Left side (approx 135 to 225 deg canvas)
+    } else if (labelAngleRad >= 3 * Math.PI / 4 && labelAngleRad < 3 * Math.PI / 4) { // Left side (approx 135 to 225 deg canvas)
         offsetX = PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift right
         textAlignForLabel = 'left';
     } else { // Top side (approx 225 to 315 deg canvas)
