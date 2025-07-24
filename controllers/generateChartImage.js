@@ -38,12 +38,9 @@ const BOLD_CUSP_LINE_WIDTH = 5;
 // Font size for planet degree labels (matching house cusp labels)
 const PLANET_DEGREE_FONT_SIZE = 16;
 // Radial offset for planet degree labels from the planet's center
-// This is now a positive value representing how far inwards the text's center will be from PLANET_RADIUS.
-const PLANET_DEGREE_TEXT_RADIAL_OFFSET = PLANET_CIRCLE_RADIUS + 5; // 5px inside the planet's circle inner edge
-
-// Horizontal and Vertical offsets for fine-tuning horizontal text placement
-const PLANET_DEGREE_HORIZONTAL_OFFSET_FROM_RADIAL = 15; // Small horizontal shift from the radial line
-const PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL = 5; // Small vertical shift from the radial line
+// This is a positive value representing how far inwards the text's center will be from PLANET_RADIUS.
+// It's calculated to be slightly inside the planet's symbol circle.
+const PLANET_DEGREE_LABEL_RADIAL_OFFSET = PLANET_CIRCLE_RADIUS + 5;
 
 
 // Color Constants
@@ -492,45 +489,59 @@ async function generateNatalChartImage(ephemerisData) {
 
     const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Use adjusted degree for label position
 
-    // Calculate the base radial position for the text
-    // This positions the text's center at a radius slightly inside the planet symbol
-    const textRadialBase = PLANET_RADIUS + PLANET_DEGREE_LABEL_OFFSET; // PLANET_DEGREE_LABEL_OFFSET is negative
+    // Calculate the position for the degree label
+    // It should be positioned horizontally, slightly inwards from the planet symbol.
+    // This requires calculating a new (x,y) for the label, not just rotating.
+    let labelX = CENTER_X + (PLANET_RADIUS + PLANET_DEGREE_LABEL_RADIAL_OFFSET) * Math.cos(labelAngleRad);
+    let labelY = CENTER_Y + (PLANET_RADIUS + PLANET_DEGREE_LABEL_RADIAL_OFFSET) * Math.sin(labelAngleRad);
 
-    let finalLabelX, finalLabelY;
-    let textAlign = 'center'; // Default alignment
+    // Adjust label position based on quadrant to ensure it stays "inside" and horizontal
+    // and doesn't overlap with the ruler.
+    // Quadrants are based on standard Cartesian (0=right, 90=up, 180=left, 270=down)
+    // Canvas angles are 0=right, 90=down, 180=left, 270=up.
+    // We need to use the adjustedDeg which is in astrological degrees (0=Aries/left, increasing counter-clockwise).
+    // The toChartCoords converts this to canvas radians (0=top, increasing clockwise).
 
-    // Determine text position and alignment for horizontal display
-    // Angles in radians: 0 (right), PI/2 (bottom), PI (left), 3*PI/2 (top)
-    // The goal is to place it horizontally, on the "inner side" relative to the planet.
-    // This means adjusting X for left/right side, and Y slightly up/down for top/bottom.
+    // Convert labelAngleRad (canvas radians, 0=top, clockwise) to standard math radians (0=right, counter-clockwise)
+    // for easier quadrant logic.
+    const standardMathAngle = (360 - (labelAngleRad * 180 / Math.PI) + 90) % 360; // Convert to 0=right, counter-clockwise degrees
 
-    // Calculate the raw X, Y based on the text's radial base
-    const rawX = CENTER_X + textRadialBase * Math.cos(labelAngleRad);
-    const rawY = CENTER_Y + textRadialBase * Math.sin(labelAngleRad);
+    // Apply horizontal and vertical offsets to the label's position
+    // These offsets are relative to the calculated labelX, labelY, pushing the text
+    // slightly perpendicular to the radial line to make it appear "inside" and readable.
+    let offsetX = 0;
+    let offsetY = 0;
+    let textAlignForLabel = 'center';
 
-    // Apply horizontal and vertical offsets based on quadrant to keep text horizontal and legible
-    if (labelAngleRad >= -Math.PI / 4 && labelAngleRad < Math.PI / 4) { // Right-most section (e.g., 315 to 45 deg)
-        finalLabelX = rawX + PLANET_DEGREE_HORIZONTAL_OFFSET_FROM_RADIAL;
-        finalLabelY = rawY;
-        textAlign = 'left';
-    } else if (labelAngleRad >= Math.PI / 4 && labelAngleRad < 3 * Math.PI / 4) { // Bottom-right section (e.g., 45 to 135 deg)
-        finalLabelX = rawX;
-        finalLabelY = rawY + PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL;
-        textAlign = 'center';
-    } else if (labelAngleRad >= 3 * Math.PI / 4 && labelAngleRad < 5 * Math.PI / 4) { // Left-most section (e.g., 135 to 225 deg)
-        finalLabelX = rawX - PLANET_DEGREE_HORIZONTAL_OFFSET_FROM_RADIAL;
-        finalLabelY = rawY;
-        textAlign = 'right';
-    } else { // Top-left section (e.g., 225 to 315 deg)
-        finalLabelX = rawX;
-        finalLabelY = rawY - PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL;
-        textAlign = 'center';
+    const textWidth = ctx.measureText(degreeText).width; // Measure text width to help with precise placement
+
+    if (standardMathAngle >= 0 && standardMathAngle < 90) { // Quadrant 1 (Top Right)
+        offsetX = -PLANET_DEGREE_HORIZONTAL_OFFSET_FROM_RADIAL;
+        offsetY = PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL;
+        textAlignForLabel = 'right';
+    } else if (standardMathAngle >= 90 && standardMathAngle < 180) { // Quadrant 2 (Top Left)
+        offsetX = PLANET_DEGREE_HORIZONTAL_OFFSET_FROM_RADIAL;
+        offsetY = PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL;
+        textAlignForLabel = 'left';
+    } else if (standardMathAngle >= 180 && standardMathAngle < 270) { // Quadrant 3 (Bottom Left)
+        offsetX = PLANET_DEGREE_HORIZONTAL_OFFSET_FROM_RADIAL;
+        offsetY = -PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL;
+        textAlignForLabel = 'left';
+    } else { // Quadrant 4 (Bottom Right)
+        offsetX = -PLANET_DEGREE_HORIZONTAL_OFFSET_FROM_RADIAL;
+        offsetY = -PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL;
+        textAlignForLabel = 'right';
     }
+
+    // Apply the offsets to the final label position
+    finalLabelX = rawX + offsetX;
+    finalLabelY = rawY + offsetY;
+
 
     ctx.save();
     ctx.fillStyle = COLORS.TEXT;
     ctx.font = `bold ${PLANET_DEGREE_FONT_SIZE}px Inter`;
-    ctx.textAlign = textAlign;
+    ctx.textAlign = textAlignForLabel;
     ctx.textBaseline = 'middle'; // Keep middle for vertical centering
 
     ctx.fillText(degreeText, finalLabelX, finalLabelY);
