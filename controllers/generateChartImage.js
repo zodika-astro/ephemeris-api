@@ -40,8 +40,8 @@ const PLANET_DEGREE_FONT_SIZE = 16;
 // Radial offset for planet degree labels from the planet's center.
 // This is a positive value representing how far inwards the text's center will be from PLANET_RADIUS.
 // It's calculated to be slightly inside the planet's symbol circle.
-// Adjusted to decrease the distance by approximately 5%
-const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 7.875; // Adjusted from +10 to +7.875 (approx 5% reduction)
+// Adjusted to decrease the distance by approximately another 5%
+const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 7.5; // Adjusted from +7.875 to +7.5 (approx another 5% reduction)
 
 // Offsets for fine-tuning horizontal text placement relative to the planet's position
 const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10; // Shift perpendicular to radial line
