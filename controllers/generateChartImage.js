@@ -488,30 +488,25 @@ async function generateNatalChartImage(ephemerisData) {
 
     const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Use adjusted degree for label position
 
-    // Calculate position for the degree label, slightly inside the planet symbol
-    const labelX = CENTER_X + (PLANET_RADIUS + PLANET_DEGREE_LABEL_OFFSET) * Math.cos(labelAngleRad);
-    const labelY = CENTER_Y + (PLANET_RADIUS + PLANET_DEGREE_LABEL_OFFSET) * Math.sin(labelAngleRad);
-
+    // Translate to the planet's center for rotation
     ctx.save();
-    ctx.translate(labelX, labelY);
+    ctx.translate(planet.x, planet.y);
 
-    // Adjust rotation and alignment for readability in all quadrants
-    let textRotation = labelAngleRad + Math.PI / 2; // Default radial rotation
-    let textAlign = 'center'; // Default alignment
-
+    // Determine rotation for the label
+    let textRotation = labelAngleRad;
     // If in the lower half of the chart (canvas angles from 90 to 270 degrees), flip text
     if (labelAngleRad > Math.PI / 2 && labelAngleRad < 3 * Math.PI / 2) {
       textRotation += Math.PI; // Add 180 degrees to flip
-      textAlign = 'center'; // Keep center for now, can be 'right' or 'left' if needed
     }
 
     ctx.rotate(textRotation);
-    ctx.textAlign = textAlign;
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle'; // Keep middle for vertical centering
 
     ctx.fillStyle = COLORS.TEXT; // Use general text color
     ctx.font = `bold ${PLANET_DEGREE_FONT_SIZE}px Inter`;
-    ctx.fillText(degreeText, 0, 0); // Draw at translated origin
+    // Draw the text with a Y-offset to position it "inside" the planet symbol
+    ctx.fillText(degreeText, 0, PLANET_DEGREE_LABEL_OFFSET); // Use the negative offset directly as Y
 
     ctx.restore();
   });
