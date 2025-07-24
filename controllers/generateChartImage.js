@@ -481,7 +481,11 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.fillText(symbol, planet.x, planet.y);
 
     // Draw planet degree label
-    const degreeText = `${planet.deg.toFixed(1)}°`; // Format degree to one decimal place
+    const degreeInSign = Math.floor(planet.deg % 30); // Get integer degree within sign
+    const signIndex = Math.floor(planet.deg / 30);
+    const signSymbol = SIGN_SYMBOLS[signIndex];
+    const degreeText = `${degreeInSign}° ${signSymbol}`; // Format: "Degree° SignSymbol"
+
     const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset); // Use adjusted degree for label position
 
     // Calculate position for the degree label, slightly inside the planet symbol
@@ -490,13 +494,23 @@ async function generateNatalChartImage(ephemerisData) {
 
     ctx.save();
     ctx.translate(labelX, labelY);
-    // Rotate the label to be readable radially
-    ctx.rotate(labelAngleRad + Math.PI / 2); // Adjust rotation for readability
+
+    // Adjust rotation and alignment for readability in all quadrants
+    let textRotation = labelAngleRad + Math.PI / 2; // Default radial rotation
+    let textAlign = 'center'; // Default alignment
+
+    // If in the lower half of the chart (canvas angles from 90 to 270 degrees), flip text
+    if (labelAngleRad > Math.PI / 2 && labelAngleRad < 3 * Math.PI / 2) {
+      textRotation += Math.PI; // Add 180 degrees to flip
+      textAlign = 'center'; // Keep center for now, can be 'right' or 'left' if needed
+    }
+
+    ctx.rotate(textRotation);
+    ctx.textAlign = textAlign;
+    ctx.textBaseline = 'middle';
 
     ctx.fillStyle = COLORS.TEXT; // Use general text color
     ctx.font = `bold ${PLANET_DEGREE_FONT_SIZE}px Inter`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     ctx.fillText(degreeText, 0, 0); // Draw at translated origin
 
     ctx.restore();
