@@ -40,10 +40,11 @@ const PLANET_DEGREE_FONT_SIZE = 16;
 // Radial offset for planet degree labels from the planet's center.
 // This is a positive value representing how far inwards the text's center will be from PLANET_RADIUS.
 // It's calculated to be slightly inside the planet's symbol circle.
-const PLANET_DEGREE_LABEL_INNER_PADDING = 5; // Padding inwards from the planet circle's edge
+const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 10; // Increased padding from +5 to +10
 
 // Offsets for fine-tuning horizontal text placement relative to the planet's position
 const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10; // Shift perpendicular to radial line
+const PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL = 10; // Define this missing constant
 const PLANET_DEGREE_TEXT_RADIAL_OFFSET_FINE_TUNE = 0; // Not used in this specific horizontal logic, but kept for clarity
 
 
@@ -511,13 +512,13 @@ async function generateNatalChartImage(ephemerisData) {
         offsetX = -PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift left
         textAlignForLabel = 'right';
     } else if (labelAngleRad >= Math.PI / 4 && labelAngleRad < 3 * Math.PI / 4) { // Bottom side (approx 45 to 135 deg canvas)
-        offsetY = -PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift up
+        offsetY = -PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL; // Shift up
         textAlignForLabel = 'center';
     } else if (labelAngleRad >= 3 * Math.PI / 4 && labelAngleRad < 5 * Math.PI / 4) { // Left side (approx 135 to 225 deg canvas)
         offsetX = PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift right
         textAlignForLabel = 'left';
     } else { // Top side (approx 225 to 315 deg canvas)
-        offsetY = PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift down
+        offsetY = PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL; // Shift down
         textAlignForLabel = 'center';
     }
 
