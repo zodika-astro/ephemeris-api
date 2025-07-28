@@ -23,14 +23,13 @@ if (fs.existsSync(interFontPathRegular)) {
 
 
 // Color and layout constants
-const WIDTH = 1536; // Largura do canvas
-const HEIGHT = 768; // Altura do canvas
+const WIDTH = 1536; // Largura do canvas mantida no valor original
+// HEIGHT será calculado dinamicamente
 const COLORS = {
   BACKGROUND: '#FFFBF4', // Cor de fundo do canvas
   TEXT: '#29281E',      // Cor principal do texto
   HEADER: '#1A1E3B',    // Cor para títulos e cabeçalhos
   TABLE_BORDER: '#CCCCCC', // Cor das bordas da tabela
-  // ROW_ALTERNATE_BG: '#F8F8F8', // Removido: Cor de fundo para linhas alternadas da tabela
   ASPECT_CONJUNCTION: '#000000', // Preto para Conjunção
   ASPECT_OPPOSITION: '#FF0000',  // Vermelho para Oposição
   ASPECT_TRINE: '#0000FF',       // Azul para Trígono (alterado de verde)
@@ -46,8 +45,7 @@ const FONT_ASPECT_SYMBOLS = '18px Inter'; // Para símbolos de aspectos
 
 const PADDING = 30; // Preenchimento geral das margens
 const ROW_HEIGHT = 30; // Altura de cada linha na tabela
-// A tabela agora começará diretamente no PADDING, já que a linha de cabeçalho foi removida
-const TABLE_START_Y = PADDING;
+const TABLE_START_Y = PADDING; // Posição Y inicial da tabela (ajustada pela remoção dos títulos)
 const ASPECT_MATRIX_CELL_SIZE = 40; // Tamanho da célula na matriz de aspectos
 
 // Larguras das colunas para a tabela de posições dos planetas
@@ -180,16 +178,49 @@ const getAspectColor = (aspectSymbol) => {
  * @returns {Buffer} - Buffer da imagem PNG gerada.
  */
 async function generateNatalTableImage(chartData) {
-  const canvas = createCanvas(WIDTH, HEIGHT);
-  const ctx = canvas.getContext('2d');
-
   const planetsList = Object.keys(chartData.planets);
   const degrees = chartData.geo;
   const signs = chartData.planets;
 
+  // Calcular a largura total da tabela principal (posições + aspectos)
+  const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
+
+  // Define novas constantes para a tabela de elementos/qualidades
+  const PADDING_BETWEEN_TABLES = 60; // Espaçamento entre as duas tabelas
+  const EQ_COL_WIDTHS = {
+    name: 120, // e.g., "Fire", "Cardinal"
+    count: 80, // e.g., "10"
+    status: 100 // e.g., "balance"
+  };
+  const EQ_TABLE_TOTAL_WIDTH = EQ_COL_WIDTHS.name + EQ_COL_WIDTHS.count + EQ_COL_WIDTHS.status;
+  const EQ_TABLE_START_X = PADDING + mainTableContentWidth + PADDING_BETWEEN_TABLES;
+
+
+  // Calcular a largura total do canvas (mantendo WIDTH original)
+  const calculatedWidth = WIDTH;
+
+  // Calcular a altura total da tabela principal
+  const mainTableHeight = TABLE_START_Y + (planetsList.length * ROW_HEIGHT) + PADDING;
+
+  // Calcular a altura da tabela de elementos e qualidades
+  // +2 para os cabeçalhos "Elementos" e "Qualidades", +2 para os cabeçalhos das sub-tabelas
+  // + PADDING para o espaço entre as sub-tabelas e no final
+  const elementsCount = Object.keys(chartData.elements).length;
+  const qualitiesCount = Object.keys(chartData.qualities).length;
+  const eqTableContentHeight = (elementsCount + qualitiesCount + 2) * ROW_HEIGHT + PADDING * 2; // +2 para os títulos das seções, + PADDING para espaço entre elas
+
+  const eqTableCalculatedHeight = TABLE_START_Y + eqTableContentHeight + PADDING;
+
+
+  // A altura final do canvas será o máximo entre a altura da tabela principal e a altura da tabela de elementos/qualidades
+  const calculatedHeight = Math.max(mainTableHeight, eqTableCalculatedHeight);
+
+  const canvas = createCanvas(calculatedWidth, calculatedHeight);
+  const ctx = canvas.getContext('2d');
+
   // Preenche o fundo do canvas
   ctx.fillStyle = COLORS.BACKGROUND;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillRect(0, 0, calculatedWidth, calculatedHeight);
 
   // --- Tabela Combinada de Posições e Aspectos ---
   let currentY = TABLE_START_Y;
@@ -248,6 +279,106 @@ async function generateNatalTableImage(chartData) {
 
     currentY += ROW_HEIGHT; // Move para a próxima linha
   });
+
+  // --- Tabela de Elementos e Qualidades ---
+  let eqCurrentY = TABLE_START_Y;
+  let eqCurrentX = EQ_TABLE_START_X;
+
+  // --- Seção de Elementos ---
+  ctx.font = FONT_TABLE_HEADER; // Usa a fonte de cabeçalho para o título da seção
+  ctx.fillStyle = COLORS.TEXT;
+  ctx.textAlign = 'left';
+  ctx.fillText('Elementos', eqCurrentX, eqCurrentY + ROW_HEIGHT - 8); // Título "Elementos"
+  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para o cabeçalho da tabela de elementos
+
+  // Cabeçalho da tabela de Elementos
+  let eqHeaderX = eqCurrentX;
+  ctx.strokeStyle = COLORS.TABLE_BORDER;
+  ctx.lineWidth = 1;
+  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
+  ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+  ctx.fillText('Elemento', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.name;
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+  ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.count;
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+  ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.status;
+  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados dos elementos
+
+  // Dados dos Elementos
+  ctx.font = FONT_TABLE_TEXT;
+  ctx.fillStyle = COLORS.TEXT;
+  for (const element in chartData.elements) {
+    const data = chartData.elements[element];
+    eqHeaderX = eqCurrentX; // Reseta X para cada linha de dados
+
+    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+    ctx.fillText(element.charAt(0).toUpperCase() + element.slice(1), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqHeaderX += EQ_COL_WIDTHS.name;
+
+    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+    ctx.fillText(data.count.toString(), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqHeaderX += EQ_COL_WIDTHS.count;
+
+    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+    ctx.fillText(data.status.charAt(0).toUpperCase() + data.status.slice(1), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqHeaderX += EQ_COL_WIDTHS.status;
+    eqCurrentY += ROW_HEIGHT;
+  }
+
+  // Adiciona um espaçamento entre a tabela de Elementos e Qualidades
+  eqCurrentY += PADDING;
+
+  // --- Seção de Qualidades ---
+  ctx.font = FONT_TABLE_HEADER; // Usa a fonte de cabeçalho para o título da seção
+  ctx.fillStyle = COLORS.TEXT;
+  ctx.fillText('Qualidades', eqCurrentX, eqCurrentY + ROW_HEIGHT - 8); // Título "Qualidades"
+  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para o cabeçalho da tabela de qualidades
+
+  // Cabeçalho da tabela de Qualidades
+  eqHeaderX = eqCurrentX; // Reseta X para o cabeçalho da tabela de qualidades
+  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
+  ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+  ctx.fillText('Qualidade', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.name;
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+  ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.count;
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+  ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.status;
+  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados das qualidades
+
+  // Dados das Qualidades
+  ctx.font = FONT_TABLE_TEXT;
+  ctx.fillStyle = COLORS.TEXT;
+  for (const quality in chartData.qualities) {
+    const data = chartData.qualities[quality];
+    eqHeaderX = eqCurrentX; // Reseta X para cada linha de dados
+
+    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+    ctx.fillText(quality.charAt(0).toUpperCase() + quality.slice(1), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqHeaderX += EQ_COL_WIDTHS.name;
+
+    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+    ctx.fillText(data.count.toString(), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqHeaderX += EQ_COL_WIDTHS.count;
+
+    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+    ctx.fillText(data.status.charAt(0).toUpperCase() + data.status.slice(1), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqHeaderX += EQ_COL_WIDTHS.status;
+    eqCurrentY += ROW_HEIGHT;
+  }
 
   return canvas.toBuffer('image/png');
 }
