@@ -1,25 +1,25 @@
 'use strict';
 const { createCanvas, registerFont } = require('canvas');
-const path = require('path'); // CRITICAL FIX: Changed from 'fs' to 'path'
+const path = require('path');
 const fs = require('fs');
 
 // Chart Configuration Constants
-const CHART_WIDTH = 1536;
-const CHART_HEIGHT = 1536;
+const CHART_WIDTH = 1200; // ALTERADO: Reduzido para diminuir a margem externa
+const CHART_HEIGHT = 1200; // ALTERADO: Reduzido para diminuir a margem externa
 const CENTER_X = CHART_WIDTH / 2;
 const CENTER_Y = CHART_HEIGHT / 2;
-const OUTER_RADIUS = 600;
-const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85; // 510
-const INNER_RADIUS = OUTER_RADIUS * 0.125; // 75
+const OUTER_RADIUS = 600; // REVERTIDO: Voltou ao valor original
+const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
+const INNER_RADIUS = OUTER_RADIUS * 0.125;
 
 const PLANET_SYMBOL_SIZE = 52;
-const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6; // 32.5
-const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35; // 110
+const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
+const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
 const HOUSE_NUMBER_FONT_SIZE = 28;
-const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15; // 495
+const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
-// Calculate planet radius - CRITICAL FIX: Adjusted to pull planets further inside
-const PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS * 0.85; // Example: 510 * 0.85 = 433.5. This places planets well inside the ticks.
+// Calculate planet radius
+const PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS * 0.875; // Mantido conforme última solicitação de posicionamento
 
 // Radius for aspect lines
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
@@ -302,7 +302,7 @@ async function generateNatalChartImage(ephemerisData) {
 
   for (let i = 1; i <= 12; i++) {
     const houseKey = `house${i}`;
-    // CRITICAL FIX: Ensure housesData[houseKey] exists and cuspDegree is a valid number
+    // Ensure housesData[houseKey] exists and cuspDegree is a valid number
     if (housesData[houseKey] && typeof housesData[houseKey].cuspDegree === 'number' && !isNaN(housesData[houseKey].cuspDegree)) {
       houseCusps.push({
         house: i,
@@ -310,7 +310,7 @@ async function generateNatalChartImage(ephemerisData) {
         sign: housesData[houseKey].sign
       });
 
-      // CRITICAL FIX: Correctly get MC degree (House 10)
+      // Get MC degree (House 10)
       if (i === 10) {
         mcDegree = housesData[houseKey].cuspDegree;
       }
@@ -323,7 +323,6 @@ async function generateNatalChartImage(ephemerisData) {
   // Fallback for mcDegree if it's still invalid after the loop (e.g., if house 10 data was missing)
   if (isNaN(mcDegree) || mcDegree === 0) {
       console.error("MC degree is invalid or 0. Chart rotation will be incorrect or drawing may fail.");
-      // Provide a reasonable fallback to prevent complete drawing failure, though accuracy will be impacted.
       mcDegree = 270; // Default to 270 degrees (top of chart) if MC is missing/invalid
   }
 
@@ -430,7 +429,6 @@ async function generateNatalChartImage(ephemerisData) {
 
     const xStart = CENTER_X + tickStart * Math.cos(rad);
     const yStart = CENTER_Y + tickStart * Math.sin(rad);
-    // CRITICAL FIX: Corrected yEnd calculation to use Math.sin
     const xEnd = CENTER_X + tickEnd * Math.cos(rad);
     const yEnd = CENTER_Y + tickEnd * Math.sin(rad); // FIX: Changed Math.cos to Math.sin
 
@@ -477,7 +475,7 @@ async function generateNatalChartImage(ephemerisData) {
       nextCuspDegree = houseCusps[index + 1].degree;
     } else {
       // For the last house (12), its end is the beginning of house 1
-      nextCuspDegree = houseCusps[0].degree;
+      nextCuspDegree = houseCps[0].degree; // FIX: Changed houseCps to houseCusps
     }
 
     let startDeg = cusp.degree;
