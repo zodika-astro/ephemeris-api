@@ -3,87 +3,87 @@ const { createCanvas, registerFont } = require('canvas');
 const path = require('path');
 const fs = require('fs');
 
-// Registrar fontes do projeto
-// Certifique-se de que os arquivos de fonte Inter-Bold.ttf e Inter-Regular.ttf
-// estejam disponíveis no diretório '../fonts/' em relação ao local de execução.
+// Register project fonts
+// Ensure that Inter-Bold.ttf and Inter-Regular.ttf font files
+// are available in the '../fonts/' directory relative to the execution location.
 const interFontPathBold = path.join(__dirname, '../fonts/Inter-Bold.ttf');
 const interFontPathRegular = path.join(__dirname, '../fonts/Inter-Regular.ttf');
 
 if (fs.existsSync(interFontPathBold)) {
   registerFont(interFontPathBold, { family: 'Inter', weight: 'bold' });
 } else {
-  console.warn(`Fonte Inter-Bold.ttf não encontrada em: ${interFontPathBold}. Usando fonte padrão.`);
+  console.warn(`Font Inter-Bold.ttf not found at: ${interFontPathBold}. Using default font.`);
 }
 
 if (fs.existsSync(interFontPathRegular)) {
   registerFont(interFontPathRegular, { family: 'Inter', weight: 'normal' });
 } else {
-  console.warn(`Fonte Inter-Regular.ttf não encontrada em: ${interFontPathRegular}. Usando fonte padrão.`);
+  console.warn(`Font Inter-Regular.ttf not found at: ${interFontPathRegular}. Using default font.`);
 }
 
 
-// Constantes de cor e layout
-const WIDTH = 1536; // Largura do canvas mantida no valor original
-// HEIGHT será calculado dinamicamente
+// Color and layout constants
+const WIDTH = 1536; // Canvas width (original value maintained)
+// HEIGHT will be calculated dynamically
 const COLORS = {
-  BACKGROUND: '#FFFBF4', // Cor de fundo do canvas
-  TEXT: '#29281E',      // Cor principal do texto
-  HEADER: '#1A1E3B',    // Cor para títulos e cabeçalhos
-  TABLE_BORDER: '#CCCCCC', // Cor das bordas da tabela
-  ASPECT_CONJUNCTION: '#000000', // Preto para Conjunção
-  ASPECT_OPPOSITION: '#FF0000',  // Vermelho para Oposição
-  ASPECT_TRINE: '#0000FF',       // Azul para Trígono (alterado de verde)
-  ASPECT_SQUARE: '#FF0000',      // Vermelho para Quadratura (alterado de laranja)
-  ASPECT_SEXTILE: '#0000FF'      // Azul para Sextil
+  BACKGROUND: '#FFFBF4', // Canvas background color
+  TEXT: '#29281E',      // Main text color
+  HEADER: '#1A1E3B',    // Color for titles and headers
+  TABLE_BORDER: '#CCCCCC', // Table border color
+  ASPECT_CONJUNCTION: '#000000', // Black for Conjunction
+  ASPECT_OPPOSITION: '#FF0000',  // Red for Opposition
+  ASPECT_TRINE: '#0000FF',       // Blue for Trine (changed from green)
+  ASPECT_SQUARE: '#FF0000',      // Red for Square (changed from orange)
+  ASPECT_SEXTILE: '#0000FF'      // Blue for Sextile
 };
 
-// Definições de fontes para diferentes elementos visuais
-const FONT_TABLE_HEADER = 'bold 16px Inter'; // Cabeçalho da tabela
-const FONT_TABLE_TEXT = '14px Inter'; // Texto da tabela
-const FONT_SYMBOLS = '20px Inter'; // Para símbolos de planetas e signos
-const FONT_ASPECT_SYMBOLS = '18px Inter'; // Para símbolos de aspectos
+// Font definitions for different visual elements
+const FONT_TABLE_HEADER = 'bold 16px Inter'; // Table header
+const FONT_TABLE_TEXT = '14px Inter'; // Table text
+const FONT_SYMBOLS = '20px Inter'; // For planet and sign symbols
+const FONT_ASPECT_SYMBOLS = '18px Inter'; // For aspect symbols
 
-const PADDING = 30; // Preenchimento geral das margens
-const ROW_HEIGHT = 30; // Altura de cada linha na tabela
-const TABLE_START_Y = PADDING; // Posição Y inicial da tabela (ajustada pela remoção dos títulos)
-const ASPECT_MATRIX_CELL_SIZE = 40; // Tamanho da célula na matriz de aspectos
+const PADDING = 30; // General margin padding
+const ROW_HEIGHT = 30; // Height of each row in the table
+const TABLE_START_Y = PADDING; // Initial Y position of the table (adjusted by removing titles)
+const ASPECT_MATRIX_CELL_SIZE = 40; // Cell size in the aspect matrix
 
-// Larguras das colunas para a tabela de posições dos planetas
+// Column widths for the planet positions table
 const TABLE_COL_WIDTHS = {
-  symbol: 40,    // Símbolo do planeta (primeira coluna da tabela combinada)
-  planet: 120,   // Nome do planeta (RESTAURADO para o original)
-  positionDetails: 250, // Coluna unificada para Grau, Signo, Minutos, Segundos e Retrógrado (REDUZIDO em ~35%)
+  symbol: 40,    // Planet symbol (first column of the combined table)
+  planet: 120,   // Planet name (RESTORED to original)
+  positionDetails: 250, // Unified column for Degree, Sign, Minutes, Seconds, and Retrograde (REDUCED by ~35%)
 };
 
-// Mapeamento de rótulos de planetas para português
+// Mapping of planet labels to Portuguese
 const PLANET_LABELS_PT = {
   sun: 'Sol', moon: 'Lua', mercury: 'Mercúrio', venus: 'Vênus', mars: 'Marte',
   jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano', neptune: 'Netuno',
   pluto: 'Plutão', trueNode: 'Nodo Norte', lilith: 'Lilith', chiron: 'Quíron'
 };
 
-// Símbolos astrológicos para planetas
+// Astrological symbols for planets
 const PLANET_SYMBOLS = {
   sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
   jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆',
   pluto: '♇', trueNode: '☊', lilith: '☭', chiron: '⚷'
 };
 
-// Mapeamento de rótulos de signos para português
+// Mapping of zodiac sign labels to Portuguese
 const SIGN_LABELS_PT = {
   Aries: 'Áries', Taurus: 'Touro', Gemini: 'Gêmeos', Cancer: 'Câncer', Leo: 'Leão',
   Virgo: 'Virgem', Libra: 'Libra', Scorpio: 'Escorpião', Sagittarius: 'Sagitário',
   Capricorn: 'Capricórnio', Aquarius: 'Aquário', Pisces: 'Peixes'
 };
 
-// Símbolos astrológicos para signos
+// Astrological symbols for zodiac signs
 const SIGN_SYMBOLS = {
   Aries: '♈', Taurus: '♉', Gemini: '♊', Cancer: '♋', Leo: '♌',
   Virgo: '♍', Libra: '♎', Scorpio: '♏', Sagittarius: '♐',
   Capricorn: '♑', Aquarius: '♒', Pisces: '♓'
 };
 
-// Símbolos astrológicos para aspectos
+// Astrological symbols for aspects
 const ASPECT_SYMBOLS = {
   conjunction: '☌', // 0°
   opposition: '☍',  // 180°
@@ -92,7 +92,7 @@ const ASPECT_SYMBOLS = {
   sextile: '⚹'      // 60°
 };
 
-// --- Definições de Aspectos e Orbe Padrão (copiado de controllers/ephemeris.js) ---
+// --- Aspect Definitions and Default Orb (copied from controllers/ephemeris.js) ---
 const ASPECT_DEFINITIONS = [
   { name: "conjunction", degree: 0 },
   { name: "sextile", degree: 60 },
@@ -100,9 +100,9 @@ const ASPECT_DEFINITIONS = [
   { name: "trine", degree: 120 },
   { name: "opposition", degree: 180 }
 ];
-const DEFAULT_ORB = 6; // Orbe padrão, ajuste conforme necessário para sua precisão
+const DEFAULT_ORB = 6; // Default orb, adjust as needed for your precision
 
-// --- Mapeamento de Elementos e Qualidades para português ---
+// --- Mapping of Elements and Qualities to Portuguese ---
 const ELEMENT_LABELS_PT = {
   fire: 'Fogo',
   earth: 'Terra',
@@ -116,7 +116,7 @@ const QUALITY_LABELS_PT = {
   mutable: 'Mutáveis'
 };
 
-// Element and modality classification (copiado de ephemeris.js para auto-contenção)
+// Element and modality classification (copied from ephemeris.js for self-containment)
 const SIGN_ELEMENT_MAP = {
   "Aries": "fire", "Leo": "fire", "Sagittarius": "fire",
   "Taurus": "earth", "Virgo": "earth", "Capricorn": "earth",
@@ -132,20 +132,20 @@ const SIGN_QUALITY_MAP = {
 
 
 /**
- * Formata as informações de posição de um planeta em uma única string.
- * Formato: Grau(°), Signo, Minutos (') Segundos (") e Retrógrado (R)
- * O grau exibido é o grau dentro do signo (0-29).
- * @param {string} planet - O nome do planeta.
- * @param {object} data - Objeto contendo dados dos signos dos planetas.
- * @param {object} degrees - Objeto contendo os graus absolutos dos planetas.
- * @returns {string} - A string formatada (e.g., "15° Touro, 27' 24" (R)").
+ * Formats a planet's position information into a single string.
+ * Format: Degree(°), Sign, Minutes (') Seconds (") and Retrograde (R)
+ * The displayed degree is the degree within the sign (0-29).
+ * @param {string} planet - The planet's name.
+ * @param {object} data - Object containing planet sign data.
+ * @param {object} degrees - Object containing the absolute degrees of the planets.
+ * @returns {string} - The formatted string (e.g., "15° Touro, 27' 24" (R)").
  */
 const formatPositionDetails = (planet, data, degrees) => {
-  const degreeValue = degrees[planet]; // Ex: 35.4567 (grau absoluto 0-360)
-  // Calcula o grau dentro do signo (0-29)
+  const degreeValue = degrees[planet]; // Ex: 35.4567 (absolute degree 0-360)
+  // Calculates the degree within the sign (0-29)
   const d = Math.floor(degreeValue % 30);
-  const m = Math.floor((degreeValue * 60) % 60); // Minutos
-  const s = Math.round((degreeValue * 3600) % 60); // Segundos
+  const m = Math.floor((degreeValue * 60) % 60); // Minutes
+  const s = Math.round((degreeValue * 3600) % 60); // Seconds
 
   const sign = data[planet]?.sign || '-';
   const signPt = SIGN_LABELS_PT[sign] || sign;
@@ -155,33 +155,33 @@ const formatPositionDetails = (planet, data, degrees) => {
 };
 
 /**
- * Calcula o aspecto entre dois graus usando as definições de aspecto e orbes.
- * A lógica é baseada na função `computeAspects` do seu `ephemeris.js`.
- * @param {number} degree1 - Grau do primeiro planeta.
- * @param {number} degree2 - Grau do segundo planeta.
- * @returns {string} - Símbolo do aspecto ou vazio se não houver aspecto principal.
+ * Calculates the aspect between two degrees using aspect definitions and orbs.
+ * The logic is based on the `computeAspects` function from your `ephemeris.js`.
+ * @param {number} degree1 - Degree of the first planet.
+ * @param {number} degree2 - Degree of the second planet.
+ * @returns {string} - Aspect symbol or empty if no major aspect.
  */
 const calculateAspect = (degree1, degree2) => {
   let diff = Math.abs(degree1 - degree2);
-  // Normaliza a diferença para estar entre 0 e 180 graus, como no ephemeris.js
+  // Normalizes the difference to be between 0 and 180 degrees, as in ephemeris.js
   if (diff > 180) {
     diff = 360 - diff;
   }
 
   for (const { name, degree } of ASPECT_DEFINITIONS) {
-    // Verifica se a diferença está dentro da orbe para o aspecto
+    // Checks if the difference is within the orb for the aspect
     if (diff >= (degree - DEFAULT_ORB) && diff <= (degree + DEFAULT_ORB)) {
-      // Retorna o símbolo correspondente ao aspecto encontrado
+      // Returns the corresponding symbol for the found aspect
       return ASPECT_SYMBOLS[name];
     }
   }
-  return ''; // Nenhum aspecto principal detectado
+  return ''; // No major aspect detected
 };
 
 /**
- * Retorna a cor para um símbolo de aspecto específico.
- * @param {string} aspectSymbol - O símbolo do aspecto.
- * @returns {string} - A cor definida nas constantes COLORS.
+ * Returns the color for a specific aspect symbol.
+ * @param {string} aspectSymbol - The aspect symbol.
+ * @returns {string} - The color defined in COLORS constants.
  */
 const getAspectColor = (aspectSymbol) => {
   switch (aspectSymbol) {
@@ -196,14 +196,15 @@ const getAspectColor = (aspectSymbol) => {
     case ASPECT_SYMBOLS.sextile:
       return COLORS.ASPECT_SEXTILE;
     default:
-      return COLORS.TEXT; // Cor padrão para aspectos não definidos ou vazios
+      return COLORS.TEXT; // Default color for undefined or empty aspects
   }
 };
 
 /**
- * Retorna o status traduzido para português.
- * @param {string} status - O status em inglês (lack, balance, excess).
- * @returns {string} - O status traduzido para português.
+ * Returns the translated status in Portuguese.
+ * @param {string} status - The status in English (lack, balance, excess).
+ *
+ * @returns {string} - The translated status in Portuguese.
  */
 const getTranslatedStatus = (status) => {
   switch (status) {
@@ -219,24 +220,24 @@ const getTranslatedStatus = (status) => {
 };
 
 /**
- * Gera uma imagem de tabela de mapa natal combinando posições de planetas e matriz de aspectos.
- * @param {object} chartData - Dados do mapa natal, incluindo planetas e seus graus e signos.
- * @returns {Buffer} - Buffer da imagem PNG gerada.
+ * Generates a natal chart table image combining planet positions and aspect matrix.
+ * @param {object} chartData - Natal chart data, including planets and their degrees and signs.
+ * @returns {Buffer} - Generated PNG image buffer.
  */
 async function generateNatalTableImage(chartData) {
   const planetsList = Object.keys(chartData.planets);
   const degrees = chartData.geo;
   const signs = chartData.planets;
 
-  // Pre-processar planetas e pontos para tabelas de Elementos e Qualidades
+  // Pre-process planets and points for Elements and Qualities tables
   const elementsPlanets = { fire: [], earth: [], air: [], water: [] };
   const qualitiesPlanets = { cardinal: [], fixed: [], mutable: [] };
 
-  // Helper para adicionar planeta/ponto à lista correta de elemento/qualidade
+  // Helper to add planet/point to the correct element/quality list
   const addPointToCategories = (pointName, sign) => {
-    if (!sign) return; // Garante que o signo exista
+    if (!sign) return; // Ensures the sign exists
 
-    // Excluir lilith, chiron e trueNode
+    // Exclude lilith, chiron, and trueNode
     const excludedPlanets = ['lilith', 'chiron', 'trueNode'];
     if (excludedPlanets.includes(pointName)) {
       return;
@@ -246,9 +247,9 @@ async function generateNatalTableImage(chartData) {
     const quality = SIGN_QUALITY_MAP[sign];
 
     let displaySymbol;
-    if (pointName === 'ascendant') { // Corrigido para 'ascendant' conforme ephemeris.js
+    if (pointName === 'ascendant') { // Corrected to 'ascendant' as per ephemeris.js
       displaySymbol = 'Asc';
-    } else if (pointName === 'mc') { // Corrigido para 'mc' conforme ephemeris.js
+    } else if (pointName === 'mc') { // Corrected to 'mc' as per ephemeris.js
       displaySymbol = 'MC';
     } else {
       displaySymbol = PLANET_SYMBOLS[pointName] || pointName;
@@ -262,136 +263,136 @@ async function generateNatalTableImage(chartData) {
     }
   };
 
-  // Adicionar planetas
+  // Add planets
   for (const planetName in chartData.planets) {
     const sign = chartData.planets[planetName].sign;
     addPointToCategories(planetName, sign);
   }
 
-  // Adicionar Ascendente (house1)
+  // Add Ascendant (house1)
   const ascendantSign = chartData.houses.house1?.sign;
-  addPointToCategories('ascendant', ascendantSign); // Usar 'ascendant' como chave
+  addPointToCategories('ascendant', ascendantSign); // Use 'ascendant' as key
 
-  // Adicionar MC (house10)
+  // Add MC (house10)
   const mcSign = chartData.houses.house10?.sign;
-  addPointToCategories('mc', mcSign); // Usar 'mc' como chave
+  addPointToCategories('mc', mcSign); // Use 'mc' as key
 
 
-  // Calcular a largura total da tabela principal (posições + aspectos)
+  // Calculate the total width of the main table (positions + aspects)
   const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
 
-  // Define novas constantes para a tabela de elementos/qualidades
-  const PADDING_BETWEEN_TABLES = 60; // Espaçamento entre as duas tabelas
+  // Define new constants for the elements/qualities table
+  const PADDING_BETWEEN_TABLES = 60; // Spacing between the two tables
   const EQ_COL_WIDTHS = {
     name: 120, // e.g., "Fogo", "Cardinais"
-    count: 60, // "Contagem" (diminuído um pouco de 80 para 60)
-    planets: 173, // "Planetas" (aumentado em mais 20% de 144 para 172.8, arredondado para 173)
+    count: 36, // "Count" (decreased by 40% from 60 to 36)
+    planets: 197, // "Planets" (increased by 24px from 173 to 197)
     status: 100 // e.g., "Equilíbrio"
   };
-  // A posição X inicial da tabela de elementos/qualidades é calculada após a tabela principal
+  // The initial X position of the elements/qualities table is calculated after the main table
   const EQ_TABLE_START_X = PADDING + mainTableContentWidth + PADDING_BETWEEN_TABLES;
 
 
-  // Calcular a largura total do canvas (mantendo WIDTH original)
+  // Calculate the total canvas width (maintaining original WIDTH)
   const calculatedWidth = WIDTH;
 
-  // Calcular a altura total da tabela principal
+  // Calculate the total height of the main table
   const mainTableHeight = TABLE_START_Y + (planetsList.length * ROW_HEIGHT) + PADDING;
 
-  // Calcular a altura da tabela de elementos e qualidades
+  // Calculate the height of the elements and qualities table
   const elementsCount = Object.keys(chartData.elements).length;
   const qualitiesCount = Object.keys(chartData.qualities).length;
-  // A altura da tabela de EQ é apenas a soma das linhas de dados + padding entre elas e no final
-  const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT); // Removido PADDING extra no final para centralização
+  // The height of the EQ table is just the sum of data rows + padding between them and at the end
+  const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT); // Removed extra PADDING at the end for centering
 
-  // Calcular a altura total do bloco de tabelas de elementos e qualidades
+  // Calculate the total height of the elements and qualities table block
   const totalEQBlockHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT);
 
-  // A altura final do canvas será o máximo entre a altura da tabela principal e a altura da tabela de elementos/qualidades
-  const calculatedHeight = Math.max(mainTableHeight, TABLE_START_Y + totalEQBlockHeight + PADDING); // Adiciona TABLE_START_Y para altura total e PADDING final
+  // The final canvas height will be the maximum between the main table height and the elements/qualities table height
+  const calculatedHeight = Math.max(mainTableHeight, TABLE_START_Y + totalEQBlockHeight + PADDING); // Adds TABLE_START_Y for total height and final PADDING
 
 
   const canvas = createCanvas(calculatedWidth, calculatedHeight);
   const ctx = canvas.getContext('2d');
 
-  // Preenche o fundo do canvas
+  // Fill the canvas background
   ctx.fillStyle = COLORS.BACKGROUND;
   ctx.fillRect(0, 0, calculatedWidth, calculatedHeight);
 
-  // --- Tabela Combinada de Posições e Aspectos ---
+  // --- Combined Positions and Aspects Table ---
   let currentY = TABLE_START_Y;
   let currentX = PADDING;
 
-  // --- Desenha as Linhas de Dados da Tabela Combinada ---
+  // --- Draw Data Rows of the Combined Table ---
   planetsList.forEach((planetRow, rowIndex) => {
-    ctx.fillStyle = COLORS.TEXT; // Mantém a cor do texto padrão
+    ctx.fillStyle = COLORS.TEXT; // Maintains default text color
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
 
     let colX = currentX;
 
-    // Primeira coluna: Símbolo do Planeta (como cabeçalho da linha)
+    // First column: Planet Symbol (as row header)
     ctx.font = FONT_SYMBOLS;
     ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + 10, currentY + ROW_HEIGHT - 8);
     ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
     colX += TABLE_COL_WIDTHS.symbol;
 
-    // Segunda coluna: Nome do Planeta
+    // Second column: Planet Name
     ctx.font = FONT_TABLE_TEXT;
     ctx.fillText(PLANET_LABELS_PT[planetRow] || planetRow, colX + 5, currentY + ROW_HEIGHT - 8);
     ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.planet, ROW_HEIGHT);
     colX += TABLE_COL_WIDTHS.planet;
 
-    // Terceira coluna: Detalhes da Posição (Grau, Signo, Minutos, Segundos, Retrógrado)
+    // Third column: Position Details (Degree, Sign, Minutes, Seconds, Retrograde)
     ctx.fillText(formatPositionDetails(planetRow, signs, degrees), colX + 5, currentY + ROW_HEIGHT - 8);
     ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.positionDetails, ROW_HEIGHT);
     colX += TABLE_COL_WIDTHS.positionDetails;
 
-    // Células da Matriz de Aspectos para esta linha
-    ctx.font = FONT_ASPECT_SYMBOLS; // Fonte para os símbolos de aspecto
-    ctx.textAlign = 'center'; // Centraliza os símbolos de aspecto
+    // Aspect Matrix Cells for this row
+    ctx.font = FONT_ASPECT_SYMBOLS; // Font for aspect symbols
+    ctx.textAlign = 'center'; // Center aspect symbols
     planetsList.forEach((planetCol, colIndex) => {
-      // Desenha a borda da célula APENAS se estiver na diagonal ou abaixo dela
+      // Draw cell border ONLY if it's on or below the diagonal
       if (colIndex <= rowIndex) {
         ctx.strokeRect(colX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
       }
 
       if (rowIndex === colIndex) {
-        // Célula diagonal: mostra o símbolo do planeta
+        // Diagonal cell: show planet symbol
         ctx.fillStyle = COLORS.TEXT;
         ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
       } else if (colIndex > rowIndex) {
-        // Parte superior da diagonal: não desenha nada (deixa em branco)
-        // Nenhuma borda ou conteúdo é desenhado aqui.
+        // Upper part of the diagonal: draw nothing (leave blank)
+        // No border or content is drawn here.
       } else {
-        // Parte inferior da diagonal: calcula e desenha o símbolo do aspecto
+        // Lower part of the diagonal: calculate and draw aspect symbol
         const aspectSymbol = calculateAspect(degrees[planetRow], degrees[planetCol]);
-        ctx.fillStyle = getAspectColor(aspectSymbol); // Define a cor com base no aspecto
+        ctx.fillStyle = getAspectColor(aspectSymbol); // Set color based on aspect
         ctx.fillText(aspectSymbol, colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
       }
       colX += ASPECT_MATRIX_CELL_SIZE;
     });
-    ctx.textAlign = 'left'; // Reseta o alinhamento para o padrão
+    ctx.textAlign = 'left'; // Reset alignment to default
 
-    currentY += ROW_HEIGHT; // Move para a próxima linha
+    currentY += ROW_HEIGHT; // Move to the next row
   });
 
-  // --- Tabela de Elementos e Qualidades ---
-  // Calcula a posição Y inicial para as tabelas de EQ para centralizá-las
+  // --- Elements and Qualities Table ---
+  // Calculate initial Y position for EQ tables to center them
   let eqCurrentY = TABLE_START_Y + (calculatedHeight - (TABLE_START_Y + totalEQBlockHeight + PADDING)) / 2;
   let eqCurrentX = EQ_TABLE_START_X;
 
-  // --- Seção de Elementos ---
-  // Dados dos Elementos
-  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para os dados
+  // --- Elements Section ---
+  // Elements data
+  ctx.font = FONT_TABLE_TEXT; // Use text font for data
   ctx.fillStyle = COLORS.TEXT;
 
-  // Removido o desenho dos cabeçalhos da tabela de Elementos
-  // eqCurrentY não é incrementado aqui, pois os cabeçalhos foram removidos.
+  // Removed drawing of Elements table headers
+  // eqCurrentY is not incremented here, as headers were removed.
 
   for (const element in chartData.elements) {
     const data = chartData.elements[element];
-    let eqColX = eqCurrentX; // Reseta X para cada linha de dados
+    let eqColX = eqCurrentX; // Reset X for each data row
 
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
@@ -414,20 +415,20 @@ async function generateNatalTableImage(chartData) {
     eqCurrentY += ROW_HEIGHT;
   }
 
-  // Adiciona um espaçamento entre a tabela de Elementos e Qualidades
+  // Add spacing between Elements and Qualities tables
   eqCurrentY += PADDING;
 
-  // --- Seção de Qualidades ---
-  // Dados das Qualidades
+  // --- Qualities Section ---
+  // Qualities data
   ctx.font = FONT_TABLE_TEXT;
   ctx.fillStyle = COLORS.TEXT;
 
-  // Removido o desenho dos cabeçalhos da tabela de Qualidades
-  // eqCurrentY não é incrementado aqui, pois os cabeçalhos foram removidos.
+  // Removed drawing of Qualities table headers
+  // eqCurrentY is not incremented here, as headers were removed.
 
   for (const quality in chartData.qualities) {
     const data = chartData.qualities[quality];
-    let eqColX = eqCurrentX; // Reseta X para cada linha de dados
+    let eqColX = eqCurrentX; // Reset X for each data row
 
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
