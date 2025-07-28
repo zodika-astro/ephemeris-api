@@ -302,12 +302,13 @@ async function generateNatalTableImage(chartData) {
   const elementsCount = Object.keys(chartData.elements).length;
   const qualitiesCount = Object.keys(chartData.qualities).length;
   // A altura da tabela de EQ é apenas a soma das linhas de dados + padding entre elas e no final
-  // Removido +2 * ROW_HEIGHT pois os cabeçalhos das tabelas de elementos/qualidades serão removidos
-  const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT) + PADDING;
+  const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT); // Removido PADDING extra no final para centralização
 
+  // Calcular a altura total do bloco de tabelas de elementos e qualidades
+  const totalEQBlockHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT);
 
   // A altura final do canvas será o máximo entre a altura da tabela principal e a altura da tabela de elementos/qualidades
-  const calculatedHeight = Math.max(mainTableHeight, eqTableContentHeight + TABLE_START_Y); // Adiciona TABLE_START_Y para altura total
+  const calculatedHeight = Math.max(mainTableHeight, TABLE_START_Y + totalEQBlockHeight + PADDING); // Adiciona TABLE_START_Y para altura total e PADDING final
 
 
   const canvas = createCanvas(calculatedWidth, calculatedHeight);
@@ -376,8 +377,8 @@ async function generateNatalTableImage(chartData) {
   });
 
   // --- Tabela de Elementos e Qualidades ---
-  // A posição Y inicial para as tabelas de EQ é a mesma da tabela principal
-  let eqCurrentY = TABLE_START_Y;
+  // Calcula a posição Y inicial para as tabelas de EQ para centralizá-las
+  let eqCurrentY = TABLE_START_Y + (calculatedHeight - (TABLE_START_Y + totalEQBlockHeight + PADDING)) / 2;
   let eqCurrentX = EQ_TABLE_START_X;
 
   // --- Seção de Elementos ---
