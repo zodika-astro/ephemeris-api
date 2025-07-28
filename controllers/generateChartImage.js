@@ -41,7 +41,7 @@ const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 6.5;
 
 // Offsets for fine-tuning horizontal text placement relative to the planet's position
 const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10;
-const PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL = 10; 
+const PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL = 10;
 
 
 // Color Constants
@@ -88,14 +88,25 @@ const PLANET_SYMBOLS = {
   neptune: '\u2646', pluto: '\u2647', trueNode: '\u260A', lilith: '\u262D', chiron: '\u26B7'
 };
 
-// Aspect styles
+// Aspect styles (colors and line widths for drawing)
 const ASPECT_STYLES = {
-  conjunction: { color: null, lineWidth: 0 },
-  opposition: { color: '#FF0000', lineWidth: 3.5 },
-  square: { color: '#FF4500', lineWidth: 2 },
-  sextile: { color: '#0000FF', lineWidth: 2 },
-  trine: { color: '#008000', lineWidth: 2 }
+  conjunction: { color: '#000000', lineWidth: 3.5 }, // Black for Conjunction
+  opposition: { color: '#FF0000', lineWidth: 3.5 }, // Red for Opposition
+  square: { color: '#FF0000', lineWidth: 2 },       // Red for Square
+  sextile: { color: '#0000FF', lineWidth: 2 },       // Blue for Sextile
+  trine: { color: '#0000FF', lineWidth: 2 }          // Blue for Trine
 };
+
+// Aspect definitions with specific orbs based on aspect type and luminary involvement
+// This should match the definition in controllers/ephemeris.js for consistency
+const ASPECT_DEFINITIONS = [
+  { name: "conjunction", degree: 0, orb: 8, orb_luminary: 10 },
+  { name: "sextile", degree: 60, orb: 4, orb_luminary: 4 },
+  { name: "square", degree: 90, orb: 6, orb_luminary: 6 },
+  { name: "trine", degree: 120, orb: 6, orb_luminary: 6 },
+  { name: "opposition", degree: 180, orb: 8, orb_luminary: 10 }
+];
+
 
 // Zodiac signs and symbols
 const ZODIAC_SIGNS = [
@@ -191,7 +202,7 @@ function distributeCluster(cluster, targetArray) {
 
 /**
  * Generates a natal chart image based on ephemeris data.
- * @param {Object} } ephemerisData - Data containing planet positions, house cusps, and aspects.
+ * @param {Object} ephemerisData - Data containing planet positions, house cusps, and aspects.
  * @returns {Buffer} A PNG image buffer of the natal chart.
  */
 async function generateNatalChartImage(ephemerisData) {
@@ -201,7 +212,11 @@ async function generateNatalChartImage(ephemerisData) {
   // Extract chart data
   const planetPositions = ephemerisData?.geo || {};
   const houses = ephemerisData?.houses || {};
-  const aspectsData = ephemerisData?.aspects || {};
+  // Aspects data from ephemerisData is now directly used for drawing lines,
+  // but the 'calculateAspect' function below will determine which lines to draw
+  // based on the new orb rules.
+  const aspectsData = ephemerisData?.aspects || {}; 
+
 
   // Prepare house cusps
   const houseCusps = [];
@@ -533,31 +548,44 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
   // Draw aspect lines
-  for (const aspectType in aspectsData) {
-    const style = ASPECT_STYLES[aspectType];
-    if (!style || !style.color) continue;
+  // Iterate through all possible planet pairs to calculate and draw aspects
+  const allPlanetNames = Array.from(placedPlanetsMap.keys());
+  for (let i = 0; i < allPlanetNames.length; i++) {
+    for (let j = i + 1; j < allPlanetNames.length; j++) {
+      const p1Name = allPlanetNames[i];
+      const p2Name = allPlanetNames[j];
 
-    ctx.strokeStyle = style.color;
-    ctx.lineWidth = style.lineWidth;
-
-    aspectsData[aspectType].forEach(aspect => {
-      // Optimized: Use map.get() for O(1) lookup instead of array.find()
-      const p1 = placedPlanetsMap.get(aspect.planet1.name);
-      const p2 = placedPlanetsMap.get(aspect.planet2.name);
+      const p1 = placedPlanetsMap.get(p1Name);
+      const p2 = placedPlanetsMap.get(p2Name);
 
       if (p1 && p2) {
-        // Draw aspect lines at the ASPECT_LINE_RADIUS
-        const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
-        const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
-        const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
-        const aspectY2 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p2.angleRad);
+        // Calculate the aspect using the new logic that considers luminary involvement
+        const aspectSymbol = calculateAspect(p1.deg, p1.name, p2.deg, p2.name);
 
-        ctx.beginPath();
-        ctx.moveTo(aspectX1, aspectY1);
-        ctx.lineTo(aspectX2, aspectY2);
-        ctx.stroke();
+        if (aspectSymbol) { // Only draw if a major aspect is found
+          // Find the style for the aspect based on its symbol (e.g., '☌' for conjunction)
+          // We need to map the symbol back to the aspect name to get the style
+          const aspectName = Object.keys(ASPECT_SYMBOLS).find(key => ASPECT_SYMBOLS[key] === aspectSymbol);
+          const style = ASPECT_STYLES[aspectName];
+
+          if (style && style.color) {
+            ctx.strokeStyle = style.color;
+            ctx.lineWidth = style.lineWidth;
+
+            // Draw aspect lines at the ASPECT_LINE_RADIUS
+            const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
+            const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
+            const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
+            const aspectY2 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p2.angleRad);
+
+            ctx.beginPath();
+            ctx.moveTo(aspectX1, aspectY1);
+            ctx.lineTo(aspectX2, aspectY2);
+            ctx.stroke();
+          }
+        }
       }
-    });
+    }
   }
 
   return canvas.toBuffer('image/png');
