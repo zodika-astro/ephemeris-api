@@ -15,19 +15,20 @@ const signs = [
   "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ];
 
-// Aspect definitions and default orb
+// Aspect definitions and standard degree values (orbs will be dynamically determined)
 const ASPECT_DEFINITIONS = [
-  { name: "conjunction", degree: 0, defaultOrb: 8, luminaryOrb: 10 },
-  { name: "sextile", degree: 60, defaultOrb: 6, luminaryOrb: 6 }, // Alterado para 6
-  { name: "square", degree: 90, defaultOrb: 8, luminaryOrb: 8 },   // Alterado para 8
-  { name: "trine", degree: 120, defaultOrb: 8, luminaryOrb: 8 },   // Alterado para 8
-  { name: "opposition", degree: 180, defaultOrb: 8, luminaryOrb: 10 }
+  { name: "conjunction", degree: 0 },
+  { name: "sextile", degree: 60 },
+  { name: "square", degree: 90 },
+  { name: "trine", degree: 120 },
+  { name: "opposition", degree: 180 }
 ];
-const DEFAULT_ORB = 6; // Este não é mais tão relevante, mas mantido.
 
-const PLANETS_FOR_ASPECTS = [
+// Define all points that can form aspects, including AC and MC
+const ALL_POINTS_FOR_ASPECTS = [
   "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
-  "uranus", "neptune", "pluto", "trueNode", "lilith", "chiron"
+  "uranus", "neptune", "pluto", "trueNode", "lilith", "chiron",
+  "ascendant", "mc"
 ];
 
 // Element and modality classification
@@ -140,11 +141,60 @@ async function computeAspects(planetGeoPositions, planetSignData) {
     conjunction: [], sextile: [], square: [], trine: [], opposition: []
   };
 
-  const planetKeys = Object.keys(planetGeoPositions).filter(key => PLANETS_FOR_ASPECTS.includes(key));
+  const getOrbRulesForPoint = (pointName) => {
+    if (pointName === "sun" || pointName === "moon") {
+      return { conjOpp: 10, triSqr: 8, sextile: 6 }; // Luminárias
+    } else if (["mercury", "venus", "mars"].includes(pointName)) {
+      return { conjOpp: 8, triSqr: 6, sextile: 4 }; // Planetas rápidos
+    } else if (["jupiter", "saturn", "uranus", "neptune", "pluto"].includes(pointName)) {
+      return { conjOpp: 6, triSqr: 5, sextile: 3 }; // Planetas lentos
+    } else if (["trueNode", "lilith", "chiron"].includes(pointName)) {
+      return { conjOpp: 3, triSqr: 2, sextile: 2 }; // Nodos/Quíron/Lilith
+    } else if (pointName === "ascendant" || pointName === "mc") {
+      return { conjOpp: 10, triSqr: 8, sextile: 6 }; // AC/MC
+    }
+    return null;
+  };
 
-  for (let i = 0; i < planetKeys.length; i++) {
-    for (let j = i + 1; j < planetKeys.length; j++) {
-      const [p1, p2] = [planetKeys[i], planetKeys[j]];
+  const determineActualOrb = (p1Name, p2Name, aspectType) => {
+    const rules1 = getOrbRulesForPoint(p1Name);
+    const rules2 = getOrbRulesForPoint(p2Name);
+
+    if (!rules1 || !rules2) return 0;
+
+    let orb1, orb2;
+    switch (aspectType) {
+      case "conjunction":
+      case "opposition":
+        orb1 = rules1.conjOpp;
+        orb2 = rules2.conjOpp;
+        break;
+      case "trine":
+      case "square":
+        orb1 = rules1.triSqr;
+        orb2 = rules2.triSqr;
+        break;
+      case "sextile":
+        orb1 = rules1.sextile;
+        orb2 = rules2.sextile;
+        break;
+      default:
+        return 0;
+    }
+    return Math.min(orb1, orb2);
+  };
+
+  const allPointsKeys = Object.keys(planetGeoPositions).filter(key => ALL_POINTS_FOR_ASPECTS.includes(key));
+
+  for (let i = 0; i < allPointsKeys.length; i++) {
+    for (let j = i + 1; j < allPointsKeys.length; j++) {
+      const [p1, p2] = [allPointsKeys[i], allPointsKeys[j]];
+
+      // Regra: AC e MC não formam aspectos entre si
+      if ((p1 === "ascendant" && p2 === "mc") || (p1 === "mc" && p2 === "ascendant")) {
+        continue;
+      }
+
       const [pos1, pos2] = [planetGeoPositions[p1], planetGeoPositions[p2]];
       const [info1, info2] = [planetSignData[p1], planetSignData[p2]];
 
@@ -153,16 +203,11 @@ async function computeAspects(planetGeoPositions, planetSignData) {
         continue;
       }
 
-      // **Alteração aqui: Usa as posições decimais completas para a avaliação do aspecto**
       let diff = Math.abs(pos1 - pos2);
       if (diff > 180) diff = 360 - diff;
 
       for (const aspectDef of ASPECT_DEFINITIONS) {
-        let orb = aspectDef.defaultOrb;
-        // Verifica se um dos planetas é o Sol ou a Lua para aplicar o orbe de luminária
-        if ((p1 === "sun" || p1 === "moon" || p2 === "sun" || p2 === "moon")) {
-          orb = aspectDef.luminaryOrb;
-        }
+        const orb = determineActualOrb(p1, p2, aspectDef.name);
 
         if (diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
           groupedAspects[aspectDef.name].push({
@@ -276,7 +321,21 @@ const compute = async (reqBody) => {
 
     const houseSystem = config.house_system || 'P';
     const cusps = await computeHouses(jd, latitude, longitude, houseSystem);
-    const { geo, signs: planetSignData } = await computePlanets(jd, cusps);
+    let { geo, signs: planetSignData } = await computePlanets(jd, cusps); // Usar 'let' para reatribuir
+
+    // Adiciona AC e MC aos dados de geo e signs para que possam ser considerados nos aspectos
+    const ascendantDegree = cusps.find(c => c.house === 1)?.degree;
+    const mcDegree = cusps.find(c => c.house === 10)?.degree;
+
+    if (ascendantDegree !== undefined) {
+      geo.ascendant = ascendantDegree;
+      planetSignData.ascendant = { sign: degreeToSign(ascendantDegree), retrograde: "no", house: 1 };
+    }
+    if (mcDegree !== undefined) {
+      geo.mc = mcDegree;
+      planetSignData.mc = { sign: degreeToSign(mcDegree), retrograde: "no", house: 10 };
+    }
+
     const aspects = await computeAspects(geo, planetSignData);
     const { elements, qualities } = await analyzeElementalAndModalQualities(planetSignData, cusps);
     const analysis = analyzeHouses(cusps);
