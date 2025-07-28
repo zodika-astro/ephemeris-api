@@ -51,7 +51,7 @@ const ASPECT_MATRIX_CELL_SIZE = 40; // Tamanho da célula na matriz de aspectos
 // Larguras das colunas para a tabela de posições dos planetas
 const TABLE_COL_WIDTHS = {
   symbol: 40,    // Símbolo do planeta (primeira coluna da tabela combinada)
-  planet: 120 * 0.70,   // Nome do planeta (diminuído em 30%)
+  planet: 60,    // Nome do planeta (reduzido para ~metade de 120)
   positionDetails: 380, // Coluna unificada para Grau, Signo, Minutos, Segundos e Retrógrado
 };
 
@@ -102,7 +102,7 @@ const ASPECT_DEFINITIONS = [
 ];
 const DEFAULT_ORB = 6; // Orbe padrão, ajuste conforme necessário para sua precisão
 
-// --- Mapeamento de Elementos e Qualidades para português (NOVO) ---
+// --- Mapeamento de Elementos e Qualidades para português ---
 const ELEMENT_LABELS_PT = {
   fire: 'Fogo',
   earth: 'Terra',
@@ -235,6 +235,12 @@ async function generateNatalTableImage(chartData) {
   // Helper para adicionar planeta/ponto à lista correta de elemento/qualidade
   const addPointToCategories = (pointName, sign) => {
     if (!sign) return; // Garante que o signo exista
+
+    // Excluir lilith, chiron e trueNode
+    const excludedPlanets = ['lilith', 'chiron', 'trueNode'];
+    if (excludedPlanets.includes(pointName)) {
+      return;
+    }
 
     const element = SIGN_ELEMENT_MAP[sign];
     const quality = SIGN_QUALITY_MAP[sign];
