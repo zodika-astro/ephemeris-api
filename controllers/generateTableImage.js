@@ -84,7 +84,7 @@ const SIGN_SYMBOLS = {
   Capricorn: '♑', Aquarius: '♒', Pisces: '♓'
 };
 
-// Símbolos astrológicos para aspectos (removidos quincunx, semisextile, semisquare e sesquiquadrate)
+// Símbolos astrológicos para aspectos
 const ASPECT_SYMBOLS = {
   conjunction: '☌', // 0°
   opposition: '☍',  // 180°
@@ -92,6 +92,16 @@ const ASPECT_SYMBOLS = {
   square: '□',      // 90°
   sextile: '⚹'      // 60°
 };
+
+// --- Definições de Aspectos e Orbe Padrão (copiado de controllers/ephemeris.js) ---
+const ASPECT_DEFINITIONS = [
+  { name: "conjunction", degree: 0 },
+  { name: "sextile", degree: 60 },
+  { name: "square", degree: 90 },
+  { name: "trine", degree: 120 },
+  { name: "opposition", degree: 180 }
+];
+const DEFAULT_ORB = 6; // Orbe padrão, ajuste conforme necessário para sua precisão
 
 
 /**
@@ -118,35 +128,26 @@ const formatPositionDetails = (planet, data, degrees) => {
 };
 
 /**
- * Calcula o aspecto entre dois graus.
- * Esta é uma função simplificada para demonstração, considerando orbes básicas.
+ * Calcula o aspecto entre dois graus usando as definições de aspecto e orbes.
+ * A lógica é baseada na função `computeAspects` do seu `ephemeris.js`.
  * @param {number} degree1 - Grau do primeiro planeta.
  * @param {number} degree2 - Grau do segundo planeta.
  * @returns {string} - Símbolo do aspecto ou vazio se não houver aspecto principal.
  */
 const calculateAspect = (degree1, degree2) => {
-  const diff = Math.abs(degree1 - degree2);
-  const normalizedDiff = diff % 180; // Normaliza a diferença para 0-180
-
-  // Orbes de exemplo (você pode ajustar estes valores)
-  const orbConjunction = 8;
-  const orbOpposition = 8;
-  const orbTrine = 7;
-  const orbSquare = 7;
-  const orbSextile = 5;
-
-  if (normalizedDiff < orbConjunction || normalizedDiff > 360 - orbConjunction) {
-    return ASPECT_SYMBOLS.conjunction;
-  } else if (Math.abs(normalizedDiff - 180) < orbOpposition) {
-    return ASPECT_SYMBOLS.opposition;
-  } else if (Math.abs(normalizedDiff - 120) < orbTrine) {
-    return ASPECT_SYMBOLS.trine;
-  } else if (Math.abs(normalizedDiff - 90) < orbSquare) {
-    return ASPECT_SYMBOLS.square;
-  } else if (Math.abs(normalizedDiff - 60) < orbSextile) {
-    return ASPECT_SYMBOLS.sextile;
+  let diff = Math.abs(degree1 - degree2);
+  // Normaliza a diferença para estar entre 0 e 180 graus, como no ephemeris.js
+  if (diff > 180) {
+    diff = 360 - diff;
   }
-  // Removidos os aspectos quincunx, semisextile, semisquare e sesquiquadrate
+
+  for (const { name, degree } of ASPECT_DEFINITIONS) {
+    // Verifica se a diferença está dentro da orbe para o aspecto
+    if (diff >= (degree - DEFAULT_ORB) && diff <= (degree + DEFAULT_ORB)) {
+      // Retorna o símbolo correspondente ao aspecto encontrado
+      return ASPECT_SYMBOLS[name];
+    }
+  }
   return ''; // Nenhum aspecto principal detectado
 };
 
@@ -218,7 +219,7 @@ async function generateNatalTableImage(chartData) {
   ctx.textAlign = 'center'; // Centraliza o texto para os símbolos
   planetsList.forEach((planet, i) => {
     ctx.strokeRect(headerX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
-    ctx.fillText(PLANET_SYMBOLS[planet] || '', headerX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
+    // A primeira linha com os símbolos dos planetas foi removida
     headerX += ASPECT_MATRIX_CELL_SIZE;
   });
   ctx.textAlign = 'left'; // Reseta o alinhamento para o padrão
@@ -266,7 +267,7 @@ async function generateNatalTableImage(chartData) {
     planetsList.forEach((planetCol, colIndex) => {
       ctx.strokeRect(colX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
       if (rowIndex === colIndex) {
-        // Célula diagonal: planeta com ele mesmo, mostra o símbolo do planeta
+        // Célula diagonal: mostra o símbolo do planeta
         ctx.fillStyle = COLORS.TEXT;
         ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
       } else if (colIndex > rowIndex) {
