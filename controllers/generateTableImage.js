@@ -24,7 +24,7 @@ const COLORS = {
 };
 
 const FONT_HEADER = 'bold 32px Inter';
-const FONT_TEXT = '24px Inter';
+const FONT_TEXT = '12px Inter';
 
 // Planet and sign translation maps
 const PLANET_LABELS_PT = {
@@ -48,11 +48,14 @@ const SIGN_LABELS_PT = {
 // Helper to format planet row
 const formatPlanetRow = (planet, data, degrees) => {
   const degree = degrees[planet];
-  const degreeInSign = (degree % 30).toFixed(2);
+  const totalSeconds = (degree % 30) * 3600;
+  const d = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.round(totalSeconds % 60);
   const sign = data[planet]?.sign || '-';
   const signPt = SIGN_LABELS_PT[sign] || sign;
-  const retro = data[planet]?.retrograde === 'yes' ? 'R' : '';
-  return `${degreeInSign}° ${signPt} ${retro}`.trim();
+  const retro = data[planet]?.retrograde === 'yes' ? ' (retrógrado)' : '';
+  return `${d}° ${signPt} ${m}' ${s}"${retro}`.trim();
 };
 
 async function generateNatalTableImage(chartData) {
