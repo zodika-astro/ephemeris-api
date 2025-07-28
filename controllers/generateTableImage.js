@@ -21,7 +21,7 @@ if (fs.existsSync(interFontPathRegular)) {
 
 
 // Color and layout constants
-const WIDTH = 1536; 
+const WIDTH = 1536;
 // HEIGHT will be calculated dynamically
 const COLORS = {
   BACKGROUND: '#FFFBF4',
@@ -85,22 +85,21 @@ const SIGN_SYMBOLS = {
 const ASPECT_SYMBOLS = {
   conjunction: '☌', // 0°
   opposition: '☍',  // 180°
-  trine: '△',       // 120°
-  square: '□',      // 90°
+  trine: '△',      // 120°
+  square: '□',     // 90°
   sextile: '⚹'      // 60°
 };
 
-// --- Aspect Definitions and Default Orb (copied from controllers/ephemeris.js) ---
+// Aspect Definitions and Orb Rules
 const ASPECT_DEFINITIONS = [
-  { name: "conjunction", degree: 0 },
-  { name: "sextile", degree: 60 },
-  { name: "square", degree: 90 },
-  { name: "trine", degree: 120 },
-  { name: "opposition", degree: 180 }
+  { name: "conjunction", degree: 0, defaultOrb: 8, luminaryOrb: 10 },
+  { name: "sextile", degree: 60, defaultOrb: 4, luminaryOrb: 4 },
+  { name: "square", degree: 90, defaultOrb: 6, luminaryOrb: 6 },
+  { name: "trine", degree: 120, defaultOrb: 6, luminaryOrb: 6 },
+  { name: "opposition", degree: 180, defaultOrb: 8, luminaryOrb: 10 }
 ];
-const DEFAULT_ORB = 6;
 
-// --- Mapping of Elements and Qualities to Portuguese ---
+// Mapping of Elements and Qualities to Portuguese
 const ELEMENT_LABELS_PT = {
   fire: 'Fogo',
   earth: 'Terra',
@@ -114,7 +113,7 @@ const QUALITY_LABELS_PT = {
   mutable: 'Mutáveis'
 };
 
-// Element and modality classification (copied from ephemeris.js for self-containment)
+// Element and modality classification
 const SIGN_ELEMENT_MAP = {
   "Aries": "fire", "Leo": "fire", "Sagittarius": "fire",
   "Taurus": "earth", "Virgo": "earth", "Capricorn": "earth",
@@ -154,26 +153,29 @@ const formatPositionDetails = (planet, data, degrees) => {
 
 /**
  * Calculates the aspect between two degrees using aspect definitions and orbs.
- * The logic is based on the `computeAspects` function from your `ephemeris.js`.
+ * @param {string} planet1Name - Name of the first planet.
  * @param {number} degree1 - Degree of the first planet.
+ * @param {string} planet2Name - Name of the second planet.
  * @param {number} degree2 - Degree of the second planet.
  * @returns {string} - Aspect symbol or empty if no major aspect.
  */
-const calculateAspect = (degree1, degree2) => {
+const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
   let diff = Math.abs(degree1 - degree2);
-  // Normalizes the difference to be between 0 and 180 degrees, as in ephemeris.js
   if (diff > 180) {
     diff = 360 - diff;
   }
 
-  for (const { name, degree } of ASPECT_DEFINITIONS) {
-    // Checks if the difference is within the orb for the aspect
-    if (diff >= (degree - DEFAULT_ORB) && diff <= (degree + DEFAULT_ORB)) {
-      // Returns the corresponding symbol for the found aspect
-      return ASPECT_SYMBOLS[name];
+  for (const aspectDef of ASPECT_DEFINITIONS) {
+    let orb = aspectDef.defaultOrb;
+    if ((planet1Name === "sun" || planet1Name === "moon" || planet2Name === "sun" || planet2Name === "moon")) {
+      orb = aspectDef.luminaryOrb;
+    }
+
+    if (diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
+      return ASPECT_SYMBOLS[aspectDef.name];
     }
   }
-  return ''; // No major aspect detected
+  return '';
 };
 
 /**
@@ -194,7 +196,7 @@ const getAspectColor = (aspectSymbol) => {
     case ASPECT_SYMBOLS.sextile:
       return COLORS.ASPECT_SEXTILE;
     default:
-      return COLORS.TEXT; // Default color for undefined or empty aspects
+      return COLORS.TEXT;
   }
 };
 
@@ -233,7 +235,7 @@ async function generateNatalTableImage(chartData) {
 
   // Helper to add planet/point to the correct element/quality list
   const addPointToCategories = (pointName, sign) => {
-    if (!sign) return; // Ensures the sign exists
+    if (!sign) return;
 
     // Exclude lilith, chiron, and trueNode
     const excludedPlanets = ['lilith', 'chiron', 'trueNode'];
@@ -245,9 +247,9 @@ async function generateNatalTableImage(chartData) {
     const quality = SIGN_QUALITY_MAP[sign];
 
     let displaySymbol;
-    if (pointName === 'ascendant') { // Corrected to 'ascendant' as per ephemeris.js
+    if (pointName === 'ascendant') {
       displaySymbol = 'Asc';
-    } else if (pointName === 'mc') { // Corrected to 'mc' as per ephemeris.js
+    } else if (pointName === 'mc') {
       displaySymbol = 'MC';
     } else {
       displaySymbol = PLANET_SYMBOLS[pointName] || pointName;
@@ -269,23 +271,23 @@ async function generateNatalTableImage(chartData) {
 
   // Add Ascendant (house1)
   const ascendantSign = chartData.houses.house1?.sign;
-  addPointToCategories('ascendant', ascendantSign); // Use 'ascendant' as key
+  addPointToCategories('ascendant', ascendantSign);
 
   // Add MC (house10)
   const mcSign = chartData.houses.house10?.sign;
-  addPointToCategories('mc', mcSign); // Use 'mc' as key
+  addPointToCategories('mc', mcSign);
 
 
   // Calculate the total width of the main table (positions + aspects)
   const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
 
   // Define new constants for the elements/qualities table
-  const PADDING_BETWEEN_TABLES = 60; // Spacing between the two tables
+  const PADDING_BETWEEN_TABLES = 60;
   const EQ_COL_WIDTHS = {
-    name: 120, // e.g., "Fogo", "Cardinais"
-    count: 36, // "Count" (decreased by 40% from 60 to 36)
-    planets: 197, // "Planets" (increased by 24px from 173 to 197)
-    status: 100 // e.g., "Equilíbrio"
+    name: 120,
+    count: 36,
+    planets: 197,
+    status: 100
   };
   // The initial X position of the elements/qualities table is calculated after the main table
   const EQ_TABLE_START_X = PADDING + mainTableContentWidth + PADDING_BETWEEN_TABLES;
@@ -301,13 +303,13 @@ async function generateNatalTableImage(chartData) {
   const elementsCount = Object.keys(chartData.elements).length;
   const qualitiesCount = Object.keys(chartData.qualities).length;
   // The height of the EQ table is just the sum of data rows + padding between them and at the end
-  const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT); // Removed extra PADDING at the end for centering
+  const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT);
 
   // Calculate the total height of the elements and qualities table block
   const totalEQBlockHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT);
 
   // The final canvas height will be the maximum between the main table height and the elements/qualities table height
-  const calculatedHeight = Math.max(mainTableHeight, TABLE_START_Y + totalEQBlockHeight + PADDING); // Adds TABLE_START_Y for total height and final PADDING
+  const calculatedHeight = Math.max(mainTableHeight, TABLE_START_Y + totalEQBlockHeight + PADDING);
 
 
   const canvas = createCanvas(calculatedWidth, calculatedHeight);
@@ -323,7 +325,7 @@ async function generateNatalTableImage(chartData) {
 
   // --- Draw Data Rows of the Combined Table ---
   planetsList.forEach((planetRow, rowIndex) => {
-    ctx.fillStyle = COLORS.TEXT; // Maintains default text color
+    ctx.fillStyle = COLORS.TEXT;
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
 
@@ -347,8 +349,8 @@ async function generateNatalTableImage(chartData) {
     colX += TABLE_COL_WIDTHS.positionDetails;
 
     // Aspect Matrix Cells for this row
-    ctx.font = FONT_ASPECT_SYMBOLS; // Font for aspect symbols
-    ctx.textAlign = 'center'; // Center aspect symbols
+    ctx.font = FONT_ASPECT_SYMBOLS;
+    ctx.textAlign = 'center';
     planetsList.forEach((planetCol, colIndex) => {
       // Draw cell border ONLY if it's on or below the diagonal
       if (colIndex <= rowIndex) {
@@ -361,18 +363,17 @@ async function generateNatalTableImage(chartData) {
         ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
       } else if (colIndex > rowIndex) {
         // Upper part of the diagonal: draw nothing (leave blank)
-        // No border or content is drawn here.
       } else {
         // Lower part of the diagonal: calculate and draw aspect symbol
-        const aspectSymbol = calculateAspect(degrees[planetRow], degrees[planetCol]);
-        ctx.fillStyle = getAspectColor(aspectSymbol); // Set color based on aspect
+        const aspectSymbol = calculateAspect(planetRow, degrees[planetRow], planetCol, degrees[planetCol]);
+        ctx.fillStyle = getAspectColor(aspectSymbol);
         ctx.fillText(aspectSymbol, colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
       }
       colX += ASPECT_MATRIX_CELL_SIZE;
     });
-    ctx.textAlign = 'left'; // Reset alignment to default
+    ctx.textAlign = 'left';
 
-    currentY += ROW_HEIGHT; // Move to the next row
+    currentY += ROW_HEIGHT;
   });
 
   // --- Elements and Qualities Table ---
@@ -381,16 +382,12 @@ async function generateNatalTableImage(chartData) {
   let eqCurrentX = EQ_TABLE_START_X;
 
   // --- Elements Section ---
-  // Elements data
-  ctx.font = FONT_TABLE_TEXT; // Use text font for data
+  ctx.font = FONT_TABLE_TEXT;
   ctx.fillStyle = COLORS.TEXT;
-
-  // Removed drawing of Elements table headers
-  // eqCurrentY is not incremented here, as headers were removed.
 
   for (const element in chartData.elements) {
     const data = chartData.elements[element];
-    let eqColX = eqCurrentX; // Reset X for each data row
+    let eqColX = eqCurrentX;
 
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
@@ -417,16 +414,12 @@ async function generateNatalTableImage(chartData) {
   eqCurrentY += PADDING;
 
   // --- Qualities Section ---
-  // Qualities data
   ctx.font = FONT_TABLE_TEXT;
   ctx.fillStyle = COLORS.TEXT;
 
-  // Removed drawing of Qualities table headers
-  // eqCurrentY is not incremented here, as headers were removed.
-
   for (const quality in chartData.qualities) {
     const data = chartData.qualities[quality];
-    let eqColX = eqCurrentX; // Reset X for each data row
+    let eqColX = eqCurrentX;
 
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
