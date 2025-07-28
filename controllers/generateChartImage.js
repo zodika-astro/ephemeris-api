@@ -88,14 +88,57 @@ const PLANET_SYMBOLS = {
   neptune: '\u2646', pluto: '\u2647', trueNode: '\u260A', lilith: '\u262D', chiron: '\u26B7'
 };
 
-// Aspect styles
+// Aspect styles (only color and line width, orbs are calculated dynamically)
 const ASPECT_STYLES = {
-  conjunction: { color: null, lineWidth: 0, defaultOrb: 8, luminaryOrb: 10 },
-  opposition: { color: '#FF0000', lineWidth: 3.5, defaultOrb: 8, luminaryOrb: 10 },
-  square: { color: '#FF4500', lineWidth: 2, defaultOrb: 6, luminaryOrb: 6 },
-  sextile: { color: '#0000FF', lineWidth: 2, defaultOrb: 4, luminaryOrb: 4 },
-  trine: { color: '#008000', lineWidth: 2, defaultOrb: 6, luminaryOrb: 6 }
+  conjunction: { color: null, lineWidth: 0 }, // Conjunction lines are typically not drawn
+  opposition: { color: '#FF0000', lineWidth: 3.5 },
+  square: { color: '#FF4500', lineWidth: 2 },
+  sextile: { color: '#0000FF', lineWidth: 2 },
+  trine: { color: '#008000', lineWidth: 2 }
 };
+
+// Aspect definitions with categories for orb lookup
+const ASPECT_DEFINITIONS = [
+  { name: "conjunction", degree: 0, category: 0 },
+  { name: "sextile", degree: 60, category: 2 },
+  { name: "square", degree: 90, category: 1 },
+  { name: "trine", degree: 120, category: 1 },
+  { name: "opposition", degree: 180, category: 0 }
+];
+
+// Define individual orb rules for each celestial body/point,
+// mapped to aspect categories: [Conj/Opp, Sq/Tr, Sextile]
+// This MUST match the ORB_RULES in controllers/ephemeris.js for consistency.
+const ORB_RULES = {
+  'sun': [10, 8, 6],
+  'moon': [10, 8, 6],
+  'mercury': [8, 8, 5],
+  'venus': [8, 8, 5],
+  'mars': [8, 8, 5],
+  'jupiter': [7, 6, 4],
+  'saturn': [7, 6, 4],
+  'uranus': [6, 5, 4],
+  'neptune': [6, 5, 4],
+  'pluto': [6, 5, 4],
+  'chiron': [6, 5, 3],
+  'ascendant': [10, 10, 6],
+  'mc': [10, 10, 6],
+  'trueNode': [5, 4, 2],
+  'lilith': [3, 3, 1.5]
+};
+
+// Define all astrological points considered for aspect calculations (needed for orb determination)
+const ALL_POINTS_FOR_ASPECTS = [
+  "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
+  "uranus", "neptune", "pluto", "trueNode", "lilith", "chiron",
+  "ascendant", "mc"
+];
+
+// List of points for which aspect lines should NOT be drawn
+const POINTS_TO_EXCLUDE_ASPECT_LINES = [
+  "trueNode", "lilith", "chiron", "ascendant", "mc"
+];
+
 
 // Zodiac signs and symbols
 const ZODIAC_SIGNS = [
@@ -190,10 +233,60 @@ function distributeCluster(cluster, targetArray) {
 }
 
 /**
+ * Helper to get specific orb rules based on point category
+ * (Copied from ephemeris.js for consistency)
+ */
+const getOrbRulesForPoint = (pointName) => {
+  if (ORB_RULES[pointName]) {
+    // Return direct lookup from ORB_RULES (ensures consistency)
+    return {
+      conjOpp: ORB_RULES[pointName][0],
+      triSqr: ORB_RULES[pointName][1],
+      sextile: ORB_RULES[pointName][2]
+    };
+  }
+  return null; // Should not happen if ALL_POINTS_FOR_ASPECTS and ORB_RULES are consistent
+};
+
+/**
+ * Determines the actual orb for an aspect based on the categories of the two points involved
+ * (Copied from ephemeris.js for consistency)
+ */
+const determineActualOrb = (p1Name, p2Name, aspectType) => {
+  const rules1 = getOrbRulesForPoint(p1Name);
+  const rules2 = getOrbRulesForPoint(p2Name);
+
+  if (!rules1 || !rules2) return 0;
+
+  let orb1, orb2;
+  switch (aspectType) {
+    case "conjunction":
+    case "opposition":
+      orb1 = rules1.conjOpp;
+      orb2 = rules2.conjOpp;
+      break;
+    case "trine":
+    case "square":
+      orb1 = rules1.triSqr;
+      orb2 = rules2.triSqr;
+      break;
+    case "sextile":
+      orb1 = rules1.sextile;
+      orb2 = rules2.sextile;
+      break;
+    default:
+      return 0; // Unrecognized aspect type
+  }
+  // Apply the rule: use the AVERAGE orb when two categories conflict
+  return (orb1 + orb2) / 2.0;
+};
+
+
+/**
  * Generates a natal chart image based on ephemeris data.
  * @param {Object} } ephemerisData - Data containing planet positions, house cusps, and aspects.
  * @returns {Buffer} A PNG image buffer of the natal chart.
-*/
+ */
 async function generateNatalChartImage(ephemerisData) {
   const canvas = createCanvas(CHART_WIDTH, CHART_HEIGHT);
   const ctx = canvas.getContext('2d');
@@ -210,14 +303,15 @@ async function generateNatalChartImage(ephemerisData) {
   for (let i = 1; i <= 12; i++) {
     const houseKey = `house${i}`;
     if (houses[houseKey]) {
+      // Get actual cusp degree from original ephemerisData, as 'houses' output now omits it
       houseCusps.push({
         house: i,
-        degree: houses[houseKey].cuspDegree,
+        degree: ephemerisData.houses[houseKey].cuspDegree, // Use original cuspDegree from ephemerisData
         sign: houses[houseKey].sign
       });
 
       // Get MC degree (House 10)
-      if (i === 10) mcDegree = houses[houseKey].cuspDegree;
+      if (i === 10) mcDegree = ephemerisData.houses[houseKey].cuspDegree; // Use original cuspDegree for MC
     }
   }
 
@@ -249,19 +343,21 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.arc(CENTER_X, CENTER_Y, ASPECT_LINE_RADIUS, 0, 2 * Math.PI);
   ctx.stroke();
 
-  // Planet positioning and distribution to avoid overlap
-  const planets = Object.entries(planetPositions)
+  // Filter out AC and MC from the list of 'planets' to be drawn in the planet ring
+  // as they are handled as cusps and should not have planet symbols/labels.
+  const planetsToDraw = Object.entries(planetPositions)
+    .filter(([name, deg]) => name !== 'ascendant' && name !== 'mc')
     .map(([name, deg]) => ({ name, deg }));
 
   const adjustedPlanets = [];
   let currentCluster = [];
 
-  // Sort planets by degree to facilitate cluster identification
-  planets.sort((a, b) => a.deg - b.deg);
+  // Sort filtered planets by degree for consistent distribution
+  planetsToDraw.sort((a, b) => a.deg - b.deg);
 
-  for (let i = 0; i < planets.length; i++) {
-    const currentPlanet = planets[i];
-    const prevPlanet = planets[i - 1];
+  for (let i = 0; i < planetsToDraw.length; i++) {
+    const currentPlanet = planetsToDraw[i];
+    const prevPlanet = planetsToDraw[i - 1];
 
     // Check if the current planet is close to the previous one, considering 0/360 wrap-around
     const degreeDifference = Math.abs(currentPlanet.deg - (prevPlanet ? prevPlanet.deg : currentPlanet.deg));
@@ -323,7 +419,7 @@ async function generateNatalChartImage(ephemerisData) {
     const xStart = CENTER_X + tickStart * Math.cos(rad);
     const yStart = CENTER_Y + tickStart * Math.sin(rad);
     const xEnd = CENTER_X + tickEnd * Math.cos(rad);
-    const yEnd = CENTER_Y + tickEnd * Math.sin(rad);
+    const yEnd = CENTER_Y + tickEnd * Math.cos(rad);
 
     ctx.beginPath();
     ctx.moveTo(xStart, yStart);
@@ -535,36 +631,45 @@ async function generateNatalChartImage(ephemerisData) {
   // Draw aspect lines
   for (const aspectType in aspectsData) {
     const style = ASPECT_STYLES[aspectType];
-    if (!style || !style.color) continue;
+    // Conjunction lines are typically not drawn, so skip if color is null
+    if (!style || !style.color) continue; 
 
     ctx.strokeStyle = style.color;
     ctx.lineWidth = style.lineWidth;
 
     aspectsData[aspectType].forEach(aspect => {
-      // Optimized: Use map.get() for O(1) lookup instead of array.find()
+      // Filter: Do NOT draw aspect lines if either planet is in the exclusion list
+      if (POINTS_TO_EXCLUDE_ASPECT_LINES.includes(aspect.planet1.name) || 
+          POINTS_TO_EXCLUDE_ASPECT_LINES.includes(aspect.planet2.name)) {
+        return; // Skip drawing this aspect line
+      }
+
       const p1 = placedPlanetsMap.get(aspect.planet1.name);
       const p2 = placedPlanetsMap.get(aspect.planet2.name);
 
       if (p1 && p2) {
-        // Alteração aqui: Usa Math.round() para considerar apenas o grau inteiro para a avaliação do aspecto
-        let diff = Math.abs(Math.round(p1.deg) - Math.round(p2.deg));
+        // Calculate difference using full decimal precision
+        let diff = Math.abs(p1.deg - p2.deg);
         if (diff > 180) diff = 360 - diff;
 
-        let orb = style.defaultOrb;
-        if ((p1.name === "sun" || p1.name === "moon" || p2.name === "sun" || p2.name === "moon")) {
-          orb = style.luminaryOrb;
-        }
-        
-        const aspectDegree = {
-          conjunction: 0,
-          opposition: 180,
-          square: 90,
-          sextile: 60,
-          trine: 120
-        }[aspectType];
+        // Determine aspect degree from ASPECT_DEFINITIONS
+        const aspectDef = ASPECT_DEFINITIONS.find(def => def.name === aspectType);
+        if (!aspectDef) return; // Should not happen if aspectsData is valid
 
-        if (diff >= (aspectDegree - orb) && diff <= (aspectDegree + orb)) {
-          // Draw aspect lines at the ASPECT_LINE_RADIUS
+        // Determine the applicable orb using the same logic as ephemeris.js
+        const p1Orb = ORB_RULES[p1.name]?.[aspectDef.category];
+        const p2Orb = ORB_RULES[p2.name]?.[aspectDef.category];
+
+        if (p1Orb === undefined || p2Orb === undefined) {
+            // Log a warning if orb rule is missing, but don't stop drawing other aspects
+            console.warn(`Orb rule not found for ${p1.name} or ${p2.name} for aspect ${aspectDef.name}. Skipping drawing this aspect line.`);
+            return; 
+        }
+
+        const orb = (p1Orb + p2Orb) / 2.0;
+
+        // Draw the line only if the aspect is within the calculated orb
+        if (orb > 0 && diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
           const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
           const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
           const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
@@ -583,4 +688,3 @@ async function generateNatalChartImage(ephemerisData) {
 }
 
 module.exports = { generateNatalChartImage };
-
