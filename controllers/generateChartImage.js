@@ -10,7 +10,7 @@ const CENTER_X = CHART_WIDTH / 2;
 const CENTER_Y = CHART_HEIGHT / 2;
 const OUTER_RADIUS = 600;
 const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
-const INNER_RADIUS = OUTER_RADIUS * 0.125; // Inner circle radius
+const INNER_RADIUS = OUTER_RADIUS * 0.125;
 
 const PLANET_SYMBOL_SIZE = 52;
 const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
@@ -29,10 +29,10 @@ const PLANET_PROXIMITY_THRESHOLD = 5; // Degrees within which planets are consid
 const PLANET_ANGULAR_SPREAD_STEP = 6.5; // Angular offset in degrees for each planet in a cluster
 
 // Line width for highlighted ruler ticks
-const BOLD_TICK_LINE_WIDTH = 2;
+const BOLD_TICK_LINE_WIDTH = 2.5;
 
 // Line width for main house cusps (AC, IC, DC, MC)
-const BOLD_CUSP_LINE_WIDTH = 4;
+const BOLD_CUSP_LINE_WIDTH = 4.5;
 
 // Font size for planet degree labels
 const PLANET_DEGREE_FONT_SIZE = 15;
@@ -510,7 +510,7 @@ async function generateNatalChartImage(ephemerisData) {
     } else if (labelAngleRad >= Math.PI / 4 && labelAngleRad < 3 * Math.PI / 4) { // Bottom side (approx 45 to 135 deg canvas)
         offsetY = -PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL; // Shift up
         textAlignForLabel = 'center';
-    } else if (labelAngleRad >= 3 * Math.PI / 4 && labelAngleRad < 3 * Math.PI / 4) { // Left side (approx 135 to 225 deg canvas)
+    } else if (labelAngleRad >= 3 * Math.PI / 4 && labelAngleRad < 5 * Math.PI / 4) { // Left side (approx 135 to 225 deg canvas)
         offsetX = PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift right
         textAlignForLabel = 'left';
     } else { // Top side (approx 225 to 315 deg canvas)
