@@ -3,7 +3,7 @@ const { createCanvas, registerFont } = require('canvas');
 const path = require('path');
 const fs = require('fs');
 
-// Register project fonts
+// Registrar fontes do projeto
 // Certifique-se de que os arquivos de fonte Inter-Bold.ttf e Inter-Regular.ttf
 // estejam disponíveis no diretório '../fonts/' em relação ao local de execução.
 const interFontPathBold = path.join(__dirname, '../fonts/Inter-Bold.ttf');
@@ -22,7 +22,7 @@ if (fs.existsSync(interFontPathRegular)) {
 }
 
 
-// Color and layout constants
+// Constantes de cor e layout
 const WIDTH = 1536; // Largura do canvas mantida no valor original
 // HEIGHT será calculado dinamicamente
 const COLORS = {
@@ -173,6 +173,24 @@ const getAspectColor = (aspectSymbol) => {
 };
 
 /**
+ * Retorna o status traduzido para português.
+ * @param {string} status - O status em inglês (lack, balance, excess).
+ * @returns {string} - O status traduzido para português.
+ */
+const getTranslatedStatus = (status) => {
+  switch (status) {
+    case 'lack':
+      return 'Falta';
+    case 'balance':
+      return 'Equilíbrio';
+    case 'excess':
+      return 'Excesso';
+    default:
+      return status;
+  }
+};
+
+/**
  * Gera uma imagem de tabela de mapa natal combinando posições de planetas e matriz de aspectos.
  * @param {object} chartData - Dados do mapa natal, incluindo planetas e seus graus e signos.
  * @returns {Buffer} - Buffer da imagem PNG gerada.
@@ -203,13 +221,12 @@ async function generateNatalTableImage(chartData) {
   const mainTableHeight = TABLE_START_Y + (planetsList.length * ROW_HEIGHT) + PADDING;
 
   // Calcular a altura da tabela de elementos e qualidades
-  // +2 para os cabeçalhos "Elementos" e "Qualidades", +2 para os cabeçalhos das sub-tabelas
-  // + PADDING para o espaço entre as sub-tabelas e no final
   const elementsCount = Object.keys(chartData.elements).length;
   const qualitiesCount = Object.keys(chartData.qualities).length;
-  const eqTableContentHeight = (elementsCount + qualitiesCount + 2) * ROW_HEIGHT + PADDING * 2; // +2 para os títulos das seções, + PADDING para espaço entre elas
+  // Ajuste na altura: remove os ROW_HEIGHTs dos títulos das seções e dos cabeçalhos das sub-tabelas
+  const eqTableContentHeight = (elementsCount + qualitiesCount) * ROW_HEIGHT + (PADDING * 2); // Apenas linhas de dados + padding extra entre seções e no final
 
-  const eqTableCalculatedHeight = TABLE_START_Y + eqTableContentHeight + PADDING;
+  const eqTableCalculatedHeight = TABLE_START_Y + eqTableContentHeight;
 
 
   // A altura final do canvas será o máximo entre a altura da tabela principal e a altura da tabela de elementos/qualidades
@@ -285,50 +302,30 @@ async function generateNatalTableImage(chartData) {
   let eqCurrentX = EQ_TABLE_START_X;
 
   // --- Seção de Elementos ---
-  ctx.font = FONT_TABLE_HEADER; // Usa a fonte de cabeçalho para o título da seção
+  // Removido o título "Elementos"
+  // Removido o cabeçalho da tabela de Elementos
+  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para os dados
   ctx.fillStyle = COLORS.TEXT;
-  ctx.textAlign = 'left';
-  ctx.fillText('Elementos', eqCurrentX, eqCurrentY + ROW_HEIGHT - 8); // Título "Elementos"
-  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para o cabeçalho da tabela de elementos
-
-  // Cabeçalho da tabela de Elementos
-  let eqHeaderX = eqCurrentX;
-  ctx.strokeStyle = COLORS.TABLE_BORDER;
-  ctx.lineWidth = 1;
-  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
-  ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
-
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-  ctx.fillText('Elemento', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.name;
-
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-  ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.count;
-
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-  ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.status;
-  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados dos elementos
 
   // Dados dos Elementos
-  ctx.font = FONT_TABLE_TEXT;
-  ctx.fillStyle = COLORS.TEXT;
   for (const element in chartData.elements) {
     const data = chartData.elements[element];
-    eqHeaderX = eqCurrentX; // Reseta X para cada linha de dados
+    let eqColX = eqCurrentX; // Reseta X para cada linha de dados
 
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-    ctx.fillText(element.charAt(0).toUpperCase() + element.slice(1), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-    eqHeaderX += EQ_COL_WIDTHS.name;
+    ctx.strokeStyle = COLORS.TABLE_BORDER;
+    ctx.lineWidth = 1;
 
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-    ctx.fillText(data.count.toString(), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-    eqHeaderX += EQ_COL_WIDTHS.count;
+    ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+    ctx.fillText(element.charAt(0).toUpperCase() + element.slice(1), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqColX += EQ_COL_WIDTHS.name;
 
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-    ctx.fillText(data.status.charAt(0).toUpperCase() + data.status.slice(1), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-    eqHeaderX += EQ_COL_WIDTHS.status;
+    ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+    ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqColX += EQ_COL_WIDTHS.count;
+
+    ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+    ctx.fillText(getTranslatedStatus(data.status), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqColX += EQ_COL_WIDTHS.status;
     eqCurrentY += ROW_HEIGHT;
   }
 
@@ -336,47 +333,30 @@ async function generateNatalTableImage(chartData) {
   eqCurrentY += PADDING;
 
   // --- Seção de Qualidades ---
-  ctx.font = FONT_TABLE_HEADER; // Usa a fonte de cabeçalho para o título da seção
+  // Removido o título "Qualidades"
+  // Removido o cabeçalho da tabela de Qualidades
+  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para os dados
   ctx.fillStyle = COLORS.TEXT;
-  ctx.fillText('Qualidades', eqCurrentX, eqCurrentY + ROW_HEIGHT - 8); // Título "Qualidades"
-  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para o cabeçalho da tabela de qualidades
-
-  // Cabeçalho da tabela de Qualidades
-  eqHeaderX = eqCurrentX; // Reseta X para o cabeçalho da tabela de qualidades
-  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
-  ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
-
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-  ctx.fillText('Qualidade', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.name;
-
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-  ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.count;
-
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-  ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.status;
-  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados das qualidades
 
   // Dados das Qualidades
-  ctx.font = FONT_TABLE_TEXT;
-  ctx.fillStyle = COLORS.TEXT;
   for (const quality in chartData.qualities) {
     const data = chartData.qualities[quality];
-    eqHeaderX = eqCurrentX; // Reseta X para cada linha de dados
+    let eqColX = eqCurrentX; // Reseta X para cada linha de dados
 
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-    ctx.fillText(quality.charAt(0).toUpperCase() + quality.slice(1), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-    eqHeaderX += EQ_COL_WIDTHS.name;
+    ctx.strokeStyle = COLORS.TABLE_BORDER;
+    ctx.lineWidth = 1;
 
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-    ctx.fillText(data.count.toString(), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-    eqHeaderX += EQ_COL_WIDTHS.count;
+    ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+    ctx.fillText(quality.charAt(0).toUpperCase() + quality.slice(1), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqColX += EQ_COL_WIDTHS.name;
 
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-    ctx.fillText(data.status.charAt(0).toUpperCase() + data.status.slice(1), eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-    eqHeaderX += EQ_COL_WIDTHS.status;
+    ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+    ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqColX += EQ_COL_WIDTHS.count;
+
+    ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+    ctx.fillText(getTranslatedStatus(data.status), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqColX += EQ_COL_WIDTHS.status;
     eqCurrentY += ROW_HEIGHT;
   }
 
