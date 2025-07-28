@@ -24,8 +24,8 @@ const COLORS = {
 };
 
 const FONT_HEADER = 'bold 32px Inter';
-const FONT_TEXT = '12px Inter';
-const ROW_HEIGHT = 22; // Updated row height
+const FONT_TEXT = '10px Inter';
+const ROW_HEIGHT = 22;
 
 // Planet and sign translation maps
 const PLANET_LABELS_PT = {
@@ -46,7 +46,6 @@ const SIGN_LABELS_PT = {
   Capricorn: 'Capricórnio', Aquarius: 'Aquário', Pisces: 'Peixes'
 };
 
-// Helper to format planet row
 const formatPlanetRow = (planet, data, degrees) => {
   const degree = degrees[planet];
   const totalSeconds = (degree % 30) * 3600;
@@ -72,8 +71,10 @@ async function generateNatalTableImage(chartData) {
   ctx.fillStyle = COLORS.BACKGROUND;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  // PLANET TABLE (left)
-  const startX = 60;
+  const startX = 50;
+  const symbolColX = startX + 5;
+  const labelColX = startX + 25;
+  const valueColX = startX + 110;
   const startY = 80;
 
   ctx.font = FONT_TEXT;
@@ -83,60 +84,42 @@ async function generateNatalTableImage(chartData) {
   planets.forEach((planet, index) => {
     const labelText = PLANET_LABELS_PT[planet] || planet;
     const symbol = PLANET_SYMBOLS[planet] || '';
-    const label = `${symbol} ${labelText}`;
     const value = formatPlanetRow(planet, signs, degrees);
     const y = startY + (index + 1) * ROW_HEIGHT;
-    ctx.fillText(label, startX, y);
-    ctx.fillText(value, startX + 120, y);
+    ctx.fillText(symbol, symbolColX, y);
+    ctx.fillText(labelText, labelColX, y);
+    ctx.fillText(value, valueColX, y);
 
     // Horizontal line
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.beginPath();
     ctx.moveTo(startX, y + 6);
-    ctx.lineTo(startX + 300, y + 6);
-    ctx.stroke();
-
-    // Vertical divider between columns
-    ctx.beginPath();
-    ctx.moveTo(startX + 110, startY + ROW_HEIGHT);
-    ctx.lineTo(startX + 110, startY + (planets.length + 1) * ROW_HEIGHT);
+    ctx.lineTo(valueColX + 200, y + 6);
     ctx.stroke();
   });
 
-  // MATRIX TABLE (right)
-  const matrixStartX = 700;
-  const matrixStartY = 80;
-  const cellWidth = 110;
-  const cellHeight = 50;
+  // Vertical divider
+  ctx.beginPath();
+  ctx.moveTo(valueColX - 5, startY + ROW_HEIGHT);
+  ctx.lineTo(valueColX - 5, startY + (planets.length + 1) * ROW_HEIGHT);
+  ctx.strokeStyle = COLORS.TABLE_BORDER;
+  ctx.stroke();
 
-  const qualitiesOrder = ['cardinal', 'fixed', 'mutable'];
-  const elementsOrder = ['fire', 'earth', 'air', 'water'];
+  // Aspect matrix (only symbols on diagonal)
+  const aspectStartX = 500;
+  const aspectStartY = startY;
+  const aspectSize = 30;
 
-  ctx.font = FONT_HEADER;
-  const qualityLabels = ['Cardinal', 'Fixo', 'Mutável'];
-  qualitiesOrder.forEach((q, col) => {
-    ctx.fillText(qualityLabels[col], matrixStartX + (col + 1) * cellWidth, matrixStartY);
-  });
-
-  const elementLabels = ['Fogo', 'Terra', 'Ar', 'Água'];
-  elementLabels.forEach((el, row) => {
-    ctx.fillText(el, matrixStartX, matrixStartY + (row + 1) * cellHeight);
-  });
-
-  ctx.font = FONT_TEXT;
-  elementsOrder.forEach((el, row) => {
-    qualitiesOrder.forEach((q, col) => {
-      const x = matrixStartX + (col + 1) * cellWidth;
-      const y = matrixStartY + (row + 1) * cellHeight;
-      ctx.strokeStyle = COLORS.TABLE_BORDER;
-      ctx.lineWidth = 0.6;
-      ctx.strokeRect(x - 40, y - 30, 80, 40);
-      if (elements[el] && qualities[q]) {
-        const elCount = elements[el].count;
-        const qCount = qualities[q].count;
-        const label = (elCount && qCount) ? `${elCount}/${qCount}` : '-';
-        ctx.fillText(label, x, y);
+  planets.forEach((planet, i) => {
+    planets.forEach((_, j) => {
+      const x = aspectStartX + j * aspectSize;
+      const y = aspectStartY + i * aspectSize;
+      if (i === j) {
+        const symbol = PLANET_SYMBOLS[planets[i]] || '';
+        ctx.fillText(symbol, x + 10, y + 20);
       }
+      ctx.strokeStyle = COLORS.TABLE_BORDER;
+      ctx.strokeRect(x, y, aspectSize, aspectSize);
     });
   });
 
