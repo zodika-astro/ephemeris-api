@@ -18,12 +18,12 @@ const signs = [
 // Aspect definitions and default orb
 const ASPECT_DEFINITIONS = [
   { name: "conjunction", degree: 0, defaultOrb: 8, luminaryOrb: 10 },
-  { name: "sextile", degree: 60, defaultOrb: 4, luminaryOrb: 4 },
-  { name: "square", degree: 90, defaultOrb: 6, luminaryOrb: 6 },
-  { name: "trine", degree: 120, defaultOrb: 6, luminaryOrb: 6 },
+  { name: "sextile", degree: 60, defaultOrb: 6, luminaryOrb: 6 }, // Alterado para 6
+  { name: "square", degree: 90, defaultOrb: 8, luminaryOrb: 8 },   // Alterado para 8
+  { name: "trine", degree: 120, defaultOrb: 8, luminaryOrb: 8 },   // Alterado para 8
   { name: "opposition", degree: 180, defaultOrb: 8, luminaryOrb: 10 }
 ];
-const DEFAULT_ORB = 6;
+const DEFAULT_ORB = 6; // Este não é mais tão relevante, mas mantido.
 
 const PLANETS_FOR_ASPECTS = [
   "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
@@ -153,15 +153,13 @@ async function computeAspects(planetGeoPositions, planetSignData) {
         continue;
       }
 
-      // Converte as posições para graus inteiros (truncando minutos/segundos) para o cálculo da diferença de aspecto
-      const pos1Floor = Math.floor(pos1);
-      const pos2Floor = Math.floor(pos2);
-
-      let diff = Math.abs(pos1Floor - pos2Floor);
+      // **Alteração aqui: Usa as posições decimais completas para a avaliação do aspecto**
+      let diff = Math.abs(pos1 - pos2);
       if (diff > 180) diff = 360 - diff;
 
       for (const aspectDef of ASPECT_DEFINITIONS) {
         let orb = aspectDef.defaultOrb;
+        // Verifica se um dos planetas é o Sol ou a Lua para aplicar o orbe de luminária
         if ((p1 === "sun" || p1 === "moon" || p2 === "sun" || p2 === "moon")) {
           orb = aspectDef.luminaryOrb;
         }
