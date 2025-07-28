@@ -29,19 +29,19 @@ const ASPECT_DEFINITIONS = [
 const ORB_RULES = {
   'sun': [10, 8, 6],
   'moon': [10, 8, 6],
-  'mercury': [8, 7, 5],
-  'venus': [8, 7, 5],
-  'mars': [8, 7, 5],
+  'mercury': [8, 8, 5],    // UPDATED: Sq/Tr from 7 to 8
+  'venus': [8, 8, 5],      // UPDATED: Sq/Tr from 7 to 8
+  'mars': [8, 8, 5],       // UPDATED: Sq/Tr from 7 to 8
   'jupiter': [7, 6, 4],
   'saturn': [7, 6, 4],
   'uranus': [6, 5, 3],
   'neptune': [6, 5, 3],
   'pluto': [6, 5, 3],
   'chiron': [6, 5, 3],
-  'ascendant': [10, 8, 6],    // UPDATED: Larger orbs for AC
-  'mc': [10, 8, 6],           // UPDATED: Larger orbs for MC
+  'ascendant': [10, 10, 6],    // UPDATED: Sq/Tr from 8 to 10
+  'mc': [10, 10, 6],           // UPDATED: Sq/Tr from 8 to 10
   'trueNode': [5, 4, 2],
-  'lilith': [4, 3, 1.5]
+  'lilith': [3, 3, 1.5]        // UPDATED: Conj/Opp from 4 to 3
 };
 
 // Define all astrological points considered for aspect calculations
@@ -234,7 +234,7 @@ async function analyzeElementalAndModalQualities(planetSignData, cusps) {
   const qualitiesResult = {};
 
   for (const el in elementCounts) {
-    elementsResult[el] = { count: elementCounts[el], status: getStatusByCount(elementCounts[el]) };
+    elementsResult[el] = { count: elementCounts[el], status: getStatusByCount(elements[el]) };
   }
 
   for (const ql in qualityCounts) {
