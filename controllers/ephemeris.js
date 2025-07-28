@@ -153,8 +153,11 @@ async function computeAspects(planetGeoPositions, planetSignData) {
         continue;
       }
 
-      // **Alteração aqui: Usa Math.round() para considerar apenas o grau inteiro para a avaliação do aspecto**
-      let diff = Math.abs(Math.round(pos1) - Math.round(pos2));
+      // Converte as posições para graus inteiros (truncando minutos/segundos) para o cálculo da diferença de aspecto
+      const pos1Floor = Math.floor(pos1);
+      const pos2Floor = Math.floor(pos2);
+
+      let diff = Math.abs(pos1Floor - pos2Floor);
       if (diff > 180) diff = 360 - diff;
 
       for (const aspectDef of ASPECT_DEFINITIONS) {
