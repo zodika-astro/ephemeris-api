@@ -326,20 +326,19 @@ const compute = async (reqBody) => {
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
       const hasInterceptedSign = analysis.housesWithInterceptedSigns.some(item => item.house === i);
-      const planetsInThisHouse = []; // Changed to an array
+      const planetsInThisHouse = []; 
 
-      for (const planetName in planetSignData) { // Iterate over planet names
+      for (const planetName in planetSignData) { 
         const data = planetSignData[planetName];
         if (data.house === i) {
-          planetsInThisHouse.push(planetName); // Push just the planet name (string)
+          planetsInThisHouse.push(planetName); 
         }
       }
 
       formattedHouses[`house${i}`] = {
         sign: cuspInfo?.sign || null,
-        // Removed cuspDegree from JSON output
         intercepted: hasInterceptedSign ? "yes" : "no",
-        planets: planetsInThisHouse // This is now an array of names
+        planets: planetsInThisHouse
       };
     }
 
