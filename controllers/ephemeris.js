@@ -32,8 +32,8 @@ const ORB_RULES = {
   'mercury': [8, 8, 5],
   'venus': [8, 8, 5],
   'mars': [8, 8, 5],
-  'jupiter': [7, 6, 4],
-  'saturn': [7, 6, 4],
+  'jupiter': [7, 6, 5],
+  'saturn': [7, 6, 5],
   'uranus': [6, 5, 4],
   'neptune': [6, 5, 4],
   'pluto': [6, 5, 4],
@@ -337,7 +337,6 @@ const compute = async (reqBody) => {
 
       formattedHouses[`house${i}`] = {
         sign: cuspInfo?.sign || null,
-        // RE-INCLUDING cuspDegree here for generateChartImage.js
         cuspDegree: cuspInfo?.degree || null,
         intercepted: hasInterceptedSign ? "yes" : "no",
         planets: planetsInThisHouse
