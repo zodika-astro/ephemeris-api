@@ -51,8 +51,8 @@ const ASPECT_MATRIX_CELL_SIZE = 40; // Tamanho da célula na matriz de aspectos
 // Larguras das colunas para a tabela de posições dos planetas
 const TABLE_COL_WIDTHS = {
   symbol: 40,    // Símbolo do planeta (primeira coluna da tabela combinada)
-  planet: 60,    // Nome do planeta (reduzido para ~metade de 120)
-  positionDetails: 380, // Coluna unificada para Grau, Signo, Minutos, Segundos e Retrógrado
+  planet: 120,   // Nome do planeta (RESTAURADO para o original)
+  positionDetails: 250, // Coluna unificada para Grau, Signo, Minutos, Segundos e Retrógrado (REDUZIDO em ~35%)
 };
 
 // Mapeamento de rótulos de planetas para português
@@ -246,9 +246,9 @@ async function generateNatalTableImage(chartData) {
     const quality = SIGN_QUALITY_MAP[sign];
 
     let displaySymbol;
-    if (pointName === 'Asc') {
+    if (pointName === 'ascendant') { // Corrigido para 'ascendant' conforme ephemeris.js
       displaySymbol = 'Asc';
-    } else if (pointName === 'MC') {
+    } else if (pointName === 'mc') { // Corrigido para 'mc' conforme ephemeris.js
       displaySymbol = 'MC';
     } else {
       displaySymbol = PLANET_SYMBOLS[pointName] || pointName;
@@ -270,11 +270,11 @@ async function generateNatalTableImage(chartData) {
 
   // Adicionar Ascendente (house1)
   const ascendantSign = chartData.houses.house1?.sign;
-  addPointToCategories('Asc', ascendantSign);
+  addPointToCategories('ascendant', ascendantSign); // Usar 'ascendant' como chave
 
   // Adicionar MC (house10)
   const mcSign = chartData.houses.house10?.sign;
-  addPointToCategories('MC', mcSign);
+  addPointToCategories('mc', mcSign); // Usar 'mc' como chave
 
 
   // Calcular a largura total da tabela principal (posições + aspectos)
@@ -285,10 +285,10 @@ async function generateNatalTableImage(chartData) {
   const EQ_COL_WIDTHS = {
     name: 120, // e.g., "Fogo", "Cardinais"
     count: 80, // e.g., "10"
-    planets: 120, // NOVO: Coluna para listar planetas
+    planets: 120, // Coluna para listar planetas
     status: 100 // e.g., "Equilíbrio"
   };
-  const EQ_TABLE_TOTAL_WIDTH = EQ_COL_WIDTHS.name + EQ_COL_WIDTHS.count + EQ_COL_WIDTHS.planets + EQ_COL_WIDTHS.status;
+  // A posição X inicial da tabela de elementos/qualidades é calculada após a tabela principal
   const EQ_TABLE_START_X = PADDING + mainTableContentWidth + PADDING_BETWEEN_TABLES;
 
 
@@ -301,14 +301,13 @@ async function generateNatalTableImage(chartData) {
   // Calcular a altura da tabela de elementos e qualidades
   const elementsCount = Object.keys(chartData.elements).length;
   const qualitiesCount = Object.keys(chartData.qualities).length;
-  // Ajuste na altura: inclui os cabeçalhos das sub-tabelas
-  const eqTableContentHeight = (elementsCount + qualitiesCount + 2) * ROW_HEIGHT + (PADDING * 2); // +2 para os cabeçalhos das seções, + PADDING para espaço entre elas
-
-  const eqTableCalculatedHeight = TABLE_START_Y + eqTableContentHeight;
+  // A altura da tabela de EQ é apenas a soma das linhas de dados + padding entre elas e no final
+  const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT) + PADDING;
 
 
   // A altura final do canvas será o máximo entre a altura da tabela principal e a altura da tabela de elementos/qualidades
-  const calculatedHeight = Math.max(mainTableHeight, eqTableCalculatedHeight);
+  const calculatedHeight = Math.max(mainTableHeight, eqTableContentHeight + TABLE_START_Y); // Adiciona TABLE_START_Y para altura total
+
 
   const canvas = createCanvas(calculatedWidth, calculatedHeight);
   const ctx = canvas.getContext('2d');
@@ -376,16 +375,21 @@ async function generateNatalTableImage(chartData) {
   });
 
   // --- Tabela de Elementos e Qualidades ---
+  // A posição Y inicial para as tabelas de EQ é a mesma da tabela principal
   let eqCurrentY = TABLE_START_Y;
   let eqCurrentX = EQ_TABLE_START_X;
 
   // --- Seção de Elementos ---
-  // Cabeçalho da tabela de Elementos
+  // Dados dos Elementos
+  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para os dados
+  ctx.fillStyle = COLORS.TEXT;
+
+  // Desenha os cabeçalhos da tabela de Elementos
   let eqHeaderX = eqCurrentX;
   ctx.strokeStyle = COLORS.TABLE_BORDER;
   ctx.lineWidth = 1;
-  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
-  ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
+  ctx.font = FONT_TABLE_TEXT;
+  ctx.fillStyle = COLORS.HEADER;
 
   ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
   ctx.fillText('Elemento', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
@@ -395,7 +399,6 @@ async function generateNatalTableImage(chartData) {
   ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
   eqHeaderX += EQ_COL_WIDTHS.count;
 
-  // NOVO: Cabeçalho da coluna de Planetas
   ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
   ctx.fillText('Planetas', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
   eqHeaderX += EQ_COL_WIDTHS.planets;
@@ -403,11 +406,9 @@ async function generateNatalTableImage(chartData) {
   ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
   ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
   eqHeaderX += EQ_COL_WIDTHS.status;
-  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados dos elementos
+  eqCurrentY += ROW_HEIGHT;
 
-  // Dados dos Elementos
-  ctx.font = FONT_TABLE_TEXT;
-  ctx.fillStyle = COLORS.TEXT;
+
   for (const element in chartData.elements) {
     const data = chartData.elements[element];
     let eqColX = eqCurrentX; // Reseta X para cada linha de dados
@@ -423,7 +424,6 @@ async function generateNatalTableImage(chartData) {
     ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
     eqColX += EQ_COL_WIDTHS.count;
 
-    // NOVO: Dados da coluna de Planetas
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
     ctx.fillText(elementsPlanets[element].join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
     eqColX += EQ_COL_WIDTHS.planets;
@@ -438,7 +438,7 @@ async function generateNatalTableImage(chartData) {
   eqCurrentY += PADDING;
 
   // --- Seção de Qualidades ---
-  // Cabeçalho da tabela de Qualidades
+  // Desenha os cabeçalhos da tabela de Qualidades
   eqHeaderX = eqCurrentX; // Reseta X para o cabeçalho da tabela de qualidades
   ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
   ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
