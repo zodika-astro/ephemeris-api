@@ -26,13 +26,33 @@ const COLORS = {
 const FONT_HEADER = 'bold 32px Inter';
 const FONT_TEXT = '24px Inter';
 
+// Planet and sign translation maps
+const PLANET_LABELS_PT = {
+  sun: 'Sol', moon: 'Lua', mercury: 'Mercúrio', venus: 'Vênus', mars: 'Marte',
+  jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano', neptune: 'Netuno',
+  pluto: 'Plutão', trueNode: 'Nodo Norte', lilith: 'Lilith', chiron: 'Quíron'
+};
+
+const PLANET_SYMBOLS = {
+  sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
+  jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆',
+  pluto: '♇', trueNode: '☊', lilith: '☭', chiron: '⚷'
+};
+
+const SIGN_LABELS_PT = {
+  Aries: 'Áries', Taurus: 'Touro', Gemini: 'Gêmeos', Cancer: 'Câncer', Leo: 'Leão',
+  Virgo: 'Virgem', Libra: 'Libra', Scorpio: 'Escorpião', Sagittarius: 'Sagitário',
+  Capricorn: 'Capricórnio', Aquarius: 'Aquário', Pisces: 'Peixes'
+};
+
 // Helper to format planet row
 const formatPlanetRow = (planet, data, degrees) => {
   const degree = degrees[planet];
   const degreeInSign = (degree % 30).toFixed(2);
   const sign = data[planet]?.sign || '-';
+  const signPt = SIGN_LABELS_PT[sign] || sign;
   const retro = data[planet]?.retrograde === 'yes' ? 'R' : '';
-  return `${degreeInSign}° ${sign} ${retro}`.trim();
+  return `${degreeInSign}° ${signPt} ${retro}`.trim();
 };
 
 async function generateNatalTableImage(chartData) {
@@ -55,17 +75,23 @@ async function generateNatalTableImage(chartData) {
   const startY = 80;
   const rowHeight = 36;
 
-  ctx.font = FONT_HEADER;
-  ctx.fillStyle = COLORS.HEADER;
-  ctx.fillText('Planetas', startX, startY);
-
-  ctx.font = FONT_TEXT;
+    ctx.font = FONT_TEXT;
   ctx.fillStyle = COLORS.TEXT;
   planets.forEach((planet, index) => {
-    const label = planet.charAt(0).toUpperCase() + planet.slice(1);
+    const labelText = PLANET_LABELS_PT[planet] || planet;
+    const symbol = PLANET_SYMBOLS[planet] || '';
+    const label = `${symbol} ${labelText}`;
     const value = formatPlanetRow(planet, signs, degrees);
-    ctx.fillText(label, startX, startY + (index + 1) * rowHeight);
-    ctx.fillText(value, startX + 200, startY + (index + 1) * rowHeight);
+    const y = startY + (index + 1) * rowHeight;
+    ctx.fillText(label, startX, y);
+    ctx.fillText(value, startX + 200, y);
+
+    // Draw divider line
+    ctx.strokeStyle = COLORS.TABLE_BORDER;
+    ctx.beginPath();
+    ctx.moveTo(startX, y + 10);
+    ctx.lineTo(startX + 360, y + 10);
+    ctx.stroke();
   });
 
   // MATRIX TABLE (right)
@@ -79,7 +105,7 @@ async function generateNatalTableImage(chartData) {
 
   // Headers
   ctx.font = FONT_HEADER;
-  const qualityLabels = ['Cardinal', 'Fixo', 'Mutável'];
+  const qualityLabels = ['Cardinal', 'Fixo', 'Mutável']; // No title drawn
   qualitiesOrder.forEach((q, col) => {
     ctx.fillText(qualityLabels[col], matrixStartX + (col + 1) * cellWidth, matrixStartY);
   });
