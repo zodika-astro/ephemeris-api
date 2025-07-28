@@ -546,7 +546,8 @@ async function generateNatalChartImage(ephemerisData) {
       const p2 = placedPlanetsMap.get(aspect.planet2.name);
 
       if (p1 && p2) {
-        let diff = Math.abs(p1.deg - p2.deg);
+        // Alteração aqui: Usa Math.round() para considerar apenas o grau inteiro para a avaliação do aspecto
+        let diff = Math.abs(Math.round(p1.deg) - Math.round(p2.deg));
         if (diff > 180) diff = 360 - diff;
 
         let orb = style.defaultOrb;
