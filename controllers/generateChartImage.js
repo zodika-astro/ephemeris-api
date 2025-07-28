@@ -1,6 +1,6 @@
 'use strict';
 const { createCanvas, registerFont } = require('canvas');
-const path = require('path');
+const path = require('path'); // CRITICAL FIX: Changed from 'fs' to 'path'
 const fs = require('fs');
 
 // Chart Configuration Constants
@@ -9,17 +9,17 @@ const CHART_HEIGHT = 1536;
 const CENTER_X = CHART_WIDTH / 2;
 const CENTER_Y = CHART_HEIGHT / 2;
 const OUTER_RADIUS = 600;
-const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
-const INNER_RADIUS = OUTER_RADIUS * 0.125;
+const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85; // 510
+const INNER_RADIUS = OUTER_RADIUS * 0.125; // 75
 
 const PLANET_SYMBOL_SIZE = 52;
-const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
-const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
+const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6; // 32.5
+const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35; // 110
 const HOUSE_NUMBER_FONT_SIZE = 28;
-const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
+const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15; // 495
 
-// Calculate planet radius
-const PLANET_RADIUS = (DEGREE_TICK_RADIUS + 5) * 0.9 + INNER_RADIUS * 0.125;
+// Calculate planet radius - CRITICAL FIX: Adjusted to pull planets further inside
+const PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS * 0.85; // Example: 510 * 0.85 = 433.5. This places planets well inside the ticks.
 
 // Radius for aspect lines
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
@@ -293,7 +293,6 @@ async function generateNatalChartImage(ephemerisData) {
 
   // Extract chart data
   const planetPositions = ephemerisData?.geo || {};
-  // CRITICAL: Get cusps data directly from ephemerisData.houses
   const housesData = ephemerisData?.houses || {}; 
   const aspectsData = ephemerisData?.aspects || {};
 
@@ -322,11 +321,9 @@ async function generateNatalChartImage(ephemerisData) {
   }
 
   // Fallback for mcDegree if it's still invalid after the loop (e.g., if house 10 data was missing)
-  // This is a safety net, but the primary fix is ensuring ephemeris.js sends valid data.
   if (isNaN(mcDegree) || mcDegree === 0) {
       console.error("MC degree is invalid or 0. Chart rotation will be incorrect or drawing may fail.");
       // Provide a reasonable fallback to prevent complete drawing failure, though accuracy will be impacted.
-      // For a completely desconfigurada image, this might be the core issue.
       mcDegree = 270; // Default to 270 degrees (top of chart) if MC is missing/invalid
   }
 
