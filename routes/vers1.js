@@ -31,7 +31,7 @@ router.post('/ephemeris', async (req, res) => {
 
 // Endpoint to generate and return the natal chart image
 router.post('/ephemeris/chart-image', async (req, res) => {
-  logger.info('Chart image generation route called'); // Log new endpoint call
+  logger.info('Chart image generation route called'); // Log endpoint call
 
   try {
     // 1. Calculate the astrological data using your existing compute function
@@ -60,6 +60,42 @@ router.post('/ephemeris/chart-image', async (req, res) => {
     res.status(500).json({
       statusCode: 500,
       message: `Chart image generation failed: ${error.message}`
+    });
+  }
+});
+
+// Endpoint to generate and return the natal chart table
+const { generateNatalTableImage } = require('../controllers/generateTableImage');
+
+router.post('/ephemeris/table-image', async (req, res) => {
+  logger.info('Table image generation route called'); // Log endpoint call
+
+  try {
+    // 1. Calculate the astrological data using your existing compute function
+    const chartData = await EphemerisController.compute(req.body);
+
+    // 2. Check if the calculation was successful
+    if (chartData.statusCode !== 200) {
+      logger.warn(`Table image generation failed due to ephemeris calculation error: ${chartData.message}`);
+      return res.status(chartData.statusCode).json(chartData);
+    }
+
+    // 3. Use the calculated data to generate the image buffer
+    const imageBuffer = await generateNatalTableImage(chartData);
+
+    // 4. Send the image as an HTTP response
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Content-Length': imageBuffer.length
+    });
+    res.end(imageBuffer);
+
+  } catch (error) {
+    // Log any errors during the image generation process
+    logger.error(`API table image generation error: ${error.message}`);
+    res.status(500).json({
+      statusCode: 500,
+      message: `Table image generation failed: ${error.message}`
     });
   }
 });
