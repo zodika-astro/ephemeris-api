@@ -293,27 +293,41 @@ async function generateNatalChartImage(ephemerisData) {
 
   // Extract chart data
   const planetPositions = ephemerisData?.geo || {};
-  // Correctly get cusps data from ephemerisData.houses (which now includes cuspDegree)
+  // CRITICAL: Get cusps data directly from ephemerisData.houses
   const housesData = ephemerisData?.houses || {}; 
   const aspectsData = ephemerisData?.aspects || {};
 
   // Prepare house cusps for drawing
   const houseCusps = [];
-  let mcDegree = 0;
+  let mcDegree = 0; // Initialize mcDegree
 
   for (let i = 1; i <= 12; i++) {
     const houseKey = `house${i}`;
-    if (housesData[houseKey]) {
+    // CRITICAL FIX: Ensure housesData[houseKey] exists and cuspDegree is a valid number
+    if (housesData[houseKey] && typeof housesData[houseKey].cuspDegree === 'number' && !isNaN(housesData[houseKey].cuspDegree)) {
       houseCusps.push({
         house: i,
-        // CRITICAL FIX: Ensure cuspDegree is accessed directly from housesData
-        degree: housesData[houseKey].cuspDegree, 
+        degree: housesData[houseKey].cuspDegree, // Correctly access cuspDegree
         sign: housesData[houseKey].sign
       });
 
-      // Get MC degree (House 10)
-      if (i === 10) mcDegree = housesData[houseKey].cuspDegree; // CRITICAL FIX: Access MC degree directly
+      // CRITICAL FIX: Correctly get MC degree (House 10)
+      if (i === 10) {
+        mcDegree = housesData[houseKey].cuspDegree;
+      }
+    } else {
+      // Log a warning if critical cusp data is missing, but try to proceed
+      console.warn(`Cusp degree missing or invalid for ${houseKey}. Chart rotation/drawing might be affected.`);
     }
+  }
+
+  // Fallback for mcDegree if it's still invalid after the loop (e.g., if house 10 data was missing)
+  // This is a safety net, but the primary fix is ensuring ephemeris.js sends valid data.
+  if (isNaN(mcDegree) || mcDegree === 0) {
+      console.error("MC degree is invalid or 0. Chart rotation will be incorrect or drawing may fail.");
+      // Provide a reasonable fallback to prevent complete drawing failure, though accuracy will be impacted.
+      // For a completely desconfigurada image, this might be the core issue.
+      mcDegree = 270; // Default to 270 degrees (top of chart) if MC is missing/invalid
   }
 
   // Calculate rotation to place MC at top (270° canvas angle)
@@ -419,8 +433,9 @@ async function generateNatalChartImage(ephemerisData) {
 
     const xStart = CENTER_X + tickStart * Math.cos(rad);
     const yStart = CENTER_Y + tickStart * Math.sin(rad);
+    // CRITICAL FIX: Corrected yEnd calculation to use Math.sin
     const xEnd = CENTER_X + tickEnd * Math.cos(rad);
-    const yEnd = CENTER_Y + tickEnd * Math.cos(rad);
+    const yEnd = CENTER_Y + tickEnd * Math.sin(rad); // FIX: Changed Math.cos to Math.sin
 
     ctx.beginPath();
     ctx.moveTo(xStart, yStart);
