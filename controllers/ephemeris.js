@@ -15,15 +15,19 @@ const signs = [
   "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ];
 
-// Aspect definitions and default orb
+// Aspect definitions with specific orbs based on aspect type and luminary involvement
+// As per the rule: Conjunction/Opposition: 8° (std), 10° (Sun/Moon); Trine/Square: 6°; Sextile: 4°
 const ASPECT_DEFINITIONS = [
-  { name: "conjunction", degree: 0 },
-  { name: "sextile", degree: 60 },
-  { name: "square", degree: 90 },
-  { name: "trine", degree: 120 },
-  { name: "opposition", degree: 180 }
+  { name: "conjunction", degree: 0, orb: 8, orb_luminary: 10 },
+  { name: "sextile", degree: 60, orb: 4, orb_luminary: 4 }, // User's rule has no exception for Sextile
+  { name: "square", degree: 90, orb: 6, orb_luminary: 6 },
+  { name: "trine", degree: 120, orb: 6, orb_luminary: 6 },
+  { name: "opposition", degree: 180, orb: 8, orb_luminary: 10 }
 ];
-const DEFAULT_ORB = 6;
+// DEFAULT_ORB constant is no longer strictly used for aspect calculation,
+// as orbs are now defined per aspect. It's kept here just as a reference if other parts
+// of the code still implicitly rely on its existence, but will not affect aspect logic.
+const DEFAULT_ORB = 6; 
 
 const PLANETS_FOR_ASPECTS = [
   "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
@@ -135,7 +139,7 @@ async function computePlanets(jd, cusps) {
 }
 
 // Computes aspects between all planetary pairs
-async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_ORB) {
+async function computeAspects(planetGeoPositions, planetSignData) { // Removed 'orb = DEFAULT_ORB' from parameters
   const groupedAspects = {
     conjunction: [], sextile: [], square: [], trine: [], opposition: []
   };
@@ -144,26 +148,33 @@ async function computeAspects(planetGeoPositions, planetSignData, orb = DEFAULT_
 
   for (let i = 0; i < planetKeys.length; i++) {
     for (let j = i + 1; j < planetKeys.length; j++) {
-      const [p1, p2] = [planetKeys[i], planetKeys[j]];
-      const [pos1, pos2] = [planetGeoPositions[p1], planetGeoPositions[p2]];
-      const [info1, info2] = [planetSignData[p1], planetSignData[p2]];
+      const [p1Name, p2Name] = [planetKeys[i], planetKeys[j]]; // Renamed p1, p2 to p1Name, p2Name for clarity
+      const [pos1, pos2] = [planetGeoPositions[p1Name], planetGeoPositions[p2Name]];
+      const [info1, info2] = [planetSignData[p1Name], planetSignData[p2Name]];
 
       if (pos1 === undefined || pos2 === undefined || !info1 || !info2) {
-        logger.warn(`Invalid position or info for ${p1} or ${p2} when computing aspects.`);
+        logger.warn(`Invalid position or info for ${p1Name} or ${p2Name} when computing aspects.`);
         continue;
       }
 
       let diff = Math.abs(pos1 - pos2);
       if (diff > 180) diff = 360 - diff;
 
-      for (const { name, degree } of ASPECT_DEFINITIONS) {
-        if (diff >= (degree - orb) && diff <= (degree + orb)) {
-          groupedAspects[name].push({
-            planet1: { name: p1, sign: info1.sign, house: info1.house },
-            planet2: { name: p2, sign: info2.sign, house: info2.house },
-            description: `${name.charAt(0).toUpperCase() + name.slice(1)} - ` +
-              `${p1.charAt(0).toUpperCase() + p1.slice(1)} (${info1.sign}) - house ${info1.house} x ` +
-              `${p2.charAt(0).toUpperCase() + p2.slice(1)} (${info2.sign}), house ${info2.house}`
+      // Determine if either planet is a luminary (Sun or Moon)
+      const isLuminaryInvolved = (p1Name === 'sun' || p1Name === 'moon' || p2Name === 'sun' || p2Name === 'moon');
+
+      for (const aspectDef of ASPECT_DEFINITIONS) { // Changed 'aspect' to 'aspectDef' for clarity
+        // Select the appropriate orb based on luminary involvement
+        const currentOrb = isLuminaryInvolved ? (aspectDef.orb_luminary || aspectDef.orb) : aspectDef.orb;
+
+        // Check if the difference is within the specific aspect's orb
+        if (diff >= (aspectDef.degree - currentOrb) && diff <= (aspectDef.degree + currentOrb)) {
+          groupedAspects[aspectDef.name].push({ // Used aspectDef.name
+            planet1: { name: p1Name, sign: info1.sign, house: info1.house },
+            planet2: { name: p2Name, sign: info2.sign, house: info2.house },
+            description: `${aspectDef.name.charAt(0).toUpperCase() + aspectDef.name.slice(1)} - ` +
+              `${p1Name.charAt(0).toUpperCase() + p1Name.slice(1)} (${info1.sign}) - house ${info1.house} x ` +
+              `${p2Name.charAt(0).toUpperCase() + p2Name.slice(1)} (${info2.sign}), house ${info2.house}`
           });
         }
       }
