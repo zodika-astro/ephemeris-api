@@ -20,7 +20,7 @@ const COLORS = {
   BACKGROUND: '#FFFBF4',
   TEXT: '#29281E',
   HEADER: '#1A1E3B',
-  TABLE_BORDER: '#CCCCCC' // Lighter gray for internal lines
+  TABLE_BORDER: '#CCCCCC'
 };
 
 const FONT_HEADER = 'bold 32px Inter';
@@ -71,10 +71,10 @@ async function generateNatalTableImage(chartData) {
   ctx.fillStyle = COLORS.BACKGROUND;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  const startX = 50;
+  const startX = 40;
   const symbolColX = startX + 5;
   const labelColX = startX + 25;
-  const valueColX = startX + 110;
+  const valueColX = startX + 100;
   const startY = 80;
 
   ctx.font = FONT_TEXT;
@@ -94,32 +94,33 @@ async function generateNatalTableImage(chartData) {
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.beginPath();
     ctx.moveTo(startX, y + 6);
-    ctx.lineTo(valueColX + 200, y + 6);
+    ctx.lineTo(valueColX + 400, y + 6);
     ctx.stroke();
   });
 
   // Vertical divider
   ctx.beginPath();
-  ctx.moveTo(valueColX - 5, startY + ROW_HEIGHT);
+  ctx.moveTo(valueColX - 5, startY);
   ctx.lineTo(valueColX - 5, startY + (planets.length + 1) * ROW_HEIGHT);
   ctx.strokeStyle = COLORS.TABLE_BORDER;
   ctx.stroke();
 
-  // Aspect matrix (only symbols on diagonal)
-  const aspectStartX = 500;
+  // Aspect matrix (symbols on diagonals)
+  const aspectStartX = valueColX + 40;
   const aspectStartY = startY;
   const aspectSize = 30;
 
   planets.forEach((planet, i) => {
-    planets.forEach((_, j) => {
-      const x = aspectStartX + j * aspectSize;
-      const y = aspectStartY + i * aspectSize;
-      if (i === j) {
-        const symbol = PLANET_SYMBOLS[planets[i]] || '';
-        ctx.fillText(symbol, x + 10, y + 20);
-      }
+    const y = aspectStartY + (i + 1) * ROW_HEIGHT - 12;
+    ctx.fillText(PLANET_SYMBOLS[planet] || '', aspectStartX + i * aspectSize + 10, y);
+  });
+
+  planets.forEach((planet, row) => {
+    const y = aspectStartY + (row + 1) * ROW_HEIGHT - 6;
+    planets.forEach((_, col) => {
+      const x = aspectStartX + col * aspectSize;
       ctx.strokeStyle = COLORS.TABLE_BORDER;
-      ctx.strokeRect(x, y, aspectSize, aspectSize);
+      ctx.strokeRect(x, y - 10, aspectSize, ROW_HEIGHT);
     });
   });
 
