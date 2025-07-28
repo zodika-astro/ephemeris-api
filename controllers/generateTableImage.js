@@ -285,7 +285,7 @@ async function generateNatalTableImage(chartData) {
   const EQ_COL_WIDTHS = {
     name: 120, // e.g., "Fogo", "Cardinais"
     count: 80, // e.g., "10"
-    planets: 120, // Coluna para listar planetas
+    planets: 120 * 1.20, // Coluna para listar planetas (aumentado em 20%)
     status: 100 // e.g., "Equilíbrio"
   };
   // A posição X inicial da tabela de elementos/qualidades é calculada após a tabela principal
@@ -384,29 +384,29 @@ async function generateNatalTableImage(chartData) {
   ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para os dados
   ctx.fillStyle = COLORS.TEXT;
 
-  // Desenha os cabeçalhos da tabela de Elementos
-  let eqHeaderX = eqCurrentX;
-  ctx.strokeStyle = COLORS.TABLE_BORDER;
-  ctx.lineWidth = 1;
-  ctx.font = FONT_TABLE_TEXT;
-  ctx.fillStyle = COLORS.HEADER;
+  // Removido o desenho dos cabeçalhos da tabela de Elementos
+  // let eqHeaderX = eqCurrentX;
+  // ctx.strokeStyle = COLORS.TABLE_BORDER;
+  // ctx.lineWidth = 1;
+  // ctx.font = FONT_TABLE_TEXT;
+  // ctx.fillStyle = COLORS.HEADER;
 
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-  ctx.fillText('Elemento', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.name;
+  // ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+  // ctx.fillText('Elemento', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  // eqHeaderX += EQ_COL_WIDTHS.name;
 
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-  ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.count;
+  // ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+  // ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  // eqHeaderX += EQ_COL_WIDTHS.count;
 
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
-  ctx.fillText('Planetas', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.planets;
+  // ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
+  // ctx.fillText('Planetas', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  // eqHeaderX += EQ_COL_WIDTHS.planets;
 
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-  ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.status;
-  eqCurrentY += ROW_HEIGHT;
+  // ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+  // ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  // eqHeaderX += EQ_COL_WIDTHS.status;
+  // eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados dos elementos
 
 
   for (const element in chartData.elements) {
@@ -438,28 +438,27 @@ async function generateNatalTableImage(chartData) {
   eqCurrentY += PADDING;
 
   // --- Seção de Qualidades ---
-  // Desenha os cabeçalhos da tabela de Qualidades
-  eqHeaderX = eqCurrentX; // Reseta X para o cabeçalho da tabela de qualidades
-  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
-  ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
+  // Removido o desenho dos cabeçalhos da tabela de Qualidades
+  // eqHeaderX = eqCurrentX; // Reseta X para o cabeçalho da tabela de qualidades
+  // ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
+  // ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
 
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-  ctx.fillText('Qualidade', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.name;
+  // ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+  // ctx.fillText('Qualidade', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  // eqHeaderX += EQ_COL_WIDTHS.name;
 
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-  ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.count;
+  // ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+  // ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  // eqHeaderX += EQ_COL_WIDTHS.count;
 
-  // NOVO: Cabeçalho da coluna de Planetas
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
-  ctx.fillText('Planetas', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.planets;
+  // ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
+  // ctx.fillText('Planetas', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  // eqHeaderX += EQ_COL_WIDTHS.planets;
 
-  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-  ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
-  eqHeaderX += EQ_COL_WIDTHS.status;
-  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados das qualidades
+  // ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+  // ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  // eqHeaderX += EQ_COL_WIDTHS.status;
+  // eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados das qualidades
 
   // Dados das Qualidades
   ctx.font = FONT_TABLE_TEXT;
@@ -479,7 +478,6 @@ async function generateNatalTableImage(chartData) {
     ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
     eqColX += EQ_COL_WIDTHS.count;
 
-    // NOVO: Dados da coluna de Planetas
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
     ctx.fillText(qualitiesPlanets[quality].join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
     eqColX += EQ_COL_WIDTHS.planets;
