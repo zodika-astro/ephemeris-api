@@ -201,6 +201,39 @@ function distributeCluster(cluster, targetArray) {
 }
 
 /**
+ * Calculates the aspect between two degrees using aspect definitions and specific orbs.
+ * This function considers whether Sun or Moon are involved to apply the correct orb.
+ * @param {number} degree1 - Degree of the first planet.
+ * @param {string} planet1Name - Name of the first planet (e.g., 'sun', 'moon').
+ * @param {number} degree2 - Degree of the second planet.
+ * @param {string} planet2Name - Name of the second planet (e.g., 'sun', 'moon').
+ * @returns {string} - Aspect symbol or empty string if no major aspect.
+ */
+const calculateAspect = (degree1, planet1Name, degree2, planet2Name) => {
+  let diff = Math.abs(degree1 - degree2);
+  // Normalizes the difference to be between 0 and 180 degrees.
+  if (diff > 180) {
+    diff = 360 - diff;
+  }
+
+  const isLuminaryInvolved = (planet1Name === 'sun' || planet1Name === 'moon' ||
+                              planet2Name === 'sun' || planet2Name === 'moon');
+
+  for (const aspectDef of ASPECT_DEFINITIONS) {
+    // Select the appropriate orb based on luminary involvement
+    const currentOrb = isLuminaryInvolved ? (aspectDef.orb_luminary || aspectDef.orb) : aspectDef.orb;
+
+    // Check if the difference is within the specific aspect's orb
+    if (diff >= (aspectDef.degree - currentOrb) && diff <= (aspectDef.degree + currentOrb)) {
+      // Returns the corresponding symbol for the found aspect
+      return ASPECT_SYMBOLS[aspectDef.name];
+    }
+  }
+  return ''; // No major aspect detected
+};
+
+
+/**
  * Generates a natal chart image based on ephemeris data.
  * @param {Object} ephemerisData - Data containing planet positions, house cusps, and aspects.
  * @returns {Buffer} A PNG image buffer of the natal chart.
@@ -212,10 +245,11 @@ async function generateNatalChartImage(ephemerisData) {
   // Extract chart data
   const planetPositions = ephemerisData?.geo || {};
   const houses = ephemerisData?.houses || {};
-  // Aspects data from ephemerisData is now directly used for drawing lines,
-  // but the 'calculateAspect' function below will determine which lines to draw
-  // based on the new orb rules.
-  const aspectsData = ephemerisData?.aspects || {}; 
+  // aspectsData from ephemerisData can be used for drawing, but our local calculateAspect
+  // will re-evaluate based on specific orb rules for drawing visual lines.
+  // The aspectsData from ephemeris is used for the Aspect Table, not directly for Chart drawing aspect lines.
+  // We re-calculate aspects here for visual consistency in the chart drawing.
+  // const aspectsData = ephemerisData?.aspects || {}; 
 
 
   // Prepare house cusps
@@ -564,7 +598,6 @@ async function generateNatalChartImage(ephemerisData) {
 
         if (aspectSymbol) { // Only draw if a major aspect is found
           // Find the style for the aspect based on its symbol (e.g., '☌' for conjunction)
-          // We need to map the symbol back to the aspect name to get the style
           const aspectName = Object.keys(ASPECT_SYMBOLS).find(key => ASPECT_SYMBOLS[key] === aspectSymbol);
           const style = ASPECT_STYLES[aspectName];
 
