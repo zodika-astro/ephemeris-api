@@ -107,7 +107,6 @@ const ASPECT_DEFINITIONS = [
   { name: "opposition", degree: 180, orb: 8, orb_luminary: 10 }
 ];
 
-
 // Zodiac signs and symbols
 const ZODIAC_SIGNS = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão",
@@ -248,8 +247,7 @@ async function generateNatalChartImage(ephemerisData) {
   // aspectsData from ephemerisData can be used for drawing, but our local calculateAspect
   // will re-evaluate based on specific orb rules for drawing visual lines.
   // The aspectsData from ephemeris is used for the Aspect Table, not directly for Chart drawing aspect lines.
-  // We re-calculate aspects here for visual consistency in the chart drawing.
-  // const aspectsData = ephemerisData?.aspects || {}; 
+  // const aspectsData = ephemerisData?.aspects || {};
 
 
   // Prepare house cusps
