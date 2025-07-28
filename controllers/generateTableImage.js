@@ -33,13 +33,12 @@ const COLORS = {
   ROW_ALTERNATE_BG: '#F8F8F8', // Cor de fundo para linhas alternadas da tabela
   ASPECT_CONJUNCTION: '#000000', // Preto para Conjunção
   ASPECT_OPPOSITION: '#FF0000',  // Vermelho para Oposição
-  ASPECT_TRINE: '#008000',       // Verde para Trígono
-  ASPECT_SQUARE: '#FFA500',      // Laranja para Quadratura
+  ASPECT_TRINE: '#0000FF',       // Azul para Trígono (alterado de verde)
+  ASPECT_SQUARE: '#FF0000',      // Vermelho para Quadratura (alterado de laranja)
   ASPECT_SEXTILE: '#0000FF'      // Azul para Sextil
 };
 
 // Definições de fontes para diferentes elementos visuais
-// FONT_TITLE e FONT_SUBTITLE foram removidos ou não serão usados para títulos.
 const FONT_TABLE_HEADER = 'bold 16px Inter'; // Cabeçalho da tabela
 const FONT_TABLE_TEXT = '14px Inter'; // Texto da tabela
 const FONT_SYMBOLS = '20px Inter'; // Para símbolos de planetas e signos
@@ -47,14 +46,13 @@ const FONT_ASPECT_SYMBOLS = '18px Inter'; // Para símbolos de aspectos
 
 const PADDING = 30; // Preenchimento geral das margens
 const ROW_HEIGHT = 30; // Altura de cada linha na tabela
-// Ajusta a posição Y inicial da tabela para compensar a remoção do título principal
-const TABLE_START_Y = PADDING * 2;
+const TABLE_START_Y = PADDING * 2; // Posição Y inicial da tabela (ajustada pela remoção dos títulos)
 const ASPECT_MATRIX_CELL_SIZE = 40; // Tamanho da célula na matriz de aspectos
 
 // Larguras das colunas para a tabela de posições dos planetas
 const TABLE_COL_WIDTHS = {
   symbol: 40,    // Símbolo do planeta (primeira coluna da tabela combinada)
-  planet: 120,   // Nome do planeta
+  planet: 120 * 0.70,   // Nome do planeta (diminuído em 30%)
   positionDetails: 380, // Coluna unificada para Grau, Signo, Minutos, Segundos e Retrógrado
 };
 
@@ -86,31 +84,28 @@ const SIGN_SYMBOLS = {
   Capricorn: '♑', Aquarius: '♒', Pisces: '♓'
 };
 
-// Símbolos astrológicos para aspectos
+// Símbolos astrológicos para aspectos (removidos quincunx, semisextile, semisquare e sesquiquadrate)
 const ASPECT_SYMBOLS = {
   conjunction: '☌', // 0°
   opposition: '☍',  // 180°
   trine: '△',       // 120°
   square: '□',      // 90°
-  sextile: '⚹',      // 60°
-  quincunx: '⚻',     // 150°
-  semisextile: '⚺',  // 30°
-  semisquare: '∠',   // 45°
-  sesquiquadrate: '⚼' // 135°
+  sextile: '⚹'      // 60°
 };
 
 
 /**
  * Formata as informações de posição de um planeta em uma única string.
  * Formato: Grau(°), Signo, Minutos (') Segundos (") e Retrógrado (R)
+ * O grau exibido é o grau dentro do signo (0-29).
  * @param {string} planet - O nome do planeta.
  * @param {object} data - Objeto contendo dados dos signos dos planetas.
  * @param {object} degrees - Objeto contendo os graus absolutos dos planetas.
  * @returns {string} - A string formatada (e.g., "15° Touro, 27' 24" (R)").
  */
 const formatPositionDetails = (planet, data, degrees) => {
-  const degreeValue = degrees[planet];
-  // Grau dentro do signo (0-29)
+  const degreeValue = degrees[planet]; // Ex: 35.4567 (grau absoluto 0-360)
+  // Calcula o grau dentro do signo (0-29)
   const d = Math.floor(degreeValue % 30);
   const m = Math.floor((degreeValue * 60) % 60); // Minutos
   const s = Math.round((degreeValue * 3600) % 60); // Segundos
@@ -151,7 +146,7 @@ const calculateAspect = (degree1, degree2) => {
   } else if (Math.abs(normalizedDiff - 60) < orbSextile) {
     return ASPECT_SYMBOLS.sextile;
   }
-  // Adicione mais aspectos conforme necessário
+  // Removidos os aspectos quincunx, semisextile, semisquare e sesquiquadrate
   return ''; // Nenhum aspecto principal detectado
 };
 
@@ -195,8 +190,6 @@ async function generateNatalTableImage(chartData) {
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   // --- Tabela Combinada de Posições e Aspectos ---
-  // Removido o título principal e o subtítulo "Posições e Aspectos dos Planetas"
-  // Ajusta a posição Y inicial da tabela para compensar a remoção do título principal
   let currentY = TABLE_START_Y;
   let currentX = PADDING;
 
@@ -212,14 +205,12 @@ async function generateNatalTableImage(chartData) {
   ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
   headerX += TABLE_COL_WIDTHS.symbol;
 
-  // Cabeçalho da coluna "Planeta"
+  // Cabeçalho da coluna "Planeta" (texto removido)
   ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.planet, ROW_HEIGHT);
-  ctx.fillText('Planeta', headerX + 5, currentY + ROW_HEIGHT - 8);
   headerX += TABLE_COL_WIDTHS.planet;
 
-  // Cabeçalho da coluna "Posição" (grau, signo, retro)
+  // Cabeçalho da coluna "Posição" (texto removido)
   ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.positionDetails, ROW_HEIGHT);
-  ctx.fillText('Posição', headerX + 5, currentY + ROW_HEIGHT - 8);
   headerX += TABLE_COL_WIDTHS.positionDetails;
 
   // Cabeçalhos horizontais da matriz de aspectos (símbolos dos planetas)
@@ -275,11 +266,14 @@ async function generateNatalTableImage(chartData) {
     planetsList.forEach((planetCol, colIndex) => {
       ctx.strokeRect(colX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
       if (rowIndex === colIndex) {
-        // Célula diagonal: planeta com ele mesmo
+        // Célula diagonal: planeta com ele mesmo, mostra o símbolo do planeta
         ctx.fillStyle = COLORS.TEXT;
-        ctx.fillText('-', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
+        ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
+      } else if (colIndex > rowIndex) {
+        // Parte superior da diagonal: não desenha nada (deixa em branco)
+        // Apenas a borda da célula é desenhada pelo strokeRect acima.
       } else {
-        // Calcula e desenha o símbolo do aspecto
+        // Parte inferior da diagonal: calcula e desenha o símbolo do aspecto
         const aspectSymbol = calculateAspect(degrees[planetRow], degrees[planetCol]);
         ctx.fillStyle = getAspectColor(aspectSymbol); // Define a cor com base no aspecto
         ctx.fillText(aspectSymbol, colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
