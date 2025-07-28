@@ -25,6 +25,7 @@ const COLORS = {
 
 const FONT_HEADER = 'bold 32px Inter';
 const FONT_TEXT = '12px Inter';
+const ROW_HEIGHT = 20; // Row height defined once here
 
 // Planet and sign translation maps
 const PLANET_LABELS_PT = {
@@ -62,35 +63,30 @@ async function generateNatalTableImage(chartData) {
   const canvas = createCanvas(WIDTH, HEIGHT);
   const ctx = canvas.getContext('2d');
 
-      const rowHeight = 20;
+  const planets = Object.keys(chartData.planets);
+  const degrees = chartData.geo;
+  const signs = chartData.planets;
+  const elements = chartData.elements;
+  const qualities = chartData.qualities;
 
   ctx.fillStyle = COLORS.BACKGROUND;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   ctx.strokeStyle = COLORS.TABLE_BORDER;
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(40, 60, 400, planets.length * 20 + 40);
-
-  const planets = Object.keys(chartData.planets);
-  const degrees = chartData.geo;
-  const signs = chartData.planets;
-
-  // ELEMENTS TABLE: Cardinal / Fixed / Mutable vs Fire / Earth / Air / Water
-  const elements = chartData.elements;
-  const qualities = chartData.qualities;
+  ctx.strokeRect(40, 60, 400, planets.length * ROW_HEIGHT + 40);
 
   // PLANET TABLE (left)
   const startX = 60;
   const startY = 80;
-  const rowHeight = 20;
 
-    ctx.font = FONT_TEXT;
+  ctx.font = FONT_TEXT;
   ctx.fillStyle = COLORS.TEXT;
   planets.forEach((planet, index) => {
     const labelText = PLANET_LABELS_PT[planet] || planet;
     const symbol = PLANET_SYMBOLS[planet] || '';
     const label = `${symbol} ${labelText}`;
     const value = formatPlanetRow(planet, signs, degrees);
-    const y = startY + (index + 1) * rowHeight;
+    const y = startY + (index + 1) * ROW_HEIGHT;
     ctx.fillText(label, startX, y);
     ctx.fillText(value, startX + 140, y);
 
