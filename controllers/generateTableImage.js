@@ -62,6 +62,12 @@ async function generateNatalTableImage(chartData) {
   const canvas = createCanvas(WIDTH, HEIGHT);
   const ctx = canvas.getContext('2d');
 
+  const planets = Object.keys(chartData.planets);
+  const degrees = chartData.geo;
+  const signs = chartData.planets;
+  const elements = chartData.elements;
+  const qualities = chartData.qualities;
+
   ctx.fillStyle = COLORS.BACKGROUND;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   ctx.strokeStyle = COLORS.TABLE_BORDER;
