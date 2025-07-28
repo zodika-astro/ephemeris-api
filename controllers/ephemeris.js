@@ -4,12 +4,12 @@ const swisseph = require('swisseph');
 const path = require('path');
 const logger = require('../logger');
 
-// Set Swiss Ephemeris path for planet and house calculations
+// Set Swiss Ephemeris path
 const ephePath = path.join(__dirname, '..', 'ephe');
 swisseph.swe_set_ephe_path(ephePath);
 logger.info(`Swiss Ephemeris path set to: ${ephePath}`);
 
-// Define zodiac signs
+// Zodiac signs
 const signs = [
   "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
   "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
@@ -17,12 +17,32 @@ const signs = [
 
 // Define major astrological aspects with their core degrees
 const ASPECT_DEFINITIONS = [
-  { name: "conjunction", degree: 0 },
-  { name: "sextile", degree: 60 },
-  { name: "square", degree: 90 },
-  { name: "trine", degree: 120 },
-  { name: "opposition", degree: 180 }
+  { name: "conjunction", degree: 0, category: 0 },
+  { name: "sextile", degree: 60, category: 2 },
+  { name: "square", degree: 90, category: 1 },
+  { name: "trine", degree: 120, category: 1 },
+  { name: "opposition", degree: 180, category: 0 }
 ];
+
+// Define individual orb rules for each celestial body/point,
+// mapped to aspect categories: [Conj/Opp, Sq/Tr, Sextile]
+const ORB_RULES = {
+  'sun': [10, 8, 6],
+  'moon': [10, 8, 6],
+  'mercury': [8, 7, 5],
+  'venus': [8, 7, 5],
+  'mars': [8, 7, 5],
+  'jupiter': [7, 6, 4],
+  'saturn': [7, 6, 4],
+  'uranus': [6, 5, 3],
+  'neptune': [6, 5, 3],
+  'pluto': [6, 5, 3],
+  'chiron': [6, 5, 3],       // Based on outer planets
+  'ascendant': [7, 6, 4],    // Based on MC/AC rules
+  'mc': [7, 6, 4],           // Based on MC/AC rules
+  'trueNode': [5, 4, 2],     // Adjusted based on new North Node rule (medium influence point)
+  'lilith': [4, 3, 1.5]      // Adjusted based on new Lilith rule (lower influence point)
+};
 
 // Define all astrological points considered for aspect calculations
 const ALL_POINTS_FOR_ASPECTS = [
@@ -31,7 +51,7 @@ const ALL_POINTS_FOR_ASPECTS = [
   "ascendant", "mc"
 ];
 
-// Map zodiac signs to their corresponding elements
+// Element and modality classification
 const SIGN_ELEMENT_MAP = {
   "Aries": "fire", "Leo": "fire", "Sagittarius": "fire",
   "Taurus": "earth", "Virgo": "earth", "Capricorn": "earth",
@@ -46,7 +66,7 @@ const SIGN_QUALITY_MAP = {
   "Gemini": "mutable", "Virgo": "mutable", "Sagittarius": "mutable", "Pisces": "mutable"
 };
 
-// Define weight for each point for elemental/modality analysis
+// Weight used for elemental/modality analysis
 const WEIGHT_PER_POINT = {
   sun: 3, moon: 3, ascendant: 3, mc: 3,
   mercury: 2, venus: 2, mars: 2, jupiter: 2,
@@ -68,7 +88,7 @@ const getStatusByCount = (count) => {
   return "excess";
 };
 
-// Computes house cusps using Swiss Ephemeris based on Julian Day, latitude, longitude, and house system
+// Computes house cusps using Swiss Ephemeris
 const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   return new Promise((resolve, reject) => {
     swisseph.swe_houses_ex(jd, swisseph.SEFLG_SWIEPH, lat, lng, houseSystem, (res) => {
@@ -95,7 +115,6 @@ const determineAstrologicalHouse = (planetDegree, cusps) => {
 
 // Computes planetary positions, signs, retrogradation status, and houses
 async function computePlanets(jd, cusps) {
-  // Map internal planet names to Swiss Ephemeris IDs
   const planetsMap = {
     sun: swisseph.SE_SUN, moon: swisseph.SE_MOON, mercury: swisseph.SE_MERCURY,
     venus: swisseph.SE_VENUS, mars: swisseph.SE_MARS, jupiter: swisseph.SE_JUPITER,
@@ -108,10 +127,8 @@ async function computePlanets(jd, cusps) {
   const signData = {};
   const flags = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
 
-  // Iterate over each planet to calculate its position and associated data
   for (const [name, id] of Object.entries(planetsMap)) {
     try {
-      // Calculate current and future positions to determine retrogradation
       const current = await new Promise((resolve) => swisseph.swe_calc_ut(jd, id, flags, resolve));
       const future = await new Promise((resolve) => swisseph.swe_calc_ut(jd + 0.01, id, flags, resolve));
       const currentLongitude = current.longitude ?? current.position?.[0];
@@ -145,55 +162,8 @@ async function computeAspects(planetGeoPositions, planetSignData) {
     conjunction: [], sextile: [], square: [], trine: [], opposition: []
   };
 
-  // Helper to get specific orb rules based on point category
-  const getOrbRulesForPoint = (pointName) => {
-    if (pointName === "sun" || pointName === "moon") {
-      return { conjOpp: 10, triSqr: 8, sextile: 6 }; // Luminaries
-    } else if (["mercury", "venus", "mars"].includes(pointName)) {
-      return { conjOpp: 8, triSqr: 6, sextile: 4 }; // Fast Planets
-    } else if (["jupiter", "saturn", "uranus", "neptune", "pluto"].includes(pointName)) {
-      return { conjOpp: 6, triSqr: 5, sextile: 3 }; // Slow Planets
-    } else if (["trueNode", "lilith", "chiron"].includes(pointName)) {
-      return { conjOpp: 3, triSqr: 2, sextile: 2 }; // Nodes/Chiron/Lilith
-    } else if (pointName === "ascendant" || pointName === "mc") {
-      return { conjOpp: 10, triSqr: 8, sextile: 6 }; // AC/MC
-    }
-    return null;
-  };
-
-  // Determines the actual orb for an aspect based on the categories of the two points involved
-  const determineActualOrb = (p1Name, p2Name, aspectType) => {
-    const rules1 = getOrbRulesForPoint(p1Name);
-    const rules2 = getOrbRulesForPoint(p2Name);
-
-    if (!rules1 || !rules2) return 0; // Should not happen with valid point names
-
-    let orb1, orb2;
-    switch (aspectType) {
-      case "conjunction":
-      case "opposition":
-        orb1 = rules1.conjOpp;
-        orb2 = rules2.conjOpp;
-        break;
-      case "trine":
-      case "square":
-        orb1 = rules1.triSqr;
-        orb2 = rules2.triSqr;
-        break;
-      case "sextile":
-        orb1 = rules1.sextile;
-        orb2 = rules2.sextile;
-        break;
-      default:
-        return 0; // Unrecognized aspect type
-    }
-    // Apply the rule: use the LARGER orb when two categories conflict
-    return Math.max(orb1, orb2);
-  };
-
   const allPointsKeys = Object.keys(planetGeoPositions).filter(key => ALL_POINTS_FOR_ASPECTS.includes(key));
 
-  // Iterate over all unique pairs of astrological points
   for (let i = 0; i < allPointsKeys.length; i++) {
     for (let j = i + 1; j < allPointsKeys.length; j++) {
       const [p1, p2] = [allPointsKeys[i], allPointsKeys[j]];
@@ -211,17 +181,20 @@ async function computeAspects(planetGeoPositions, planetSignData) {
         continue;
       }
 
-      // Calculate the angular difference between the two points using full decimal precision
       let diff = Math.abs(pos1 - pos2);
-      // Normalize difference to be within 0-180 degrees (shortest arc)
       if (diff > 180) diff = 360 - diff;
 
-      // Check against each defined aspect type
       for (const aspectDef of ASPECT_DEFINITIONS) {
-        // Determine the applicable orb based on the points' categories and aspect type
-        const orb = determineActualOrb(p1, p2, aspectDef.name);
+        const p1Orb = ORB_RULES[p1]?.[aspectDef.category];
+        const p2Orb = ORB_RULES[p2]?.[aspectDef.category];
 
-        // Check if the difference falls within the aspect's orb
+        if (p1Orb === undefined || p2Orb === undefined) {
+            logger.warn(`Orb rule not found for ${p1} or ${p2} for aspect ${aspectDef.name}. Skipping.`);
+            continue;
+        }
+
+        const orb = (p1Orb + p2Orb) / 2.0;
+
         if (orb > 0 && diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
           groupedAspects[aspectDef.name].push({
             planet1: { name: p1, sign: info1.sign, house: info1.house },
@@ -237,12 +210,10 @@ async function computeAspects(planetGeoPositions, planetSignData) {
   return groupedAspects;
 }
 
-// Analyzes the distribution of points across elemental and modal qualities
 async function analyzeElementalAndModalQualities(planetSignData, cusps) {
   const elementCounts = { fire: 0, earth: 0, air: 0, water: 0 };
   const qualityCounts = { cardinal: 0, fixed: 0, mutable: 0 };
 
-  // Include Ascendant and MC in the analysis
   const extraPoints = {
     ascendant: { sign: degreeToSign(cusps[0]?.degree) },
     mc: { sign: degreeToSign(cusps[9]?.degree) }
@@ -250,7 +221,6 @@ async function analyzeElementalAndModalQualities(planetSignData, cusps) {
 
   const allPoints = { ...planetSignData, ...extraPoints };
 
-  // Aggregate counts based on point weights and sign classifications
   for (const point in allPoints) {
     const sign = allPoints[point].sign;
     const weight = WEIGHT_PER_POINT[point];
@@ -263,26 +233,22 @@ async function analyzeElementalAndModalQualities(planetSignData, cusps) {
   const elementsResult = {};
   const qualitiesResult = {};
 
-  // Determine status (lack, balance, excess) for each element and quality
   for (const el in elementCounts) {
     elementsResult[el] = { count: elementCounts[el], status: getStatusByCount(elementCounts[el]) };
   }
 
   for (const ql in qualityCounts) {
-    // FIX: Corrected variable name from 'qualities' to 'qualityCounts'
     qualitiesResult[ql] = { count: qualityCounts[ql], status: getStatusByCount(qualityCounts[ql]) };
   }
 
   return { elements: elementsResult, qualities: qualitiesResult };
 }
 
-// Detects intercepted signs and signs ruling multiple houses
 const analyzeHouses = (cusps) => {
   const signsOnCusps = new Set(cusps.map(c => degreeToSign(c.degree)));
   const housesWithInterceptedSigns = [];
   const interceptedSigns = new Set();
 
-  // Iterate through houses to find intercepted signs
   for (let i = 0; i < cusps.length; i++) {
     const current = cusps[i];
     const next = cusps[(i + 1) % cusps.length];
@@ -290,13 +256,11 @@ const analyzeHouses = (cusps) => {
     let end = next.degree > start ? next.degree : next.degree + 360;
 
     const signsPresent = new Set();
-    // Check each degree within the house segment for signs
     for (let deg = Math.floor(start); deg < Math.ceil(end); deg++) {
       signsPresent.add(degreeToSign(deg % 360));
     }
 
     signsPresent.forEach(sign => {
-      // If a sign is within a house but not on its cusp, it's intercepted
       if (!signsOnCusps.has(sign)) {
         housesWithInterceptedSigns.push({ house: current.house, interceptedSign: sign });
         interceptedSigns.add(sign);
@@ -304,14 +268,12 @@ const analyzeHouses = (cusps) => {
     });
   }
 
-  // Count how many cusps each sign appears on
   const cuspSignCount = {};
   cusps.forEach(c => {
     const sign = degreeToSign(c.degree);
     cuspSignCount[sign] = (cuspSignCount[sign] || 0) + 1;
   });
 
-  // Identify signs that rule more than one house
   const signsWithDoubleRulership = Object.entries(cuspSignCount)
     .filter(([, count]) => count > 1)
     .map(([sign]) => sign);
@@ -328,7 +290,6 @@ const analyzeHouses = (cusps) => {
   };
 };
 
-// Main function to compute complete ephemeris data for a given birth chart
 const compute = async (reqBody) => {
   try {
     const {
@@ -338,18 +299,13 @@ const compute = async (reqBody) => {
       config = {}
     } = reqBody;
 
-    // Calculate Julian Day for the given date and time
     const decimalHours = hours + minutes / 60 + seconds / 3600;
     const jd = swisseph.swe_julday(year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL);
 
-    // Compute house cusps
     const houseSystem = config.house_system || 'P';
     const cusps = await computeHouses(jd, latitude, longitude, houseSystem);
-    // Compute planetary positions and initial sign/house data
     let { geo, signs: planetSignData } = await computePlanets(jd, cusps);
 
-    // Add AC (Ascendant) and MC (Midheaven) to the geocentric positions and sign data
-    // This makes them available for aspect calculations and elemental/modal analysis
     const ascendantDegree = cusps.find(c => c.house === 1)?.degree;
     const mcDegree = cusps.find(c => c.house === 10)?.degree;
 
@@ -362,14 +318,10 @@ const compute = async (reqBody) => {
       planetSignData.mc = { sign: degreeToSign(mcDegree), retrograde: "no", house: 10 };
     }
 
-    // Compute aspects between all relevant points
     const aspects = await computeAspects(geo, planetSignData);
-    // Analyze elemental and modal qualities of the chart
     const { elements, qualities } = await analyzeElementalAndModalQualities(planetSignData, cusps);
-    // Perform house-specific analysis (intercepted signs, double rulership)
     const analysis = analyzeHouses(cusps);
 
-    // Format house data for the final output
     const formattedHouses = {};
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
@@ -395,7 +347,6 @@ const compute = async (reqBody) => {
       };
     }
 
-    // Return the comprehensive ephemeris data
     return {
       statusCode: 200,
       message: "Ephemeris computed successfully",
