@@ -293,7 +293,8 @@ async function generateNatalChartImage(ephemerisData) {
 
   // Extract chart data
   const planetPositions = ephemerisData?.geo || {};
-  const analysisCusps = ephemerisData?.analysis?.cusps || []; // Get the cusps with degrees from analysis
+  // Now correctly get cusps data from ephemerisData.analysis.cusps
+  const analysisCusps = ephemerisData?.analysis?.cusps || []; 
   const aspectsData = ephemerisData?.aspects || {};
 
   // Prepare house cusps for drawing (using analysisCusps for degree info)
@@ -555,6 +556,75 @@ async function generateNatalChartImage(ephemerisData) {
     ctx.font = 'bold 18px Inter';
     ctx.fillText(sign.toUpperCase(), 0, 20);
 
+    ctx.restore();
+  });
+
+  // Draw planets and their degree labels
+  placedPlanetsMap.forEach(planet => {
+    const symbol = PLANET_SYMBOLS[planet.name];
+
+    // Draw background circle
+    ctx.fillStyle = 'rgba(255, 249, 237, 0.7)';
+    ctx.beginPath();
+    ctx.arc(planet.x, planet.y, PLANET_CIRCLE_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw planet symbol
+    ctx.fillStyle = COLORS.SYMBOL;
+    ctx.font = useSymbolaFont ?
+      `bold ${PLANET_SYMBOL_SIZE}px Symbola` :
+      `bold ${PLANET_SYMBOL_SIZE}px Inter`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(symbol, planet.x, planet.y);
+
+    // Draw planet degree label
+    const degreeInSign = Math.floor(planet.deg % 30);
+    const signIndex = Math.floor(planet.deg / 30);
+    const signSymbol = SIGN_SYMBOLS[signIndex];
+    const degreeText = `${degreeInSign}° ${signSymbol}`; // Format: "Degree° SignSymbol"
+
+    const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset);
+
+    // Calculate the radial position for the text.
+    const textDisplayRadius = PLANET_RADIUS - PLANET_DEGREE_LABEL_INNER_PADDING;
+
+    // Calculate initial x, y based on the radial position and adjusted angle
+    let labelX = CENTER_X + textDisplayRadius * Math.cos(labelAngleRad);
+    let labelY = CENTER_Y + textDisplayRadius * Math.sin(labelAngleRad);
+
+    let textAlignForLabel = 'center';
+    let offsetX = 0;
+    let offsetY = 0;
+
+    // Determine quadrant based on canvas angle (0=top, clockwise)
+    // This logic adjusts the text position to be perpendicular to the radial line
+    // and ensures it's "inside" the planet symbol's orbit.
+    if (labelAngleRad >= -Math.PI / 4 && labelAngleRad < Math.PI / 4) { // Right side (approx 315 to 45 deg canvas)
+        offsetX = -PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift left
+        textAlignForLabel = 'right';
+    } else if (labelAngleRad >= Math.PI / 4 && labelAngleRad < 3 * Math.PI / 4) { // Bottom side (approx 45 to 135 deg canvas)
+        offsetY = -PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL; // Shift up
+        textAlignForLabel = 'center';
+    } else if (labelAngleRad >= 3 * Math.PI / 4 && labelAngleRad < 5 * Math.PI / 4) { // Left side (approx 135 to 225 deg canvas)
+        offsetX = PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET; // Shift right
+        textAlignForLabel = 'left';
+    } else { // Top side (approx 225 to 315 deg canvas)
+        offsetY = PLANET_DEGREE_VERTICAL_OFFSET_FROM_RADIAL; // Shift down
+        textAlignForLabel = 'center';
+    }
+
+    // Apply the offsets to the label's position
+    labelX += offsetX;
+    labelY += offsetY;
+
+    ctx.save();
+    ctx.fillStyle = COLORS.TEXT;
+    ctx.font = `bold ${PLANET_DEGREE_FONT_SIZE}px Inter`;
+    ctx.textAlign = textAlignForLabel;
+    ctx.textBaseline = 'middle'; // Keep middle for vertical centering
+
+    ctx.fillText(degreeText, labelX, labelY);
     ctx.restore();
   });
 
