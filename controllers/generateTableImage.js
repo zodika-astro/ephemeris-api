@@ -102,6 +102,34 @@ const ASPECT_DEFINITIONS = [
 ];
 const DEFAULT_ORB = 6; // Orbe padrão, ajuste conforme necessário para sua precisão
 
+// --- Mapeamento de Elementos e Qualidades para português (NOVO) ---
+const ELEMENT_LABELS_PT = {
+  fire: 'Fogo',
+  earth: 'Terra',
+  air: 'Ar',
+  water: 'Água'
+};
+
+const QUALITY_LABELS_PT = {
+  cardinal: 'Cardinais',
+  fixed: 'Fixos',
+  mutable: 'Mutáveis'
+};
+
+// Element and modality classification (copiado de ephemeris.js para auto-contenção)
+const SIGN_ELEMENT_MAP = {
+  "Aries": "fire", "Leo": "fire", "Sagittarius": "fire",
+  "Taurus": "earth", "Virgo": "earth", "Capricorn": "earth",
+  "Gemini": "air", "Libra": "air", "Aquarius": "air",
+  "Cancer": "water", "Scorpio": "water", "Pisces": "water"
+};
+
+const SIGN_QUALITY_MAP = {
+  "Aries": "cardinal", "Cancer": "cardinal", "Libra": "cardinal", "Capricorn": "cardinal",
+  "Taurus": "fixed", "Leo": "fixed", "Scorpio": "fixed", "Aquarius": "fixed",
+  "Gemini": "mutable", "Virgo": "mutable", "Sagittarius": "mutable", "Pisces": "mutable"
+};
+
 
 /**
  * Formata as informações de posição de um planeta em uma única string.
@@ -200,17 +228,61 @@ async function generateNatalTableImage(chartData) {
   const degrees = chartData.geo;
   const signs = chartData.planets;
 
+  // Pre-processar planetas e pontos para tabelas de Elementos e Qualidades
+  const elementsPlanets = { fire: [], earth: [], air: [], water: [] };
+  const qualitiesPlanets = { cardinal: [], fixed: [], mutable: [] };
+
+  // Helper para adicionar planeta/ponto à lista correta de elemento/qualidade
+  const addPointToCategories = (pointName, sign) => {
+    if (!sign) return; // Garante que o signo exista
+
+    const element = SIGN_ELEMENT_MAP[sign];
+    const quality = SIGN_QUALITY_MAP[sign];
+
+    let displaySymbol;
+    if (pointName === 'Asc') {
+      displaySymbol = 'Asc';
+    } else if (pointName === 'MC') {
+      displaySymbol = 'MC';
+    } else {
+      displaySymbol = PLANET_SYMBOLS[pointName] || pointName;
+    }
+
+    if (element) {
+      elementsPlanets[element].push(displaySymbol);
+    }
+    if (quality) {
+      qualitiesPlanets[quality].push(displaySymbol);
+    }
+  };
+
+  // Adicionar planetas
+  for (const planetName in chartData.planets) {
+    const sign = chartData.planets[planetName].sign;
+    addPointToCategories(planetName, sign);
+  }
+
+  // Adicionar Ascendente (house1)
+  const ascendantSign = chartData.houses.house1?.sign;
+  addPointToCategories('Asc', ascendantSign);
+
+  // Adicionar MC (house10)
+  const mcSign = chartData.houses.house10?.sign;
+  addPointToCategories('MC', mcSign);
+
+
   // Calcular a largura total da tabela principal (posições + aspectos)
   const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
 
   // Define novas constantes para a tabela de elementos/qualidades
   const PADDING_BETWEEN_TABLES = 60; // Espaçamento entre as duas tabelas
   const EQ_COL_WIDTHS = {
-    name: 120, // e.g., "Fire", "Cardinal"
+    name: 120, // e.g., "Fogo", "Cardinais"
     count: 80, // e.g., "10"
-    status: 100 // e.g., "balance"
+    planets: 120, // NOVO: Coluna para listar planetas
+    status: 100 // e.g., "Equilíbrio"
   };
-  const EQ_TABLE_TOTAL_WIDTH = EQ_COL_WIDTHS.name + EQ_COL_WIDTHS.count + EQ_COL_WIDTHS.status;
+  const EQ_TABLE_TOTAL_WIDTH = EQ_COL_WIDTHS.name + EQ_COL_WIDTHS.count + EQ_COL_WIDTHS.planets + EQ_COL_WIDTHS.status;
   const EQ_TABLE_START_X = PADDING + mainTableContentWidth + PADDING_BETWEEN_TABLES;
 
 
@@ -223,8 +295,8 @@ async function generateNatalTableImage(chartData) {
   // Calcular a altura da tabela de elementos e qualidades
   const elementsCount = Object.keys(chartData.elements).length;
   const qualitiesCount = Object.keys(chartData.qualities).length;
-  // Ajuste na altura: remove os ROW_HEIGHTs dos títulos das seções e dos cabeçalhos das sub-tabelas
-  const eqTableContentHeight = (elementsCount + qualitiesCount) * ROW_HEIGHT + (PADDING * 2); // Apenas linhas de dados + padding extra entre seções e no final
+  // Ajuste na altura: inclui os cabeçalhos das sub-tabelas
+  const eqTableContentHeight = (elementsCount + qualitiesCount + 2) * ROW_HEIGHT + (PADDING * 2); // +2 para os cabeçalhos das seções, + PADDING para espaço entre elas
 
   const eqTableCalculatedHeight = TABLE_START_Y + eqTableContentHeight;
 
@@ -302,12 +374,34 @@ async function generateNatalTableImage(chartData) {
   let eqCurrentX = EQ_TABLE_START_X;
 
   // --- Seção de Elementos ---
-  // Removido o título "Elementos"
-  // Removido o cabeçalho da tabela de Elementos
-  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para os dados
-  ctx.fillStyle = COLORS.TEXT;
+  // Cabeçalho da tabela de Elementos
+  let eqHeaderX = eqCurrentX;
+  ctx.strokeStyle = COLORS.TABLE_BORDER;
+  ctx.lineWidth = 1;
+  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
+  ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+  ctx.fillText('Elemento', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.name;
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+  ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.count;
+
+  // NOVO: Cabeçalho da coluna de Planetas
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
+  ctx.fillText('Planetas', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.planets;
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+  ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.status;
+  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados dos elementos
 
   // Dados dos Elementos
+  ctx.font = FONT_TABLE_TEXT;
+  ctx.fillStyle = COLORS.TEXT;
   for (const element in chartData.elements) {
     const data = chartData.elements[element];
     let eqColX = eqCurrentX; // Reseta X para cada linha de dados
@@ -316,12 +410,17 @@ async function generateNatalTableImage(chartData) {
     ctx.lineWidth = 1;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-    ctx.fillText(element.charAt(0).toUpperCase() + element.slice(1), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(ELEMENT_LABELS_PT[element] || element.charAt(0).toUpperCase() + element.slice(1), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
     eqColX += EQ_COL_WIDTHS.name;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
     ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
     eqColX += EQ_COL_WIDTHS.count;
+
+    // NOVO: Dados da coluna de Planetas
+    ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
+    ctx.fillText(elementsPlanets[element].join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqColX += EQ_COL_WIDTHS.planets;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
     ctx.fillText(getTranslatedStatus(data.status), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
@@ -333,12 +432,32 @@ async function generateNatalTableImage(chartData) {
   eqCurrentY += PADDING;
 
   // --- Seção de Qualidades ---
-  // Removido o título "Qualidades"
-  // Removido o cabeçalho da tabela de Qualidades
-  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para os dados
-  ctx.fillStyle = COLORS.TEXT;
+  // Cabeçalho da tabela de Qualidades
+  eqHeaderX = eqCurrentX; // Reseta X para o cabeçalho da tabela de qualidades
+  ctx.font = FONT_TABLE_TEXT; // Usa a fonte de texto para o cabeçalho da tabela
+  ctx.fillStyle = COLORS.HEADER; // Cor para o texto do cabeçalho da tabela
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
+  ctx.fillText('Qualidade', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.name;
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
+  ctx.fillText('Contagem', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.count;
+
+  // NOVO: Cabeçalho da coluna de Planetas
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
+  ctx.fillText('Planetas', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.planets;
+
+  ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
+  ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT - 8);
+  eqHeaderX += EQ_COL_WIDTHS.status;
+  eqCurrentY += ROW_HEIGHT; // Move para a próxima linha para os dados das qualidades
 
   // Dados das Qualidades
+  ctx.font = FONT_TABLE_TEXT;
+  ctx.fillStyle = COLORS.TEXT;
   for (const quality in chartData.qualities) {
     const data = chartData.qualities[quality];
     let eqColX = eqCurrentX; // Reseta X para cada linha de dados
@@ -347,12 +466,17 @@ async function generateNatalTableImage(chartData) {
     ctx.lineWidth = 1;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-    ctx.fillText(quality.charAt(0).toUpperCase() + quality.slice(1), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(QUALITY_LABELS_PT[quality] || quality.charAt(0).toUpperCase() + quality.slice(1), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
     eqColX += EQ_COL_WIDTHS.name;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
     ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
     eqColX += EQ_COL_WIDTHS.count;
+
+    // NOVO: Dados da coluna de Planetas
+    ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
+    ctx.fillText(qualitiesPlanets[quality].join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    eqColX += EQ_COL_WIDTHS.planets;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
     ctx.fillText(getTranslatedStatus(data.status), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
