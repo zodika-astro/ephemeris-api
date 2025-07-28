@@ -30,7 +30,7 @@ const COLORS = {
   TEXT: '#29281E',      // Cor principal do texto
   HEADER: '#1A1E3B',    // Cor para títulos e cabeçalhos
   TABLE_BORDER: '#CCCCCC', // Cor das bordas da tabela
-  ROW_ALTERNATE_BG: '#F8F8F8', // Cor de fundo para linhas alternadas da tabela
+  // ROW_ALTERNATE_BG: '#F8F8F8', // Removido: Cor de fundo para linhas alternadas da tabela
   ASPECT_CONJUNCTION: '#000000', // Preto para Conjunção
   ASPECT_OPPOSITION: '#FF0000',  // Vermelho para Oposição
   ASPECT_TRINE: '#0000FF',       // Azul para Trígono (alterado de verde)
@@ -46,7 +46,8 @@ const FONT_ASPECT_SYMBOLS = '18px Inter'; // Para símbolos de aspectos
 
 const PADDING = 30; // Preenchimento geral das margens
 const ROW_HEIGHT = 30; // Altura de cada linha na tabela
-const TABLE_START_Y = PADDING * 2; // Posição Y inicial da tabela (ajustada pela remoção dos títulos)
+// A tabela agora começará diretamente no PADDING, já que a linha de cabeçalho foi removida
+const TABLE_START_Y = PADDING;
 const ASPECT_MATRIX_CELL_SIZE = 40; // Tamanho da célula na matriz de aspectos
 
 // Larguras das colunas para a tabela de posições dos planetas
@@ -194,51 +195,9 @@ async function generateNatalTableImage(chartData) {
   let currentY = TABLE_START_Y;
   let currentX = PADDING;
 
-  // --- Desenha o Cabeçalho da Tabela Combinada ---
-  ctx.font = FONT_TABLE_HEADER;
-  ctx.fillStyle = COLORS.HEADER;
-  ctx.strokeStyle = COLORS.TABLE_BORDER;
-  ctx.lineWidth = 1;
-
-  let headerX = currentX;
-
-  // Célula vazia no canto superior esquerdo
-  ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
-  headerX += TABLE_COL_WIDTHS.symbol;
-
-  // Cabeçalho da coluna "Planeta" (texto removido)
-  ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.planet, ROW_HEIGHT);
-  headerX += TABLE_COL_WIDTHS.planet;
-
-  // Cabeçalho da coluna "Posição" (texto removido)
-  ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.positionDetails, ROW_HEIGHT);
-  headerX += TABLE_COL_WIDTHS.positionDetails;
-
-  // Cabeçalhos horizontais da matriz de aspectos (símbolos dos planetas)
-  ctx.font = FONT_SYMBOLS; // Usa fonte para símbolos
-  ctx.textAlign = 'center'; // Centraliza o texto para os símbolos
-  planetsList.forEach((planet, i) => {
-    ctx.strokeRect(headerX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
-    // A primeira linha com os símbolos dos planetas foi removida
-    headerX += ASPECT_MATRIX_CELL_SIZE;
-  });
-  ctx.textAlign = 'left'; // Reseta o alinhamento para o padrão
-
-  currentY += ROW_HEIGHT; // Move para a próxima linha (primeira linha de dados)
-
   // --- Desenha as Linhas de Dados da Tabela Combinada ---
   planetsList.forEach((planetRow, rowIndex) => {
-    // Fundo alternado para as linhas para melhor legibilidade
-    if (rowIndex % 2 === 1) {
-      ctx.fillStyle = COLORS.ROW_ALTERNATE_BG;
-      // Calcula a largura total da linha da tabela combinada
-      const totalRowWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
-      ctx.fillRect(currentX, currentY, totalRowWidth, ROW_HEIGHT);
-      ctx.fillStyle = COLORS.TEXT; // Volta para a cor do texto
-    } else {
-      ctx.fillStyle = COLORS.TEXT;
-    }
-
+    ctx.fillStyle = COLORS.TEXT; // Mantém a cor do texto padrão
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
 
@@ -265,14 +224,18 @@ async function generateNatalTableImage(chartData) {
     ctx.font = FONT_ASPECT_SYMBOLS; // Fonte para os símbolos de aspecto
     ctx.textAlign = 'center'; // Centraliza os símbolos de aspecto
     planetsList.forEach((planetCol, colIndex) => {
-      ctx.strokeRect(colX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
+      // Desenha a borda da célula APENAS se estiver na diagonal ou abaixo dela
+      if (colIndex <= rowIndex) {
+        ctx.strokeRect(colX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
+      }
+
       if (rowIndex === colIndex) {
         // Célula diagonal: mostra o símbolo do planeta
         ctx.fillStyle = COLORS.TEXT;
         ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
       } else if (colIndex > rowIndex) {
         // Parte superior da diagonal: não desenha nada (deixa em branco)
-        // Apenas a borda da célula é desenhada pelo strokeRect acima.
+        // Nenhuma borda ou conteúdo é desenhado aqui.
       } else {
         // Parte inferior da diagonal: calcula e desenha o símbolo do aspecto
         const aspectSymbol = calculateAspect(degrees[planetRow], degrees[planetCol]);
