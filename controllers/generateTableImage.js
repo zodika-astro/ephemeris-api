@@ -4,8 +4,6 @@ const path = require('path');
 const fs = require('fs');
 
 // Register project fonts
-// Ensure that Inter-Bold.ttf and Inter-Regular.ttf font files
-// are available in the '../fonts/' directory relative to the execution location.
 const interFontPathBold = path.join(__dirname, '../fonts/Inter-Bold.ttf');
 const interFontPathRegular = path.join(__dirname, '../fonts/Inter-Regular.ttf');
 
@@ -23,36 +21,36 @@ if (fs.existsSync(interFontPathRegular)) {
 
 
 // Color and layout constants
-const WIDTH = 1536; // Canvas width (original value maintained)
+const WIDTH = 1536; 
 // HEIGHT will be calculated dynamically
 const COLORS = {
-  BACKGROUND: '#FFFBF4', // Canvas background color
-  TEXT: '#29281E',      // Main text color
-  HEADER: '#1A1E3B',    // Color for titles and headers
-  TABLE_BORDER: '#CCCCCC', // Table border color
-  ASPECT_CONJUNCTION: '#000000', // Black for Conjunction
-  ASPECT_OPPOSITION: '#FF0000',  // Red for Opposition
-  ASPECT_TRINE: '#0000FF',       // Blue for Trine (changed from green)
-  ASPECT_SQUARE: '#FF0000',      // Red for Square (changed from orange)
-  ASPECT_SEXTILE: '#0000FF'      // Blue for Sextile
+  BACKGROUND: '#FFFBF4',
+  TEXT: '#29281E',
+  HEADER: '#1A1E3B',
+  TABLE_BORDER: '#CCCCCC',
+  ASPECT_CONJUNCTION: '#000000',
+  ASPECT_OPPOSITION: '#FF0000',
+  ASPECT_TRINE: '#0000FF',
+  ASPECT_SQUARE: '#FF0000',
+  ASPECT_SEXTILE: '#0000FF'
 };
 
 // Font definitions for different visual elements
-const FONT_TABLE_HEADER = 'bold 16px Inter'; // Table header
-const FONT_TABLE_TEXT = '14px Inter'; // Table text
-const FONT_SYMBOLS = '20px Inter'; // For planet and sign symbols
-const FONT_ASPECT_SYMBOLS = '18px Inter'; // For aspect symbols
+const FONT_TABLE_HEADER = 'bold 16px Inter';
+const FONT_TABLE_TEXT = '14px Inter';
+const FONT_SYMBOLS = '20px Inter';
+const FONT_ASPECT_SYMBOLS = '18px Inter';
 
 const PADDING = 30; // General margin padding
 const ROW_HEIGHT = 30; // Height of each row in the table
-const TABLE_START_Y = PADDING; // Initial Y position of the table (adjusted by removing titles)
+const TABLE_START_Y = PADDING; // Initial Y position of the table
 const ASPECT_MATRIX_CELL_SIZE = 40; // Cell size in the aspect matrix
 
 // Column widths for the planet positions table
 const TABLE_COL_WIDTHS = {
-  symbol: 40,    // Planet symbol (first column of the combined table)
-  planet: 120,   // Planet name (RESTORED to original)
-  positionDetails: 250, // Unified column for Degree, Sign, Minutes, Seconds, and Retrograde (REDUCED by ~35%)
+  symbol: 40,
+  planet: 120,
+  positionDetails: 250,
 };
 
 // Mapping of planet labels to Portuguese
@@ -100,7 +98,7 @@ const ASPECT_DEFINITIONS = [
   { name: "trine", degree: 120 },
   { name: "opposition", degree: 180 }
 ];
-const DEFAULT_ORB = 6; // Default orb, adjust as needed for your precision
+const DEFAULT_ORB = 6;
 
 // --- Mapping of Elements and Qualities to Portuguese ---
 const ELEMENT_LABELS_PT = {
