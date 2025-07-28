@@ -20,12 +20,12 @@ const COLORS = {
   BACKGROUND: '#FFFBF4',
   TEXT: '#29281E',
   HEADER: '#1A1E3B',
-  TABLE_BORDER: '#29281E'
+  TABLE_BORDER: '#CCCCCC' // Lighter gray for internal lines
 };
 
 const FONT_HEADER = 'bold 32px Inter';
 const FONT_TEXT = '12px Inter';
-const ROW_HEIGHT = 20; // Row height defined once here
+const ROW_HEIGHT = 22; // Updated row height
 
 // Planet and sign translation maps
 const PLANET_LABELS_PT = {
@@ -71,9 +71,6 @@ async function generateNatalTableImage(chartData) {
 
   ctx.fillStyle = COLORS.BACKGROUND;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  ctx.strokeStyle = COLORS.TABLE_BORDER;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(40, 60, 400, planets.length * ROW_HEIGHT + 40);
 
   // PLANET TABLE (left)
   const startX = 60;
@@ -81,6 +78,8 @@ async function generateNatalTableImage(chartData) {
 
   ctx.font = FONT_TEXT;
   ctx.fillStyle = COLORS.TEXT;
+  ctx.lineWidth = 0.6;
+
   planets.forEach((planet, index) => {
     const labelText = PLANET_LABELS_PT[planet] || planet;
     const symbol = PLANET_SYMBOLS[planet] || '';
@@ -88,13 +87,19 @@ async function generateNatalTableImage(chartData) {
     const value = formatPlanetRow(planet, signs, degrees);
     const y = startY + (index + 1) * ROW_HEIGHT;
     ctx.fillText(label, startX, y);
-    ctx.fillText(value, startX + 140, y);
+    ctx.fillText(value, startX + 120, y);
 
-    // Draw divider line
+    // Horizontal line
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.beginPath();
     ctx.moveTo(startX, y + 6);
     ctx.lineTo(startX + 300, y + 6);
+    ctx.stroke();
+
+    // Vertical divider between columns
+    ctx.beginPath();
+    ctx.moveTo(startX + 110, startY + ROW_HEIGHT);
+    ctx.lineTo(startX + 110, startY + (planets.length + 1) * ROW_HEIGHT);
     ctx.stroke();
   });
 
@@ -107,9 +112,8 @@ async function generateNatalTableImage(chartData) {
   const qualitiesOrder = ['cardinal', 'fixed', 'mutable'];
   const elementsOrder = ['fire', 'earth', 'air', 'water'];
 
-  // Headers
   ctx.font = FONT_HEADER;
-  const qualityLabels = ['Cardinal', 'Fixo', 'Mutável']; // No title drawn
+  const qualityLabels = ['Cardinal', 'Fixo', 'Mutável'];
   qualitiesOrder.forEach((q, col) => {
     ctx.fillText(qualityLabels[col], matrixStartX + (col + 1) * cellWidth, matrixStartY);
   });
@@ -119,13 +123,13 @@ async function generateNatalTableImage(chartData) {
     ctx.fillText(el, matrixStartX, matrixStartY + (row + 1) * cellHeight);
   });
 
-  // Cells
   ctx.font = FONT_TEXT;
   elementsOrder.forEach((el, row) => {
     qualitiesOrder.forEach((q, col) => {
       const x = matrixStartX + (col + 1) * cellWidth;
       const y = matrixStartY + (row + 1) * cellHeight;
       ctx.strokeStyle = COLORS.TABLE_BORDER;
+      ctx.lineWidth = 0.6;
       ctx.strokeRect(x - 40, y - 30, 80, 40);
       if (elements[el] && qualities[q]) {
         const elCount = elements[el].count;
