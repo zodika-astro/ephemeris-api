@@ -293,25 +293,26 @@ async function generateNatalChartImage(ephemerisData) {
 
   // Extract chart data
   const planetPositions = ephemerisData?.geo || {};
-  // Now correctly get cusps data from ephemerisData.analysis.cusps
-  const analysisCusps = ephemerisData?.analysis?.cusps || []; 
+  // Correctly get cusps data from ephemerisData.houses (which now includes cuspDegree)
+  const housesData = ephemerisData?.houses || {}; 
   const aspectsData = ephemerisData?.aspects || {};
 
-  // Prepare house cusps for drawing (using analysisCusps for degree info)
+  // Prepare house cusps for drawing
   const houseCusps = [];
   let mcDegree = 0;
 
   for (let i = 1; i <= 12; i++) {
-    const cuspInfo = analysisCusps.find(c => c.house === i);
-    if (cuspInfo) {
+    const houseKey = `house${i}`;
+    if (housesData[houseKey]) {
       houseCusps.push({
         house: i,
-        degree: cuspInfo.degree, // Use degree from analysis.cusps
-        sign: cuspInfo.sign
+        // CRITICAL FIX: Ensure cuspDegree is accessed directly from housesData
+        degree: housesData[houseKey].cuspDegree, 
+        sign: housesData[houseKey].sign
       });
 
       // Get MC degree (House 10)
-      if (i === 10) mcDegree = cuspInfo.degree; // Use degree from analysis.cusps for MC
+      if (i === 10) mcDegree = housesData[houseKey].cuspDegree; // CRITICAL FIX: Access MC degree directly
     }
   }
 
