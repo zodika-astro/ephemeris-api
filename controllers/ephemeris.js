@@ -222,7 +222,7 @@ async function computeAspects(planetGeoPositions, planetSignData) {
         const orb = determineActualOrb(p1, p2, aspectDef.name);
 
         // Check if the difference falls within the aspect's orb
-        if (diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
+        if (orb > 0 && diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
           groupedAspects[aspectDef.name].push({
             planet1: { name: p1, sign: info1.sign, house: info1.house },
             planet2: { name: p2, sign: info2.sign, house: info2.house },
@@ -269,7 +269,8 @@ async function analyzeElementalAndModalQualities(planetSignData, cusps) {
   }
 
   for (const ql in qualityCounts) {
-    qualitiesResult[ql] = { count: qualityCounts[ql], status: getStatusByCount(qualities[ql]) };
+    // FIX: Corrected variable name from 'qualities' to 'qualityCounts'
+    qualitiesResult[ql] = { count: qualityCounts[ql], status: getStatusByCount(qualityCounts[ql]) };
   }
 
   return { elements: elementsResult, qualities: qualitiesResult };
