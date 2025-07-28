@@ -2,14 +2,14 @@
 
 const express = require('express');
 const router = express.Router();
-const EphemerisController = require('../controllers/ephemeris'); // Your existing ephemeris controller
-const { generateNatalChartImage } = require('../controllers/generateChartImage'); // The new chart image generator
+const EphemerisController = require('../controllers/ephemeris'); // ephemeris controller
+const { generateNatalChartImage } = require('../controllers/generateChartImage'); // chart image generator
 const logger = require('../logger'); // Import the logger for consistent logging
 
 // Log when the ephemeris version 1 route file is entered.
 logger.info('Entered ephemeris route (routes/vers1.js)');
 
-// Existing Route for ephemeris calculations (POST request)
+// ephemeris calculations (POST request)
 router.post('/ephemeris', async (req, res) => {
   logger.info('Ephemeris calculation route called'); // Using logger for consistency
 
@@ -29,7 +29,7 @@ router.post('/ephemeris', async (req, res) => {
   }
 });
 
-// NEW: Endpoint to generate and return the natal chart image
+// Endpoint to generate and return the natal chart image
 router.post('/ephemeris/chart-image', async (req, res) => {
   logger.info('Chart image generation route called'); // Log new endpoint call
 
