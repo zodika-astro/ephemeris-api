@@ -88,13 +88,13 @@ const PLANET_SYMBOLS = {
   neptune: '\u2646', pluto: '\u2647', trueNode: '\u260A', lilith: '\u262D', chiron: '\u26B7'
 };
 
-// Aspect styles (colors and line widths for drawing) - These are for drawing the lines on the chart
+// Aspect styles
 const ASPECT_STYLES = {
-  conjunction: { color: '#000000', lineWidth: 3.5 }, // Black for Conjunction
-  opposition: { color: '#FF0000', lineWidth: 3.5 }, // Red for Opposition
-  square: { color: '#FF0000', lineWidth: 2 },       // Red for Square
-  sextile: { color: '#0000FF', lineWidth: 2 },       // Blue for Sextile
-  trine: { color: '#0000FF', lineWidth: 2 }          // Blue for Trine
+  conjunction: { color: null, lineWidth: 0, defaultOrb: 8, luminaryOrb: 10 },
+  opposition: { color: '#FF0000', lineWidth: 3.5, defaultOrb: 8, luminaryOrb: 10 },
+  square: { color: '#FF4500', lineWidth: 2, defaultOrb: 6, luminaryOrb: 6 },
+  sextile: { color: '#0000FF', lineWidth: 2, defaultOrb: 4, luminaryOrb: 4 },
+  trine: { color: '#008000', lineWidth: 2, defaultOrb: 6, luminaryOrb: 6 }
 };
 
 // Zodiac signs and symbols
@@ -189,12 +189,11 @@ function distributeCluster(cluster, targetArray) {
   });
 }
 
-
 /**
  * Generates a natal chart image based on ephemeris data.
- * @param {Object} ephemerisData - Data containing planet positions, house cusps, and aspects.
+ * @param {Object} } ephemerisData - Data containing planet positions, house cusps, and aspects.
  * @returns {Buffer} A PNG image buffer of the natal chart.
- */
+*/
 async function generateNatalChartImage(ephemerisData) {
   const canvas = createCanvas(CHART_WIDTH, CHART_HEIGHT);
   const ctx = canvas.getContext('2d');
@@ -202,9 +201,7 @@ async function generateNatalChartImage(ephemerisData) {
   // Extract chart data
   const planetPositions = ephemerisData?.geo || {};
   const houses = ephemerisData?.houses || {};
-  // aspectsData from ephemerisData is now directly used for drawing aspect lines
   const aspectsData = ephemerisData?.aspects || {};
-
 
   // Prepare house cusps
   const houseCusps = [];
@@ -536,30 +533,47 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
   // Draw aspect lines
-  // Iterate through aspects data directly from ephemerisData, which is pre-calculated
-  for (const aspectType in aspectsData) { // aspectType will be "conjunction", "opposition", etc.
-    const style = ASPECT_STYLES[aspectType]; // Get the style based on the aspect type name
-    if (!style || !style.color) continue; // Skip if no style or color defined for this aspect type
+  for (const aspectType in aspectsData) {
+    const style = ASPECT_STYLES[aspectType];
+    if (!style || !style.color) continue;
 
     ctx.strokeStyle = style.color;
     ctx.lineWidth = style.lineWidth;
 
     aspectsData[aspectType].forEach(aspect => {
-      // Use planet names from the aspect object (e.g., aspect.planet1.name)
+      // Optimized: Use map.get() for O(1) lookup instead of array.find()
       const p1 = placedPlanetsMap.get(aspect.planet1.name);
       const p2 = placedPlanetsMap.get(aspect.planet2.name);
 
       if (p1 && p2) {
-        // Draw aspect lines at the ASPECT_LINE_RADIUS
-        const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
-        const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
-        const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
-        const aspectY2 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p2.angleRad);
+        let diff = Math.abs(p1.deg - p2.deg);
+        if (diff > 180) diff = 360 - diff;
 
-        ctx.beginPath();
-        ctx.moveTo(aspectX1, aspectY1);
-        ctx.lineTo(aspectX2, aspectY2);
-        ctx.stroke();
+        let orb = style.defaultOrb;
+        if ((p1.name === "sun" || p1.name === "moon" || p2.name === "sun" || p2.name === "moon")) {
+          orb = style.luminaryOrb;
+        }
+        
+        const aspectDegree = {
+          conjunction: 0,
+          opposition: 180,
+          square: 90,
+          sextile: 60,
+          trine: 120
+        }[aspectType];
+
+        if (diff >= (aspectDegree - orb) && diff <= (aspectDegree + orb)) {
+          // Draw aspect lines at the ASPECT_LINE_RADIUS
+          const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
+          const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
+          const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
+          const aspectY2 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p2.angleRad);
+
+          ctx.beginPath();
+          ctx.moveTo(aspectX1, aspectY1);
+          ctx.lineTo(aspectX2, aspectY2);
+          ctx.stroke();
+        }
       }
     });
   }
