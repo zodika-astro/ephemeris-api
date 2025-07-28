@@ -15,7 +15,7 @@ const signs = [
   "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ];
 
-// Define major astrological aspects with their core degrees
+// Aspect definitions and standard degree values
 const ASPECT_DEFINITIONS = [
   { name: "conjunction", degree: 0, category: 0 },
   { name: "sextile", degree: 60, category: 2 },
@@ -37,11 +37,11 @@ const ORB_RULES = {
   'uranus': [6, 5, 3],
   'neptune': [6, 5, 3],
   'pluto': [6, 5, 3],
-  'chiron': [6, 5, 3],       // Based on outer planets
-  'ascendant': [7, 6, 4],    // Based on MC/AC rules
-  'mc': [7, 6, 4],           // Based on MC/AC rules
-  'trueNode': [5, 4, 2],     // Adjusted based on new North Node rule (medium influence point)
-  'lilith': [4, 3, 1.5]      // Adjusted based on new Lilith rule (lower influence point)
+  'chiron': [6, 5, 3],
+  'ascendant': [10, 8, 6],    // UPDATED: Larger orbs for AC
+  'mc': [10, 8, 6],           // UPDATED: Larger orbs for MC
+  'trueNode': [5, 4, 2],
+  'lilith': [4, 3, 1.5]
 };
 
 // Define all astrological points considered for aspect calculations
