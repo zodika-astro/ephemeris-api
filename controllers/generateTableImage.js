@@ -64,6 +64,9 @@ async function generateNatalTableImage(chartData) {
 
   ctx.fillStyle = COLORS.BACKGROUND;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.strokeStyle = COLORS.TABLE_BORDER;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(40, 60, 400, planets.length * rowHeight + 40);
 
   const planets = Object.keys(chartData.planets);
   const degrees = chartData.geo;
@@ -76,7 +79,7 @@ async function generateNatalTableImage(chartData) {
   // PLANET TABLE (left)
   const startX = 60;
   const startY = 80;
-  const rowHeight = 36;
+  const rowHeight = 20;
 
     ctx.font = FONT_TEXT;
   ctx.fillStyle = COLORS.TEXT;
@@ -87,13 +90,13 @@ async function generateNatalTableImage(chartData) {
     const value = formatPlanetRow(planet, signs, degrees);
     const y = startY + (index + 1) * rowHeight;
     ctx.fillText(label, startX, y);
-    ctx.fillText(value, startX + 200, y);
+    ctx.fillText(value, startX + 140, y);
 
     // Draw divider line
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.beginPath();
-    ctx.moveTo(startX, y + 10);
-    ctx.lineTo(startX + 360, y + 10);
+    ctx.moveTo(startX, y + 6);
+    ctx.lineTo(startX + 300, y + 6);
     ctx.stroke();
   });
 
