@@ -34,9 +34,9 @@ const ORB_RULES = {
   'mars': [8, 8, 5],
   'jupiter': [7, 6, 4],
   'saturn': [7, 6, 4],
-  'uranus': [6, 5, 3],
-  'neptune': [6, 5, 3],
-  'pluto': [6, 5, 3],
+  'uranus': [6, 5, 4], // UPDATED: Sextile orb from 3 to 4
+  'neptune': [6, 5, 4], // UPDATED: Sextile orb from 3 to 4
+  'pluto': [6, 5, 4],   // UPDATED: Sextile orb from 3 to 4
   'chiron': [6, 5, 3],
   'ascendant': [10, 10, 6],
   'mc': [10, 10, 6],
@@ -234,7 +234,7 @@ async function analyzeElementalAndModalQualities(planetSignData, cusps) {
   const qualitiesResult = {};
 
   for (const el in elementCounts) {
-    elementsResult[el] = { count: elementCounts[el], status: getStatusByCount(elementCounts[el]) }; 
+    elementsResult[el] = { count: elementCounts[el], status: getStatusByCount(elementCounts[el]) };
   }
 
   for (const ql in qualityCounts) {
