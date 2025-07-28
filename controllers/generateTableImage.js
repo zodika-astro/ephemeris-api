@@ -57,7 +57,7 @@ async function generateNatalTableImage(chartData) {
 
   ctx.font = FONT_HEADER;
   ctx.fillStyle = COLORS.HEADER;
-  ctx.fillText('Planets', startX, startY);
+  ctx.fillText('Planetas', startX, startY);
 
   ctx.font = FONT_TEXT;
   ctx.fillStyle = COLORS.TEXT;
@@ -79,19 +79,20 @@ async function generateNatalTableImage(chartData) {
 
   // Headers
   ctx.font = FONT_HEADER;
+  const qualityLabels = ['Cardinal', 'Fixo', 'Mutável'];
   qualitiesOrder.forEach((q, col) => {
-    ctx.fillText(q.charAt(0).toUpperCase() + q.slice(1), matrixStartX + (col + 1) * cellWidth, matrixStartY);
+    ctx.fillText(qualityLabels[col], matrixStartX + (col + 1) * cellWidth, matrixStartY);
   });
 
-  elementsOrder.forEach((el, row) => {
-    ctx.fillText(el.charAt(0).toUpperCase() + el.slice(1), matrixStartX, matrixStartY + (row + 1) * cellHeight);
+  const elementLabels = ['Fogo', 'Terra', 'Ar', 'Água'];
+  elementLabels.forEach((el, row) => {
+    ctx.fillText(el, matrixStartX, matrixStartY + (row + 1) * cellHeight);
   });
 
   // Cells
   ctx.font = FONT_TEXT;
   elementsOrder.forEach((el, row) => {
     qualitiesOrder.forEach((q, col) => {
-      const count = (el === q) ? elements[el]?.count || '' : ''; // show count only on matching diagonal
       const x = matrixStartX + (col + 1) * cellWidth;
       const y = matrixStartY + (row + 1) * cellHeight;
       ctx.strokeStyle = COLORS.TABLE_BORDER;
