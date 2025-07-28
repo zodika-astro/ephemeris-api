@@ -4,11 +4,11 @@ const path = require('path');
 const fs = require('fs');
 
 // Chart Configuration Constants
-const CHART_WIDTH = 1200; // ALTERADO: Reduzido para diminuir a margem externa
-const CHART_HEIGHT = 1200; // ALTERADO: Reduzido para diminuir a margem externa
+const CHART_WIDTH = 1200;
+const CHART_HEIGHT = 1200;
 const CENTER_X = CHART_WIDTH / 2;
 const CENTER_Y = CHART_HEIGHT / 2;
-const OUTER_RADIUS = 600; // REVERTIDO: Voltou ao valor original
+const OUTER_RADIUS = 600;
 const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
 const INNER_RADIUS = OUTER_RADIUS * 0.125;
 
@@ -19,7 +19,7 @@ const HOUSE_NUMBER_FONT_SIZE = 28;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
 // Calculate planet radius
-const PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS * 0.875; // Mantido conforme última solicitação de posicionamento
+const PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS * 0.875;
 
 // Radius for aspect lines
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
@@ -37,7 +37,8 @@ const BOLD_CUSP_LINE_WIDTH = 4.5;
 // Font size for planet degree labels
 const PLANET_DEGREE_FONT_SIZE = 15;
 // Radial offset for planet degree labels from the planet's center.
-const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 6.5;
+// ALTERADO: Renomeado e ajustado para posicionar o label PARA FORA do símbolo do planeta
+const PLANET_DEGREE_LABEL_RADIAL_OFFSET = PLANET_CIRCLE_RADIUS + 10; // 10 pixels para fora da borda do círculo do planeta
 
 // Offsets for fine-tuning horizontal text placement relative to the planet's position
 const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10;
@@ -475,7 +476,7 @@ async function generateNatalChartImage(ephemerisData) {
       nextCuspDegree = houseCusps[index + 1].degree;
     } else {
       // For the last house (12), its end is the beginning of house 1
-      nextCuspDegree = houseCps[0].degree; // FIX: Changed houseCps to houseCusps
+      nextCuspDegree = houseCusps[0].degree; // FIX: Changed houseCps to houseCusps
     }
 
     let startDeg = cusp.degree;
@@ -598,7 +599,7 @@ async function generateNatalChartImage(ephemerisData) {
     const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset);
 
     // Calculate the radial position for the text.
-    const textDisplayRadius = PLANET_RADIUS - PLANET_DEGREE_LABEL_INNER_PADDING;
+    const textDisplayRadius = PLANET_RADIUS + PLANET_DEGREE_LABEL_RADIAL_OFFSET; // Use new offset
 
     // Calculate initial x, y based on the radial position and adjusted angle
     let labelX = CENTER_X + textDisplayRadius * Math.cos(labelAngleRad);
