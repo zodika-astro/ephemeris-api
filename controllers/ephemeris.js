@@ -34,9 +34,9 @@ const ORB_RULES = {
   'mars': [8, 8, 5],
   'jupiter': [7, 6, 4],
   'saturn': [7, 6, 4],
-  'uranus': [6, 5, 4], // UPDATED: Sextile orb from 3 to 4
-  'neptune': [6, 5, 4], // UPDATED: Sextile orb from 3 to 4
-  'pluto': [6, 5, 4],   // UPDATED: Sextile orb from 3 to 4
+  'uranus': [6, 5, 4],
+  'neptune': [6, 5, 4],
+  'pluto': [6, 5, 4],
   'chiron': [6, 5, 3],
   'ascendant': [10, 10, 6],
   'mc': [10, 10, 6],
@@ -326,24 +326,20 @@ const compute = async (reqBody) => {
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
       const hasInterceptedSign = analysis.housesWithInterceptedSigns.some(item => item.house === i);
-      const planetsInThisHouse = {};
+      const planetsInThisHouse = []; // Changed to an array
 
-      for (const planet in planetSignData) {
-        const data = planetSignData[planet];
+      for (const planetName in planetSignData) { // Iterate over planet names
+        const data = planetSignData[planetName];
         if (data.house === i) {
-          planetsInThisHouse[planet] = {
-            sign: data.sign,
-            retrograde: data.retrograde,
-            house: data.house
-          };
+          planetsInThisHouse.push(planetName); // Push just the planet name (string)
         }
       }
 
       formattedHouses[`house${i}`] = {
         sign: cuspInfo?.sign || null,
-        cuspDegree: cuspInfo?.degree || null,
+        // Removed cuspDegree from JSON output
         intercepted: hasInterceptedSign ? "yes" : "no",
-        planets: planetsInThisHouse
+        planets: planetsInThisHouse // This is now an array of names
       };
     }
 
