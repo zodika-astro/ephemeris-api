@@ -215,7 +215,7 @@ const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
     }
 
     const deg1 = Math.floor(degree1) + (Math.floor((degree1 % 1) * 60)) / 60;
-    const deg2 = Math.floor(degree2) + (Math.floor((deg2 % 1) * 60)) / 60;
+    const deg2 = Math.floor(degree2) + (Math.floor((degree2 % 1) * 60)) / 60;
 
     let diff = Math.abs(deg1 - deg2);
     if (diff > 180) {
@@ -303,6 +303,7 @@ const getTranslatedStatus = (status) => {
  * @returns {Buffer} - Generated PNG image buffer.
  */
 async function generateNatalTableImage(chartData) {
+    // Use ALL_POINTS_FOR_ASPECTS to define the order and inclusion of points in the table.
     const planetsList = ALL_POINTS_FOR_ASPECTS.filter(p => chartData.geo[p] !== undefined);
 
     const degrees = chartData.geo;
@@ -311,9 +312,15 @@ async function generateNatalTableImage(chartData) {
     const elementsPlanets = { fire: [], earth: [], air: [], water: [] };
     const qualitiesPlanets = { cardinal: [], fixed: [], mutable: [] };
 
+    /**
+     * Helper to add planet/point to the correct element/quality list.
+     * @param {string} pointName - The name of the celestial point.
+     * @param {string} sign - The sign the point is in.
+     */
     const addPointToCategories = (pointName, sign) => {
         if (!sign) return;
 
+        // Exclude points that do not contribute to element/quality calculations.
         const pointsWithoutWeight = ['trueNode', 'chiron', 'lilith'];
         if (pointsWithoutWeight.includes(pointName)) {
             return;
@@ -332,11 +339,13 @@ async function generateNatalTableImage(chartData) {
         }
     };
 
+    // Add planets to categories based on their signs.
     for (const planetName in chartData.planets) {
         const sign = chartData.planets[planetName].sign;
         addPointToCategories(planetName, sign);
     }
 
+    // Add Ascendant (house1) and MC (house10) to categories if available.
     if (chartData.houses.house1?.sign) {
         addPointToCategories('ascendant', chartData.houses.house1.sign);
     }
@@ -344,6 +353,7 @@ async function generateNatalTableImage(chartData) {
         addPointToCategories('mc', chartData.houses.house10.sign);
     }
 
+    // Calculate the total width of the main table (positions + aspects).
     const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
 
     const PADDING_BETWEEN_TABLES = 60;
@@ -353,33 +363,38 @@ async function generateNatalTableImage(chartData) {
         planets: 197,
         status: 100
     };
+    // Initial X position of the elements/qualities table, calculated after the main table.
     const EQ_TABLE_START_X = PADDING + mainTableContentWidth + PADDING_BETWEEN_TABLES;
 
     const calculatedWidth = WIDTH;
 
-    // Calculate height including header row for main table
+    // Calculate height including header row for the main table.
     const mainTableHeight = TABLE_START_Y + (planetsList.length * ROW_HEIGHT) + ROW_HEIGHT + PADDING;
 
     const elementsCount = Object.keys(chartData.elements).length;
     const qualitiesCount = Object.keys(chartData.qualities).length;
 
-    // Calculate height including header rows for EQ tables
+    // Calculate height including header rows for the Elements and Qualities tables.
     const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + ROW_HEIGHT + PADDING + (qualitiesCount * ROW_HEIGHT) + ROW_HEIGHT;
 
+    // Determine the total height needed for the Elements and Qualities block.
     const totalEQBlockHeight = (elementsCount > 0 || qualitiesCount > 0) ? eqTableContentHeight : 0;
 
+    // The final canvas height will be the maximum between the main table height and the elements/qualities table height.
     const calculatedHeight = Math.max(mainTableHeight, TABLE_START_Y + totalEQBlockHeight + PADDING);
 
     const canvas = createCanvas(calculatedWidth, calculatedHeight);
     const ctx = canvas.getContext('2d');
 
+    // Fill the canvas background.
     ctx.fillStyle = COLORS.BACKGROUND;
     ctx.fillRect(0, 0, calculatedWidth, calculatedHeight);
 
+    // --- Combined Positions and Aspects Table ---
     let currentY = TABLE_START_Y;
     let currentX = PADDING;
 
-    // Set textBaseline once for the entire drawing operation
+    // Set textBaseline to align text vertically to the middle of the line.
     ctx.textBaseline = 'middle';
 
     // --- Draw Header Row for the Combined Table ---
@@ -390,24 +405,24 @@ async function generateNatalTableImage(chartData) {
 
     let headerX = currentX;
 
-    // Column: Symbol
+    // Column: Symbol header.
     ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
     ctx.textAlign = 'center';
     ctx.fillText('Sim.', headerX + TABLE_COL_WIDTHS.symbol / 2, currentY + ROW_HEIGHT / 2);
     headerX += TABLE_COL_WIDTHS.symbol;
 
-    // Column: Planet
+    // Column: Planet header.
     ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.planet, ROW_HEIGHT);
     ctx.textAlign = 'left';
     ctx.fillText('Planeta', headerX + 5, currentY + ROW_HEIGHT / 2);
     headerX += TABLE_COL_WIDTHS.planet;
 
-    // Column: Position
+    // Column: Position header.
     ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.positionDetails, ROW_HEIGHT);
     ctx.fillText('Posição', headerX + 5, currentY + ROW_HEIGHT / 2);
     headerX += TABLE_COL_WIDTHS.positionDetails;
 
-    // Aspect matrix header (planet symbols)
+    // Aspect matrix header (planet symbols).
     ctx.font = FONT_SYMBOLS;
     ctx.textAlign = 'center';
     planetsList.forEach((planetHeader) => {
@@ -416,6 +431,7 @@ async function generateNatalTableImage(chartData) {
         headerX += ASPECT_MATRIX_CELL_SIZE;
     });
 
+    // Reset text alignment for data rows.
     ctx.textAlign = 'left';
     currentY += ROW_HEIGHT;
 
@@ -427,47 +443,59 @@ async function generateNatalTableImage(chartData) {
 
         let colX = currentX;
 
-        // Column: Symbol
+        // Column: Symbol.
         ctx.font = FONT_SYMBOLS;
         ctx.textAlign = 'center';
         ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + TABLE_COL_WIDTHS.symbol / 2, currentY + ROW_HEIGHT / 2);
         ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
         colX += TABLE_COL_WIDTHS.symbol;
 
-        // Column: Planet
+        // Column: Planet Name.
         ctx.font = FONT_TABLE_TEXT;
         ctx.textAlign = 'left';
         ctx.fillText(PLANET_LABELS_PT[planetRow] || planetRow, colX + 5, currentY + ROW_HEIGHT / 2);
         ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.planet, ROW_HEIGHT);
         colX += TABLE_COL_WIDTHS.planet;
 
-        // Column: Position
+        // Column: Position Details.
         ctx.fillText(formatPositionDetails(planetRow, signs, degrees), colX + 5, currentY + ROW_HEIGHT / 2);
         ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.positionDetails, ROW_HEIGHT);
         colX += TABLE_COL_WIDTHS.positionDetails;
 
-        // Aspect matrix cells
+        // Aspect matrix cells.
         ctx.font = FONT_ASPECT_SYMBOLS;
         ctx.textAlign = 'center';
         planetsList.forEach((planetCol, colIndex) => {
+            // Draw cell border only if it's on or below the diagonal.
             if (colIndex <= rowIndex) {
                 ctx.strokeRect(colX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
             }
 
             if (rowIndex === colIndex) {
+                // Diagonal cell: show planet symbol.
                 ctx.fillStyle = COLORS.TEXT;
-                ctx.font = FONT_SYMBOLS;
+                ctx.font = FONT_SYMBOLS; // Use FONT_SYMBOLS for consistent sizing on diagonal.
                 ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT / 2);
-                ctx.font = FONT_ASPECT_SYMBOLS;
+                ctx.font = FONT_ASPECT_SYMBOLS; // Reset for subsequent aspect symbols.
             } else if (colIndex > rowIndex) {
-                // Upper part of the diagonal remains blank
+                // Upper part of the diagonal remains blank.
             } else {
-                const aspectSymbol = calculateAspect(planetRow, degrees[planetRow], planetCol, degrees[planetCol]);
-                ctx.fillStyle = getAspectColor(aspectSymbol);
-                ctx.fillText(aspectSymbol, colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT / 2);
+                // Lower part of the diagonal: calculate and draw aspect symbol.
+                const degree1 = degrees[planetRow];
+                const degree2 = degrees[planetCol];
+
+                // Check for missing degrees before calculating aspect to prevent 'deg2' error.
+                if (degree1 === undefined || degree2 === undefined) {
+                    logger.warn(`Missing degree for ${planetRow} or ${planetCol} when calculating aspect for table. Cell left blank.`);
+                } else {
+                    const aspectSymbol = calculateAspect(planetRow, degree1, planetCol, degree2);
+                    ctx.fillStyle = getAspectColor(aspectSymbol);
+                    ctx.fillText(aspectSymbol, colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT / 2);
+                }
             }
             colX += ASPECT_MATRIX_CELL_SIZE;
         });
+        // Reset text alignment for the next row.
         ctx.textAlign = 'left';
         currentY += ROW_HEIGHT;
     });
@@ -486,6 +514,7 @@ async function generateNatalTableImage(chartData) {
     ctx.fillStyle = COLORS.HEADER;
     ctx.font = FONT_TABLE_HEADER;
 
+    // Element table header.
     ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
     ctx.fillText('Elemento', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
     eqHeaderX += EQ_COL_WIDTHS.name;
@@ -503,6 +532,7 @@ async function generateNatalTableImage(chartData) {
     eqHeaderX += EQ_COL_WIDTHS.status;
     eqCurrentY += ROW_HEIGHT;
 
+    // Element table data rows.
     ctx.font = FONT_TABLE_TEXT;
     ctx.fillStyle = COLORS.TEXT;
 
@@ -528,7 +558,7 @@ async function generateNatalTableImage(chartData) {
         eqCurrentY += ROW_HEIGHT;
     }
 
-    // Add spacing between Elements and Qualities tables
+    // Add spacing between Elements and Qualities tables.
     eqCurrentY += PADDING;
 
     // --- Qualities Section ---
@@ -539,6 +569,7 @@ async function generateNatalTableImage(chartData) {
     ctx.fillStyle = COLORS.HEADER;
     ctx.font = FONT_TABLE_HEADER;
 
+    // Qualities table header.
     ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
     ctx.fillText('Qualidade', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
     eqHeaderX += EQ_COL_WIDTHS.name;
@@ -556,6 +587,7 @@ async function generateNatalTableImage(chartData) {
     eqHeaderX += EQ_COL_WIDTHS.status;
     eqCurrentY += ROW_HEIGHT;
 
+    // Qualities table data rows.
     ctx.font = FONT_TABLE_TEXT;
     ctx.fillStyle = COLORS.TEXT;
 
