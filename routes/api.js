@@ -66,10 +66,10 @@ router.post(
 );
 
 // Generate natal chart image
-router.post('/chart-image', verifyApiKey, ChartController.generateChartImage);
+router.post('/chart-image', verifyApiKey, ChartController.generateNatalChartImage);
 
 // Generate natal table image
-router.post('/table-image', verifyApiKey, TableController.generateTableImage);
+router.post('/table-image', verifyApiKey, TableController.generateNatalTableImage);
 
 // Versioned API (if needed)
 router.use('/v1', require('./vers1'));
