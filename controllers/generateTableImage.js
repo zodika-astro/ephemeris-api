@@ -38,18 +38,22 @@ const COLORS = {
 const FONT_TABLE_HEADER = 'bold 16px Inter';
 const FONT_TABLE_TEXT = '14px Inter';
 const FONT_SYMBOLS = '20px Inter';
+const FONT_ASC_MC_SYMBOLS = '16px Inter';
 const FONT_ASPECT_SYMBOLS = '18px Inter';
 
 const PADDING = 30;
 const ROW_HEIGHT = 30;
 const TABLE_START_Y = PADDING;
-const ASPECT_MATRIX_CELL_SIZE = 40;
+// Adjusted column width for aspect symbols
+const ASPECT_MATRIX_CELL_SIZE = 38; // 40 * 0.95 (5% decrease)
 
 // Column widths for the planet positions table
 const TABLE_COL_WIDTHS = {
     symbol: 40,
-    planet: 120,
-    positionDetails: 250,
+    // Adjusted column width (5% decrease)
+    planet: 114, // 120 * 0.95
+    // Adjusted column width (15% decrease)
+    positionDetails: 212.5, // 250 * 0.85
 };
 
 // Mapping of planet labels to Portuguese
@@ -215,7 +219,7 @@ const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
     }
 
     const deg1 = Math.floor(degree1) + (Math.floor((degree1 % 1) * 60)) / 60;
-    const deg2 = Math.floor(degree2) + (Math.floor((degree2 % 1) * 60)) / 60;
+    const deg2 = Math.floor(degree2) + (Math.floor((deg2 % 1) * 60)) / 60;
 
     let diff = Math.abs(deg1 - deg2);
     if (diff > 180) {
@@ -357,25 +361,28 @@ async function generateNatalTableImage(chartData) {
     const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
 
     const PADDING_BETWEEN_TABLES = 60;
+
+    // Adjusted column width (15% decrease)
     const EQ_COL_WIDTHS = {
-        name: 120,
+        name: 102, // 120 * 0.85
         count: 36,
         planets: 197,
         status: 100
     };
+
     // Initial X position of the elements/qualities table, calculated after the main table.
     const EQ_TABLE_START_X = PADDING + mainTableContentWidth + PADDING_BETWEEN_TABLES;
 
     const calculatedWidth = WIDTH;
 
-    // Calculate height including header row for the main table.
-    const mainTableHeight = TABLE_START_Y + (planetsList.length * ROW_HEIGHT) + ROW_HEIGHT + PADDING;
+    // Calculate main table height.
+    const mainTableHeight = TABLE_START_Y + (planetsList.length * ROW_HEIGHT) + PADDING;
 
     const elementsCount = Object.keys(chartData.elements).length;
     const qualitiesCount = Object.keys(chartData.qualities).length;
 
-    // Calculate height including header rows for the Elements and Qualities tables.
-    const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + ROW_HEIGHT + PADDING + (qualitiesCount * ROW_HEIGHT) + ROW_HEIGHT;
+    // Calculate EQ tables height.
+    const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT);
 
     // Determine the total height needed for the Elements and Qualities block.
     const totalEQBlockHeight = (elementsCount > 0 || qualitiesCount > 0) ? eqTableContentHeight : 0;
@@ -396,55 +403,20 @@ async function generateNatalTableImage(chartData) {
 
     // Set textBaseline to align text vertically to the middle of the line.
     ctx.textBaseline = 'middle';
-
-    // --- Draw Header Row for the Combined Table ---
-    ctx.fillStyle = COLORS.HEADER;
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
-    ctx.font = FONT_TABLE_HEADER;
-
-    let headerX = currentX;
-
-    // Column: Symbol header.
-    ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
-    ctx.textAlign = 'center';
-    ctx.fillText('Sim.', headerX + TABLE_COL_WIDTHS.symbol / 2, currentY + ROW_HEIGHT / 2);
-    headerX += TABLE_COL_WIDTHS.symbol;
-
-    // Column: Planet header.
-    ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.planet, ROW_HEIGHT);
-    ctx.textAlign = 'left';
-    ctx.fillText('Planeta', headerX + 5, currentY + ROW_HEIGHT / 2);
-    headerX += TABLE_COL_WIDTHS.planet;
-
-    // Column: Position header.
-    ctx.strokeRect(headerX, currentY, TABLE_COL_WIDTHS.positionDetails, ROW_HEIGHT);
-    ctx.fillText('Posição', headerX + 5, currentY + ROW_HEIGHT / 2);
-    headerX += TABLE_COL_WIDTHS.positionDetails;
-
-    // Aspect matrix header (planet symbols).
-    ctx.font = FONT_SYMBOLS;
-    ctx.textAlign = 'center';
-    planetsList.forEach((planetHeader) => {
-        ctx.strokeRect(headerX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
-        ctx.fillText(PLANET_SYMBOLS[planetHeader] || '', headerX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT / 2);
-        headerX += ASPECT_MATRIX_CELL_SIZE;
-    });
-
-    // Reset text alignment for data rows.
-    ctx.textAlign = 'left';
-    currentY += ROW_HEIGHT;
 
     // --- Draw Data Rows of the Combined Table ---
     planetsList.forEach((planetRow, rowIndex) => {
         ctx.fillStyle = COLORS.TEXT;
-        ctx.strokeStyle = COLORS.TABLE_BORDER;
-        ctx.lineWidth = 1;
 
         let colX = currentX;
 
+        // Apply specific font for 'Asc' and 'MC' or default planet symbols.
+        const symbolFont = (planetRow === 'ascendant' || planetRow === 'mc') ? FONT_ASC_MC_SYMBOLS : FONT_SYMBOLS;
+
         // Column: Symbol.
-        ctx.font = FONT_SYMBOLS;
+        ctx.font = symbolFont;
         ctx.textAlign = 'center';
         ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + TABLE_COL_WIDTHS.symbol / 2, currentY + ROW_HEIGHT / 2);
         ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
@@ -474,7 +446,9 @@ async function generateNatalTableImage(chartData) {
             if (rowIndex === colIndex) {
                 // Diagonal cell: show planet symbol.
                 ctx.fillStyle = COLORS.TEXT;
-                ctx.font = FONT_SYMBOLS; // Use FONT_SYMBOLS for consistent sizing on diagonal.
+                // Apply specific font for 'Asc' and 'MC' or default planet symbols on diagonal.
+                const diagonalSymbolFont = (planetRow === 'ascendant' || planetRow === 'mc') ? FONT_ASC_MC_SYMBOLS : FONT_SYMBOLS;
+                ctx.font = diagonalSymbolFont;
                 ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT / 2);
                 ctx.font = FONT_ASPECT_SYMBOLS; // Reset for subsequent aspect symbols.
             } else if (colIndex > rowIndex) {
@@ -504,38 +478,12 @@ async function generateNatalTableImage(chartData) {
     let eqCurrentY = TABLE_START_Y + (calculatedHeight - (TABLE_START_Y + totalEQBlockHeight + PADDING)) / 2;
     let eqCurrentX = EQ_TABLE_START_X;
 
-    // --- Elements Section ---
     ctx.font = FONT_TABLE_TEXT;
     ctx.fillStyle = COLORS.TEXT;
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
 
-    let eqHeaderX = eqCurrentX;
-    ctx.fillStyle = COLORS.HEADER;
-    ctx.font = FONT_TABLE_HEADER;
-
-    // Element table header.
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-    ctx.fillText('Elemento', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
-    eqHeaderX += EQ_COL_WIDTHS.name;
-
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-    ctx.fillText('Qtde.', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
-    eqHeaderX += EQ_COL_WIDTHS.count;
-
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
-    ctx.fillText('Pontos', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
-    eqHeaderX += EQ_COL_WIDTHS.planets;
-
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-    ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
-    eqHeaderX += EQ_COL_WIDTHS.status;
-    eqCurrentY += ROW_HEIGHT;
-
-    // Element table data rows.
-    ctx.font = FONT_TABLE_TEXT;
-    ctx.fillStyle = COLORS.TEXT;
-
+    // --- Elements Section ---
     for (const element in chartData.elements) {
         const data = chartData.elements[element];
         let eqColX = eqCurrentX;
@@ -558,39 +506,10 @@ async function generateNatalTableImage(chartData) {
         eqCurrentY += ROW_HEIGHT;
     }
 
-    // Add spacing between Elements and Qualities tables.
+    // Add spacing between Elements and Qualities tables
     eqCurrentY += PADDING;
 
     // --- Qualities Section ---
-    ctx.font = FONT_TABLE_TEXT;
-    ctx.fillStyle = COLORS.TEXT;
-
-    eqHeaderX = eqCurrentX;
-    ctx.fillStyle = COLORS.HEADER;
-    ctx.font = FONT_TABLE_HEADER;
-
-    // Qualities table header.
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-    ctx.fillText('Qualidade', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
-    eqHeaderX += EQ_COL_WIDTHS.name;
-
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-    ctx.fillText('Qtde.', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
-    eqHeaderX += EQ_COL_WIDTHS.count;
-
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
-    ctx.fillText('Pontos', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
-    eqHeaderX += EQ_COL_WIDTHS.planets;
-
-    ctx.strokeRect(eqHeaderX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-    ctx.fillText('Status', eqHeaderX + 5, eqCurrentY + ROW_HEIGHT / 2);
-    eqHeaderX += EQ_COL_WIDTHS.status;
-    eqCurrentY += ROW_HEIGHT;
-
-    // Qualities table data rows.
-    ctx.font = FONT_TABLE_TEXT;
-    ctx.fillStyle = COLORS.TEXT;
-
     for (const quality in chartData.qualities) {
         const data = chartData.qualities[quality];
         let eqColX = eqCurrentX;
