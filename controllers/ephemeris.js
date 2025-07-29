@@ -32,22 +32,22 @@ const ORB_RULES = {
   'mercury': [8, 8, 5],
   'venus': [8, 8, 5],
   'mars': [8, 8, 5],
-  'jupiter': [7, 6, 5],
-  'saturn': [7, 6, 5],
-  'uranus': [6, 5, 4],
-  'neptune': [6, 5, 4],
+  'jupiter': [7, 7, 6],
+  'saturn': [7, 7, 6],
+  'uranus': [7, 6, 4],
+  'neptune': [7, 6, 4],
   'pluto': [6, 5, 4],
-  'chiron': [6, 5, 3],
-  'ascendant': [10, 10, 6],
-  'mc': [10, 10, 6],
   'trueNode': [5, 4, 2],
-  'lilith': [3, 3, 1.5]
+  'chiron': [6, 5, 3],
+  'lilith': [3, 3, 1.5],
+  'ascendant': [10, 10, 6],
+  'mc': [10, 10, 6]
 };
 
 // Define all astrological points considered for aspect calculations
 const ALL_POINTS_FOR_ASPECTS = [
   "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
-  "uranus", "neptune", "pluto", "trueNode", "lilith", "chiron",
+  "uranus", "neptune", "pluto", "trueNode", "chiron", "lilith",
   "ascendant", "mc"
 ];
 
