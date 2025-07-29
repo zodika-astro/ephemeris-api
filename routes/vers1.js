@@ -17,7 +17,7 @@ router.post('/ephemeris', verifyApiKey, async (req, res) => {
 
   try {
     // 1. Call the 'compute' function from the EphemerisController
-    const result = await EphemerisController.compute(req.body);
+    const result = await EphemerisController.calculateEphemeris(req.body);
 
     // 2. Check if the calculation was successful
     res.status(result.statusCode).json(result);
@@ -37,7 +37,7 @@ router.post('/ephemeris/chart-image', verifyApiKey, async (req, res) => {
 
   try {
     // 1. Calculate the astrological data using your existing compute function
-    const chartData = await EphemerisController.compute(req.body);
+    const chartData = await EphemerisController.calculateEphemeris(req.body);
 
     // 2. Check if the calculation was successful
     if (chartData.statusCode !== 200) {
@@ -72,7 +72,7 @@ router.post('/ephemeris/table-image', verifyApiKey, async (req, res) => {
 
   try {
     // 1. Calculate the astrological data using your existing compute function
-    const chartData = await EphemerisController.compute(req.body);
+    const chartData = await EphemerisController.calculateEphemeris(req.body);
 
     // 2. Check if the calculation was successful
     if (chartData.statusCode !== 200) {
