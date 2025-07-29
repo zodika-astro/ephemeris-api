@@ -1,27 +1,29 @@
 'use strict';
 
+const { verifyApiKey } = require('../middleware/auth');
 const express = require('express');
 const router = express.Router();
 const EphemerisController = require('../controllers/ephemeris'); // ephemeris controller
 const { generateNatalChartImage } = require('../controllers/generateChartImage'); // chart image generator
+const { generateNatalTableImage } = require('../controllers/generateTableImage'); // chart table generator
 const logger = require('../logger'); // Import the logger for consistent logging
 
 // Log when the ephemeris version 1 route file is entered.
 logger.info('Entered ephemeris route (routes/vers1.js)');
 
 // ephemeris calculations (POST request)
-router.post('/ephemeris', async (req, res) => {
-  logger.info('Ephemeris calculation route called'); // Using logger for consistency
+router.post('/ephemeris', verifyApiKey, async (req, res) => {
+  logger.info('Ephemeris calculation route called'); // Log endpoint call
 
   try {
-    // Call the 'compute' function from the EphemerisController
+    // 1. Call the 'compute' function from the EphemerisController
     const result = await EphemerisController.compute(req.body);
 
-    // Send the response back based on the result from the controller
+    // 2. Check if the calculation was successful
     res.status(result.statusCode).json(result);
   } catch (error) {
     // Log the error and send a 500 (Internal Server Error) response
-    logger.error(`Ephemeris calculation route error: ${error.message}`); // Using logger for consistency
+    logger.error(`Ephemeris calculation route error: ${error.message}`);
     res.status(500).json({
       statusCode: 500,
       message: `Calculation failed: ${error.message}`
@@ -29,8 +31,8 @@ router.post('/ephemeris', async (req, res) => {
   }
 });
 
-// Endpoint to generate and return the natal chart image
-router.post('/ephemeris/chart-image', async (req, res) => {
+// chart image (POST request)
+router.post('/ephemeris/chart-image', verifyApiKey, async (req, res) => {
   logger.info('Chart image generation route called'); // Log endpoint call
 
   try {
@@ -39,7 +41,7 @@ router.post('/ephemeris/chart-image', async (req, res) => {
 
     // 2. Check if the calculation was successful
     if (chartData.statusCode !== 200) {
-      // If there's an error in calculation, return the original error message
+    // Log the error and send a 500 (Internal Server Error) response
       logger.warn(`Chart image generation failed due to ephemeris calculation error: ${chartData.message}`);
       return res.status(chartData.statusCode).json(chartData);
     }
@@ -64,10 +66,8 @@ router.post('/ephemeris/chart-image', async (req, res) => {
   }
 });
 
-// Endpoint to generate and return the natal chart table
-const { generateNatalTableImage } = require('../controllers/generateTableImage');
-
-router.post('/ephemeris/table-image', async (req, res) => {
+// chart image (POST request)
+router.post('/ephemeris/table-image', verifyApiKey, async (req, res) => {
   logger.info('Table image generation route called'); // Log endpoint call
 
   try {
