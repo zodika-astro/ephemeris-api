@@ -53,7 +53,7 @@ app.use(responseHandler.handleErrorResponse);
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 8080;
   app.listen(PORT, () => {
-    logger.info(Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT});
+    logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
 }
 
