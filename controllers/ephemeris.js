@@ -366,4 +366,4 @@ const compute = async (reqBody) => {
   }
 };
 
-module.exports = { compute };
+module.exports = { calculateEphemeris };
