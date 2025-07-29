@@ -4,22 +4,22 @@ const path = require('path');
 const fs = require('fs');
 
 // Chart Configuration Constants
-const CHART_WIDTH = 1200;
-const CHART_HEIGHT = 1200;
+const CHART_WIDTH = 1350; 
+const CHART_HEIGHT = 1350; 
 const CENTER_X = CHART_WIDTH / 2;
 const CENTER_Y = CHART_HEIGHT / 2;
-const OUTER_RADIUS = 600;
+const OUTER_RADIUS = 600; 
 const ZODIAC_RING_INNER_RADIUS = OUTER_RADIUS * 0.85;
 const INNER_RADIUS = OUTER_RADIUS * 0.125;
 
 const PLANET_SYMBOL_SIZE = 52;
 const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
 const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
-const HOUSE_NUMBER_FONT_SIZE = 28;
+const HOUSE_NUMBER_FONT_SIZE = 24;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
 // Calculate planet radius
-const PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS * 0.875;
+const PLANET_RADIUS = ZODIAC_RING_INNER_RADIUS * 0.875; 
 
 // Radius for aspect lines
 const ASPECT_LINE_RADIUS = INNER_RADIUS + (PLANET_RADIUS - INNER_RADIUS) * 0.75;
@@ -37,8 +37,7 @@ const BOLD_CUSP_LINE_WIDTH = 4.5;
 // Font size for planet degree labels
 const PLANET_DEGREE_FONT_SIZE = 15;
 // Radial offset for planet degree labels from the planet's center.
-// ALTERADO: Renomeado e ajustado para posicionar o label PARA FORA do símbolo do planeta
-const PLANET_DEGREE_LABEL_RADIAL_OFFSET = PLANET_CIRCLE_RADIUS + 10; // 10 pixels para fora da borda do círculo do planeta
+const PLANET_DEGREE_LABEL_INNER_PADDING = PLANET_CIRCLE_RADIUS + 6.0;
 
 // Offsets for fine-tuning horizontal text placement relative to the planet's position
 const PLANET_DEGREE_TEXT_PERPENDICULAR_OFFSET = 10;
@@ -116,8 +115,8 @@ const ORB_RULES = {
   'mercury': [8, 8, 5],
   'venus': [8, 8, 5],
   'mars': [8, 8, 5],
-  'jupiter': [7, 6, 4],
-  'saturn': [7, 6, 4],
+  'jupiter': [7, 6, 5],
+  'saturn': [7, 6, 5],
   'uranus': [6, 5, 4],
   'neptune': [6, 5, 4],
   'pluto': [6, 5, 4],
@@ -356,7 +355,6 @@ async function generateNatalChartImage(ephemerisData) {
   ctx.stroke();
 
   // Filter out AC and MC from the list of 'planets' to be drawn in the planet ring
-  // as they are handled as cusps and should not have planet symbols/labels.
   const planetsToDraw = Object.entries(planetPositions)
     .filter(([name, deg]) => name !== 'ascendant' && name !== 'mc')
     .map(([name, deg]) => ({ name, deg }));
@@ -417,7 +415,7 @@ async function generateNatalChartImage(ephemerisData) {
 
     // Determine tick size based on degree
     const isMajorTick = deg % 10 === 0;
-    const tickLength = isMajorTick ? 10 * 1.2 : 5 * 1.2;
+    const tickLength = isMajorTick ? 10 * 1.3 : 5 * 1.2;
 
     // Adjust line width if a planet is positioned at this degree
     const originalLineWidth = ctx.lineWidth;
@@ -431,8 +429,8 @@ async function generateNatalChartImage(ephemerisData) {
     const xStart = CENTER_X + tickStart * Math.cos(rad);
     const yStart = CENTER_Y + tickStart * Math.sin(rad);
     const xEnd = CENTER_X + tickEnd * Math.cos(rad);
-    const yEnd = CENTER_Y + tickEnd * Math.sin(rad); // FIX: Changed Math.cos to Math.sin
-
+    const yEnd = CENTER_Y + tickEnd * Math.sin(rad); 
+    
     ctx.beginPath();
     ctx.moveTo(xStart, yStart);
     ctx.lineTo(xEnd, yEnd);
@@ -476,7 +474,7 @@ async function generateNatalChartImage(ephemerisData) {
       nextCuspDegree = houseCusps[index + 1].degree;
     } else {
       // For the last house (12), its end is the beginning of house 1
-      nextCuspDegree = houseCusps[0].degree; // FIX: Changed houseCps to houseCusps
+      nextCuspDegree = houseCps[0].degree; 
     }
 
     let startDeg = cusp.degree;
@@ -599,7 +597,7 @@ async function generateNatalChartImage(ephemerisData) {
     const labelAngleRad = toChartCoords(planet.adjustedDeg, rotationOffset);
 
     // Calculate the radial position for the text.
-    const textDisplayRadius = PLANET_RADIUS + PLANET_DEGREE_LABEL_RADIAL_OFFSET; // Use new offset
+    const textDisplayRadius = PLANET_RADIUS - PLANET_DEGREE_LABEL_INNER_PADDING;
 
     // Calculate initial x, y based on the radial position and adjusted angle
     let labelX = CENTER_X + textDisplayRadius * Math.cos(labelAngleRad);
@@ -643,7 +641,6 @@ async function generateNatalChartImage(ephemerisData) {
   // Draw aspect lines
   for (const aspectType in aspectsData) {
     const style = ASPECT_STYLES[aspectType];
-    // Conjunction lines are typically not drawn, so skip if color is null
     if (!style || !style.color) continue; 
 
     ctx.strokeStyle = style.color;
@@ -653,7 +650,7 @@ async function generateNatalChartImage(ephemerisData) {
       // Filter: Do NOT draw aspect lines if either planet is in the exclusion list
       if (POINTS_TO_EXCLUDE_ASPECT_LINES.includes(aspect.planet1.name) || 
           POINTS_TO_EXCLUDE_ASPECT_LINES.includes(aspect.planet2.name)) {
-        return; // Skip drawing this aspect line
+        return; 
       }
 
       const p1 = placedPlanetsMap.get(aspect.planet1.name);
