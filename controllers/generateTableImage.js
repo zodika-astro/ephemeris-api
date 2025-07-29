@@ -207,9 +207,9 @@ const getOrbRulesForPoint = (pointName) => {
  * @returns {string} - Aspect symbol or empty if no major aspect.
  */
 const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
-    // Validate that degrees are numbers before proceeding with calculations.
-    if (typeof degree1 !== 'number' || isNaN(degree1) || typeof degree2 !== 'number' || isNaN(degree2)) {
-        logger.warn(`Invalid degree values passed to calculateAspect: ${planet1Name}=${degree1}, ${planet2Name}=${degree2}. Returning empty aspect.`);
+    // Validate that degrees are finite numbers before proceeding with calculations.
+    if (!Number.isFinite(degree1) || !Number.isFinite(degree2)) {
+        logger.warn(`Invalid (non-finite) degree values passed to calculateAspect: ${planet1Name}=${degree1}, ${planet2Name}=${degree2}. Returning empty aspect.`);
         return '';
     }
 
@@ -222,7 +222,7 @@ const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
     }
 
     const deg1 = Math.floor(degree1) + (Math.floor((degree1 % 1) * 60)) / 60;
-    const deg2 = Math.floor(degree2) + (Math.floor((deg2 % 1) * 60)) / 60;
+    const deg2 = Math.floor(degree2) + (Math.floor((degree2 % 1) * 60)) / 60;
 
     let diff = Math.abs(deg1 - deg2);
     if (diff > 180) {
@@ -310,8 +310,8 @@ const getTranslatedStatus = (status) => {
  * @returns {Buffer} - Generated PNG image buffer.
  */
 async function generateNatalTableImage(chartData) {
-    // Use ALL_POINTS_FOR_ASPECTS to define the order and inclusion of points in the table.
-    const planetsList = ALL_POINTS_FOR_ASPECTS.filter(p => chartData.geo[p] !== undefined);
+    // Filter planetsList to include only points with valid, finite degree values.
+    const planetsList = ALL_POINTS_FOR_ASPECTS.filter(p => Number.isFinite(chartData.geo[p]));
 
     const degrees = chartData.geo;
     const signs = chartData.planets;
@@ -353,16 +353,6 @@ async function generateNatalTableImage(chartData) {
         addPointToCategories(planetName, sign);
     }
 
-    // Removed redundant calls for ascendant and mc as they are already included
-    // from chartData.planets in the loop above.
-    // if (chartData.houses.house1?.sign) {
-    //     addPointToCategories('ascendant', chartData.houses.house1.sign);
-    // }
-    // if (chartData.houses.house10?.sign) {
-    //     addPointToCategories('mc', chartData.houses.house10.sign);
-    // }
-
-    // Calculate the total width of the main table (positions + aspects).
     const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
 
     const PADDING_BETWEEN_TABLES = 60;
