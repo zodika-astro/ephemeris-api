@@ -85,7 +85,7 @@ if (fs.existsSync(symbolaFontPath)) {
 const PLANET_SYMBOLS = {
   sun: '\u2609', moon: '\u263D', mercury: '\u263F', venus: '\u2640',
   mars: '\u2642', jupiter: '\u2643', saturn: '\u2644', uranus: '\u2645',
-  neptune: '\u2646', pluto: '\u2647', trueNode: '\u260A', lilith: '\u262D', chiron: '\u26B7'
+  neptune: '\u2646', pluto: '\u2647', trueNode: '\u260A', chiron: '\u26B7', lilith: '\u262D' 
 };
 
 // Aspect styles (only color and line width, orbs are calculated dynamically)
@@ -112,31 +112,31 @@ const ASPECT_DEFINITIONS = [
 const ORB_RULES = {
   'sun': [10, 8, 6],
   'moon': [10, 8, 6],
-  'mercury': [10, 8, 5],
-  'venus': [10, 8, 5],
-  'mars': [10, 8, 5],
-  'jupiter': [7, 6, 5],
-  'saturn': [7, 6, 5],
-  'uranus': [6, 6, 4],
-  'neptune': [6, 6, 4],
-  'pluto': [6, 5, 4],
-  'chiron': [6, 5, 3],
-  'ascendant': [10, 10, 6],
-  'mc': [10, 10, 6],
+  'mercury': [10, 8, 6],
+  'venus': [10, 8, 6],
+  'mars': [10, 8, 6],
+  'jupiter': [8, 7, 6],
+  'saturn': [8, 7, 6],
+  'uranus': [8, 7, 6],
+  'neptune': [8, 7, 6],
+  'pluto': [8, 7, 6],
   'trueNode': [5, 4, 2],
-  'lilith': [3, 3, 1.5]
+  'chiron': [6, 5, 3],
+  'lilith': [3, 3, 1.5],
+  'ascendant': [10, 10, 6],
+  'mc': [10, 10, 6]
 };
 
 // Define all astrological points considered for aspect calculations (needed for orb determination)
 const ALL_POINTS_FOR_ASPECTS = [
   "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
-  "uranus", "neptune", "pluto", "trueNode", "lilith", "chiron",
+  "uranus", "neptune", "pluto", "trueNode", "chiron", "lilith", 
   "ascendant", "mc"
 ];
 
 // List of points for which aspect lines should NOT be drawn
 const POINTS_TO_EXCLUDE_ASPECT_LINES = [
-  "trueNode", "lilith", "chiron", "ascendant", "mc"
+  "trueNode", "chiron", "lilith",  "ascendant", "mc"
 ];
 
 
