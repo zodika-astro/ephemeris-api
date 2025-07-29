@@ -21,7 +21,7 @@ if (fs.existsSync(interFontPathRegular)) {
 }
 
 // Color and layout constants
-const WIDTH = 1500;
+const WIDTH = 1300;
 const COLORS = {
     BACKGROUND: '#FFFBF4',
     TEXT: '#29281E',
@@ -222,7 +222,7 @@ const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
     }
 
     const deg1 = Math.floor(degree1) + (Math.floor((degree1 % 1) * 60)) / 60;
-    const deg2 = Math.floor(degree2) + (Math.floor((degree2 % 1) * 60)) / 60;
+    const deg2 = Math.floor(degree2) + (Math.floor((deg2 % 1) * 60)) / 60;
 
     let diff = Math.abs(deg1 - deg2);
     if (diff > 180) {
@@ -347,18 +347,20 @@ async function generateNatalTableImage(chartData) {
     };
 
     // Add planets to categories based on their signs.
+    // chartData.planets already includes ascendant and mc from ephemeris.js.
     for (const planetName in chartData.planets) {
         const sign = chartData.planets[planetName].sign;
         addPointToCategories(planetName, sign);
     }
 
-    // Add Ascendant (house1) and MC (house10) to categories if available.
-    if (chartData.houses.house1?.sign) {
-        addPointToCategories('ascendant', chartData.houses.house1.sign);
-    }
-    if (chartData.houses.house10?.sign) {
-        addPointToCategories('mc', chartData.houses.house10.sign);
-    }
+    // Removed redundant calls for ascendant and mc as they are already included
+    // from chartData.planets in the loop above.
+    // if (chartData.houses.house1?.sign) {
+    //     addPointToCategories('ascendant', chartData.houses.house1.sign);
+    // }
+    // if (chartData.houses.house10?.sign) {
+    //     addPointToCategories('mc', chartData.houses.house10.sign);
+    // }
 
     // Calculate the total width of the main table (positions + aspects).
     const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
