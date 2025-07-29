@@ -474,7 +474,7 @@ async function generateNatalChartImage(ephemerisData) {
       nextCuspDegree = houseCusps[index + 1].degree;
     } else {
       // For the last house (12), its end is the beginning of house 1
-      nextCuspDegree = houseCps[0].degree; 
+      nextCuspDegree = houseCusps[0].degree; 
     }
 
     let startDeg = cusp.degree;
