@@ -1,86 +1,60 @@
 'use strict';
 
+const logger = require('./logger'); 
+require('dotenv').config();
+
 const express = require('express');
-const router = express.Router();
-const compression = require('compression');
-const NodeCache = require('node-cache');
-const path = require('path');
+const morgan = require('morgan');
+const responseHandler = require('./common/responseHandlers');
+const basicAuth = require('express-basic-auth');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const app = express();
 
-// Controllers
-const InfoController = require('../common/info');
-const EphemerisController = require(path.resolve(__dirname, '..', 'controllers', 'ephemeris'));
-const ChartController = require(path.resolve(__dirname, '..', 'controllers', 'generateChartImage'));
-const TableController = require(path.resolve(__dirname, '..', 'controllers', 'generateTableImage'));
-
-// Middlewares
-const { verifyApiKey } = require('../middleware/auth');
-const validateBody = require('../middleware/validate');
-const ephemerisSchema = require('../schemas/ephemeris');
-
-// Setup cache
-const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
-
-// Apply compression middleware early
-router.use(compression());
-
-//Public Endpoints
-
-// Health check
-router.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+// express rate limit
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "Too many requests from this IP, please try again after 15 minutes.",
+  headers: true,
 });
 
-// Info endpoint (cached)
-router.get('/info', (req, res) => {
-  const cacheKey = 'apiInfo';
-  const cachedResponse = apiCache.get(cacheKey);
+// Security middleware
+app.use(helmet());
+app.disable('x-powered-by');
+app.use(express.json({ limit: '10kb' }));
+app.use(apiLimiter);
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use('/health', require('./routes/health'));
 
-  if (cachedResponse) {
-    return res.json({
-      message: 'Cached API info',
-      results: cachedResponse,
-      cached: true
-    });
+// Dual authentication support
+const authUsers = {};
+if (process.env.BASIC_USER && process.env.BASIC_PASS) {
+  authUsers[process.env.BASIC_USER] = process.env.BASIC_PASS;
+}
+
+app.use(basicAuth({
+  users: authUsers,
+  challenge: true,
+  unauthorizedResponse: {
+    error: 'Unauthorized',
+    documentation: 'https://your-docs-url'
   }
+}));
 
-  const infoData = InfoController.info();
-  apiCache.set(cacheKey, infoData);
+// Routes
+app.use('/', require('./routes/index'));
+app.use('/api', require('./routes/api'));
 
-  res.json({
-    message: 'Live API info',
-    results: infoData,
-    cached: false
+// Error handling
+app.use(responseHandler.handleErrorResponse);
+
+// Server start (Railway handles this in production)
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 8080;
+  app.listen(PORT, () => {
+    logger.info(Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT});
   });
-});
+}
 
-// Protected Endpoints
- 
-// Main ephemeris calculation
-router.post(
-  '/ephemeris',
-  verifyApiKey,
-  validateBody(ephemerisSchema),
-  async (req, res) => {
-    try {
-      const result = await EphemerisController.calculateEphemeris(req.body);
-      res.status(result.statusCode).json(result);
-    } catch (err) {
-      res.status(500).json({ message: 'Internal server error', error: err.message });
-    }
-  }
-);
-
-// Generate natal chart image
-router.post('/chart-image', verifyApiKey, ChartController.generateChartImage);
-
-// Generate natal table image
-router.post('/table-image', verifyApiKey, TableController.generateTableImage);
-
-// Versioned API (if needed)
-router.use('/v1', require('./vers1'));
-
-module.exports = router;
+module.exports = app;
