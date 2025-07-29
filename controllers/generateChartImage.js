@@ -639,59 +639,56 @@ async function generateNatalChartImage(ephemerisData) {
   });
 
   // Draw aspect lines
-  for (const aspectType in aspectsData) {
-    const style = ASPECT_STYLES[aspectType];
-    if (!style || !style.color) continue; 
+for (const aspectType in aspectsData) {
+  const style = ASPECT_STYLES[aspectType];
+  if (!style || !style.color) continue; 
 
-    ctx.strokeStyle = style.color;
-    ctx.lineWidth = style.lineWidth;
+  ctx.strokeStyle = style.color;
+  ctx.lineWidth = style.lineWidth;
 
-    aspectsData[aspectType].forEach(aspect => {
-      // Filter: Do NOT draw aspect lines if either planet is in the exclusion list
-      if (POINTS_TO_EXCLUDE_ASPECT_LINES.includes(aspect.planet1.name) || 
-          POINTS_TO_EXCLUDE_ASPECT_LINES.includes(aspect.planet2.name)) {
-        return; 
+  aspectsData[aspectType].forEach(aspect => {
+    if (POINTS_TO_EXCLUDE_ASPECT_LINES.includes(aspect.planet1.name) || 
+        POINTS_TO_EXCLUDE_ASPECT_LINES.includes(aspect.planet2.name)) {
+      return; 
+    }
+
+    const p1 = placedPlanetsMap.get(aspect.planet1.name);
+    const p2 = placedPlanetsMap.get(aspect.planet2.name);
+
+    if (p1 && p2) {
+      // Convert to degrees and minutes only
+      const deg1 = Math.floor(p1.deg) + (Math.floor((p1.deg % 1) * 60) / 60);
+      const deg2 = Math.floor(p2.deg) + (Math.floor((p2.deg % 1) * 60) / 60);
+      let cleanDiff = Math.abs(deg1 - deg2);
+      if (cleanDiff > 180) cleanDiff = 360 - cleanDiff;
+
+      const aspectDef = ASPECT_DEFINITIONS.find(def => def.name === aspectType);
+      if (!aspectDef) return;
+
+      const p1Orb = ORB_RULES[p1.name]?.[aspectDef.category];
+      const p2Orb = ORB_RULES[p2.name]?.[aspectDef.category];
+
+      if (p1Orb === undefined || p2Orb === undefined) {
+          console.warn(`Orb rule not found for ${p1.name} or ${p2.name} for aspect ${aspectDef.name}. Skipping drawing this aspect line.`);
+          return; 
       }
 
-      const p1 = placedPlanetsMap.get(aspect.planet1.name);
-      const p2 = placedPlanetsMap.get(aspect.planet2.name);
+      const orb = (p1Orb + p2Orb) / 2.0;
 
-      if (p1 && p2) {
-        // Calculate difference using full decimal precision
-        let diff = Math.abs(p1.deg - p2.deg);
-        if (diff > 180) diff = 360 - diff;
+      if (orb > 0 && cleanDiff >= (aspectDef.degree - orb) && cleanDiff <= (aspectDef.degree + orb)) {
+        const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
+        const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
+        const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
+        const aspectY2 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p2.angleRad);
 
-        // Determine aspect degree from ASPECT_DEFINITIONS
-        const aspectDef = ASPECT_DEFINITIONS.find(def => def.name === aspectType);
-        if (!aspectDef) return; // Should not happen if aspectsData is valid
-
-        // Determine the applicable orb using the same logic as ephemeris.js
-        const p1Orb = ORB_RULES[p1.name]?.[aspectDef.category];
-        const p2Orb = ORB_RULES[p2.name]?.[aspectDef.category];
-
-        if (p1Orb === undefined || p2Orb === undefined) {
-            // Log a warning if orb rule is missing, but don't stop drawing other aspects
-            console.warn(`Orb rule not found for ${p1.name} or ${p2.name} for aspect ${aspectDef.name}. Skipping drawing this aspect line.`);
-            return; 
-        }
-
-        const orb = (p1Orb + p2Orb) / 2.0;
-
-        // Draw the line only if the aspect is within the calculated orb
-        if (orb > 0 && diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
-          const aspectX1 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p1.angleRad);
-          const aspectY1 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p1.angleRad);
-          const aspectX2 = CENTER_X + ASPECT_LINE_RADIUS * Math.cos(p2.angleRad);
-          const aspectY2 = CENTER_Y + ASPECT_LINE_RADIUS * Math.sin(p2.angleRad);
-
-          ctx.beginPath();
-          ctx.moveTo(aspectX1, aspectY1);
-          ctx.lineTo(aspectX2, aspectY2);
-          ctx.stroke();
-        }
+        ctx.beginPath();
+        ctx.moveTo(aspectX1, aspectY1);
+        ctx.lineTo(aspectX2, aspectY2);
+        ctx.stroke();
       }
-    });
-  }
+    }
+  });
+}
 
   return canvas.toBuffer('image/png');
 }
