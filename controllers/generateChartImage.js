@@ -4,8 +4,8 @@ const path = require('path');
 const fs = require('fs');
 
 // Chart Configuration Constants
-const CHART_WIDTH = 1350; 
-const CHART_HEIGHT = 1350; 
+const CHART_WIDTH = 1300; 
+const CHART_HEIGHT = 1300; 
 const CENTER_X = CHART_WIDTH / 2;
 const CENTER_Y = CHART_HEIGHT / 2;
 const OUTER_RADIUS = 600; 
@@ -15,7 +15,7 @@ const INNER_RADIUS = OUTER_RADIUS * 0.125;
 const PLANET_SYMBOL_SIZE = 52;
 const PLANET_CIRCLE_RADIUS = PLANET_SYMBOL_SIZE / 1.6;
 const HOUSE_NUMBER_RADIUS = INNER_RADIUS + 35;
-const HOUSE_NUMBER_FONT_SIZE = 24;
+const HOUSE_NUMBER_FONT_SIZE = 22;
 const DEGREE_TICK_RADIUS = ZODIAC_RING_INNER_RADIUS - 15;
 
 // Calculate planet radius
@@ -115,8 +115,8 @@ const ORB_RULES = {
   'mercury': [10, 9, 7],
   'venus': [10, 9, 7],
   'mars': [10, 9, 7],
-  'jupiter': [9, 8, 6],
-  'saturn': [9, 8, 6],
+  'jupiter': [9, 9, 6],
+  'saturn': [9, 9, 6],
   'uranus': [9, 8, 5],
   'neptune': [9, 8, 5],
   'pluto': [8, 7, 5],
