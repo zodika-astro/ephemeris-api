@@ -181,8 +181,11 @@ async function computeAspects(planetGeoPositions, planetSignData) {
         continue;
       }
 
-      let diff = Math.abs(pos1 - pos2);
-      if (diff > 180) diff = 360 - diff;
+      // Convert to degrees and minutes only (ignore seconds)
+      const deg1 = Math.floor(pos1) + (Math.floor((pos1 % 1) * 60) / 60;
+      const deg2 = Math.floor(pos2) + (Math.floor((pos2 % 1) * 60) / 60;
+      let cleanDiff = Math.abs(deg1 - deg2);
+      if (cleanDiff > 180) cleanDiff = 360 - cleanDiff;
 
       for (const aspectDef of ASPECT_DEFINITIONS) {
         const p1Orb = ORB_RULES[p1]?.[aspectDef.category];
@@ -195,7 +198,7 @@ async function computeAspects(planetGeoPositions, planetSignData) {
 
         const orb = (p1Orb + p2Orb) / 2.0;
 
-        if (orb > 0 && diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
+        if (orb > 0 && cleanDiff >= (aspectDef.degree - orb) && cleanDiff <= (aspectDef.degree + orb)) {
           groupedAspects[aspectDef.name].push({
             planet1: { name: p1, sign: info1.sign, house: info1.house },
             planet2: { name: p2, sign: info2.sign, house: info2.house },
