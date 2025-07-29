@@ -293,7 +293,7 @@ const analyzeHouses = (cusps) => {
   };
 };
 
-const compute = async (reqBody) => {
+const calculateEphemeris = async (reqBody) => {
   try {
     const {
       year, month, date,
