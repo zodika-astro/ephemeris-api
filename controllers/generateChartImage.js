@@ -657,8 +657,8 @@ for (const aspectType in aspectsData) {
 
     if (p1 && p2) {
       // Convert to degrees and minutes only
-      const deg1 = Math.floor(p1.deg) + (Math.floor((p1.deg % 1) * 60)) / 60);
-      const deg2 = Math.floor(p2.deg) + (Math.floor((p2.deg % 1) * 60)) / 60);
+      const deg1 = Math.floor(p1.deg) + (Math.floor((p1.deg % 1) * 60)) / 60;
+      const deg2 = Math.floor(p2.deg) + (Math.floor((p2.deg % 1) * 60)) / 60;
       let cleanDiff = Math.abs(deg1 - deg2);
       if (cleanDiff > 180) cleanDiff = 360 - cleanDiff;
 
