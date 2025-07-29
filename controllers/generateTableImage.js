@@ -44,16 +44,13 @@ const FONT_ASPECT_SYMBOLS = '18px Inter';
 const PADDING = 30;
 const ROW_HEIGHT = 30;
 const TABLE_START_Y = PADDING;
-// Adjusted column width for aspect symbols
-const ASPECT_MATRIX_CELL_SIZE = 38; // 40 * 0.95 (5% decrease)
+const ASPECT_MATRIX_CELL_SIZE = 38;
 
 // Column widths for the planet positions table
 const TABLE_COL_WIDTHS = {
     symbol: 40,
-    // Adjusted column width (5% decrease)
-    planet: 114, // 120 * 0.95
-    // Adjusted column width (15% decrease)
-    positionDetails: 212.5, // 250 * 0.85
+    planet: 114,
+    positionDetails: 212.5,
 };
 
 // Mapping of planet labels to Portuguese
@@ -210,6 +207,12 @@ const getOrbRulesForPoint = (pointName) => {
  * @returns {string} - Aspect symbol or empty if no major aspect.
  */
 const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
+    // Validate that degrees are numbers before proceeding with calculations.
+    if (typeof degree1 !== 'number' || isNaN(degree1) || typeof degree2 !== 'number' || isNaN(degree2)) {
+        logger.warn(`Invalid degree values passed to calculateAspect: ${planet1Name}=${degree1}, ${planet2Name}=${degree2}. Returning empty aspect.`);
+        return '';
+    }
+
     if (!ALL_POINTS_FOR_ASPECTS.includes(planet1Name) || !ALL_POINTS_FOR_ASPECTS.includes(planet2Name)) {
         return '';
     }
@@ -219,7 +222,7 @@ const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
     }
 
     const deg1 = Math.floor(degree1) + (Math.floor((degree1 % 1) * 60)) / 60;
-    const deg2 = Math.floor(degree2) + (Math.floor((deg2 % 1) * 60)) / 60;
+    const deg2 = Math.floor(degree2) + (Math.floor((degree2 % 1) * 60)) / 60;
 
     let diff = Math.abs(deg1 - deg2);
     if (diff > 180) {
@@ -362,9 +365,8 @@ async function generateNatalTableImage(chartData) {
 
     const PADDING_BETWEEN_TABLES = 60;
 
-    // Adjusted column width (15% decrease)
     const EQ_COL_WIDTHS = {
-        name: 102, // 120 * 0.85
+        name: 102,
         count: 36,
         planets: 197,
         status: 100
