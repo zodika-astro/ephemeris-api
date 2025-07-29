@@ -11,6 +11,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const app = express();
 
+// trust proxy X-Fowarded-For
+app.set('trust proxy', true); 
+
 // express rate limit
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
