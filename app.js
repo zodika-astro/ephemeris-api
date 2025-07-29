@@ -1,60 +1,86 @@
 'use strict';
 
-const logger = require('./logger'); 
-require('dotenv').config();
-
 const express = require('express');
-const morgan = require('morgan');
-const responseHandler = require('./common/responseHandlers');
-const basicAuth = require('express-basic-auth');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const app = express();
+const router = express.Router();
+const compression = require('compression');
+const NodeCache = require('node-cache');
+const path = require('path');
 
-// express rate limit
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: "Muitas requisições deste IP, por favor, tente novamente após 15 minutos.",
-  headers: true,
+// Controllers
+const InfoController = require('../common/info');
+const EphemerisController = require(path.resolve(__dirname, '..', 'controllers', 'ephemeris'));
+const ChartController = require(path.resolve(__dirname, '..', 'controllers', 'generateChartImage'));
+const TableController = require(path.resolve(__dirname, '..', 'controllers', 'generateTableImage'));
+
+// Middlewares
+const { verifyApiKey } = require('../middleware/auth');
+const validateBody = require('../middleware/validate');
+const ephemerisSchema = require('../schemas/ephemeris');
+
+// Setup cache
+const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
+
+// Apply compression middleware early
+router.use(compression());
+
+//Public Endpoints
+
+// Health check
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
-// Security middleware
-app.use(helmet());
-app.disable('x-powered-by');
-app.use(express.json({ limit: '10kb' }));
-app.use(apiLimiter);
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use('/health', require('./routes/health'));
+// Info endpoint (cached)
+router.get('/info', (req, res) => {
+  const cacheKey = 'apiInfo';
+  const cachedResponse = apiCache.get(cacheKey);
 
-// Dual authentication support
-const authUsers = {};
-if (process.env.BASIC_USER && process.env.BASIC_PASS) {
-  authUsers[process.env.BASIC_USER] = process.env.BASIC_PASS;
-}
-
-app.use(basicAuth({
-  users: authUsers,
-  challenge: true,
-  unauthorizedResponse: {
-    error: 'Unauthorized',
-    documentation: 'https://your-docs-url'
+  if (cachedResponse) {
+    return res.json({
+      message: 'Cached API info',
+      results: cachedResponse,
+      cached: true
+    });
   }
-}));
 
-// Routes
-app.use('/', require('./routes/index'));
-app.use('/api', require('./routes/api'));
+  const infoData = InfoController.info();
+  apiCache.set(cacheKey, infoData);
 
-// Error handling
-app.use(responseHandler.handleErrorResponse);
-
-// Server start (Railway handles this in production)
-if (process.env.NODE_ENV !== 'test') {
-  const PORT = process.env.PORT || 8080;
-  app.listen(PORT, () => {
-    logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  res.json({
+    message: 'Live API info',
+    results: infoData,
+    cached: false
   });
-}
+});
 
-module.exports = app;
+// Protected Endpoints
+ 
+// Main ephemeris calculation
+router.post(
+  '/ephemeris',
+  verifyApiKey,
+  validateBody(ephemerisSchema),
+  async (req, res) => {
+    try {
+      const result = await EphemerisController.calculateEphemeris(req.body);
+      res.status(result.statusCode).json(result);
+    } catch (err) {
+      res.status(500).json({ message: 'Internal server error', error: err.message });
+    }
+  }
+);
+
+// Generate natal chart image
+router.post('/chart-image', verifyApiKey, ChartController.generateChartImage);
+
+// Generate natal table image
+router.post('/table-image', verifyApiKey, TableController.generateTableImage);
+
+// Versioned API (if needed)
+router.use('/v1', require('./vers1'));
+
+module.exports = router;
