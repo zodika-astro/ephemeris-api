@@ -11,6 +11,10 @@ const { verifyApiKey } = require('../middleware/auth');
 const validateBody = require('../middleware/validate');
 const ephemerisSchema = require('../schemas/ephemeris');
 
+const EphemerisController = require(path.resolve(__dirname, '..', 'controllers', 'ephemeris'));
+const ChartController = require(path.resolve(__dirname, '..', 'controllers', 'generateChartImage'));
+const TableController = require(path.resolve(__dirname, '..', 'controllers', 'generateTableImage'));
+
 const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
 
 // Apply compression middleware early
@@ -49,14 +53,21 @@ router.get('/health', (req, res) => {
 });
 
 // Protected endpoints
-const EphemerisController = require(path.resolve(__dirname, '..', 'controllers', 'ephemeris'));
-const ChartController = require(path.resolve(__dirname, '..', 'controllers', 'generateChartImage'));
-const TableController = require(path.resolve(__dirname, '..', 'controllers', 'generateTableImage'));
-
 router.post('/ephemeris',
   verifyApiKey,
   validateBody(ephemerisSchema),
-  EphemerisController.calculateEphemeris
+  async (req, res) => {
+    try {
+      const result = await EphemerisController.calculateEphemeris(req.body);
+      res.status(result.statusCode).json(result);
+    } catch (err) {
+      res.status(500).json({
+        statusCode: 500,
+        message: 'Unexpected server error',
+        error: err.message
+      });
+    }
+  }
 );
 
 router.post('/chart-image', verifyApiKey, ChartController.generateChartImage);
