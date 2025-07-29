@@ -18,21 +18,12 @@ const validateBody = require('../middleware/validate');
 const ephemerisSchema = require('../schemas/ephemeris');
 
 // Setup cache
-const apiCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
+const apiCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 
 // Apply compression middleware early
 router.use(compression());
 
 //Public Endpoints
-
-// Health check
-router.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
 
 // Info endpoint (cached)
 router.get('/info', (req, res) => {
