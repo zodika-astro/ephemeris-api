@@ -139,7 +139,6 @@ const POINTS_TO_EXCLUDE_ASPECT_LINES = [
   "trueNode", "chiron", "lilith",  "ascendant", "mc"
 ];
 
-
 // Zodiac signs and symbols
 const ZODIAC_SIGNS = [
   "Áries", "Touro", "Gêmeos", "Câncer", "Leão",
