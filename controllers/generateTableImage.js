@@ -21,7 +21,7 @@ if (fs.existsSync(interFontPathRegular)) {
 }
 
 // Color and layout constants
-const WIDTH = 1300;
+const WIDTH = 1400;
 const COLORS = {
     BACKGROUND: '#FFFBF4',
     TEXT: '#29281E',
