@@ -182,8 +182,8 @@ async function computeAspects(planetGeoPositions, planetSignData) {
       }
 
       // Convert to degrees and minutes only (ignore seconds)
-      const deg1 = Math.floor(pos1) + (Math.floor((pos1 % 1) * 60) / 60;
-      const deg2 = Math.floor(pos2) + (Math.floor((pos2 % 1) * 60) / 60;
+      const deg1 = Math.floor(pos1) + (Math.floor((pos1 % 1) * 60)) / 60;
+      const deg2 = Math.floor(pos2) + (Math.floor((pos2 % 1) * 60)) / 60;
       let cleanDiff = Math.abs(deg1 - deg2);
       if (cleanDiff > 180) cleanDiff = 360 - cleanDiff;
 
