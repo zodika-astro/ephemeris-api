@@ -21,7 +21,7 @@ if (fs.existsSync(interFontPathRegular)) {
 
 
 // Color and layout constants
-const WIDTH = 1536;
+const WIDTH = 1300;
 // HEIGHT will be calculated dynamically
 const COLORS = {
   BACKGROUND: '#FFFBF4',
@@ -30,8 +30,8 @@ const COLORS = {
   TABLE_BORDER: '#CCCCCC',
   ASPECT_CONJUNCTION: '#000000',
   ASPECT_OPPOSITION: '#FF0000',
-  ASPECT_TRINE: '#0000FF',
-  ASPECT_SQUARE: '#FF0000',
+  ASPECT_TRINE: '#008000',
+  ASPECT_SQUARE: '#FF4500',
   ASPECT_SEXTILE: '#0000FF'
 };
 
@@ -42,13 +42,13 @@ const FONT_SYMBOLS = '20px Inter';
 const FONT_ASPECT_SYMBOLS = '18px Inter';
 
 const PADDING = 30; // General margin padding
-const ROW_HEIGHT = 30; // Height of each row in the table
+const ROW_HEIGHT = 22; // Height of each row in the table
 const TABLE_START_Y = PADDING; // Initial Y position of the table
-const ASPECT_MATRIX_CELL_SIZE = 40; // Cell size in the aspect matrix
+const ASPECT_MATRIX_CELL_SIZE = 17; // Cell size in the aspect matrix
 
 // Column widths for the planet positions table
 const TABLE_COL_WIDTHS = {
-  symbol: 40,
+  symbol: 35,
   planet: 120,
   positionDetails: 250,
 };
@@ -57,14 +57,16 @@ const TABLE_COL_WIDTHS = {
 const PLANET_LABELS_PT = {
   sun: 'Sol', moon: 'Lua', mercury: 'Mercúrio', venus: 'Vênus', mars: 'Marte',
   jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano', neptune: 'Netuno',
-  pluto: 'Plutão', trueNode: 'Nodo Norte', lilith: 'Lilith', chiron: 'Quíron'
+  pluto: 'Plutão', trueNode: 'Nodo Norte', lilith: 'Lilith', chiron: 'Quíron',
+  ascendant: 'Ascendente', mc: 'Meio do Céu'
 };
 
 // Astrological symbols for planets
 const PLANET_SYMBOLS = {
   sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
   jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆',
-  pluto: '♇', trueNode: '☊', lilith: '☭', chiron: '⚷'
+  pluto: '♇', trueNode: '☊', lilith: '☭', chiron: '⚷',
+ ascendant: 'Asc', mc: 'MC'
 };
 
 // Mapping of zodiac sign labels to Portuguese
@@ -92,13 +94,41 @@ const ASPECT_SYMBOLS = {
 
 // Aspect Definitions and Orb Rules
 const ASPECT_DEFINITIONS = [
-  { name: "conjunction", degree: 0, defaultOrb: 8, luminaryOrb: 10 },
-  { name: "sextile", degree: 60, defaultOrb: 4, luminaryOrb: 4 },
-  { name: "square", degree: 90, defaultOrb: 6, luminaryOrb: 6 },
-  { name: "trine", degree: 120, defaultOrb: 6, luminaryOrb: 6 },
-  { name: "opposition", degree: 180, defaultOrb: 8, luminaryOrb: 10 }
+  { name: "conjunction", degree: 0, category: 0 },
+  { name: "sextile", degree: 60, category: 2 },
+  { name: "square", degree: 90, category: 1 },
+  { name: "trine", degree: 120, category: 1 },
+  { name: "opposition", degree: 180, category: 0 }
 ];
 
+// Define individual orb rules for each celestial body/point,
+// mapped to aspect categories: [Conj/Opp, Sq/Tr, Sextile]
+
+const ORB_RULES = {
+  'sun': [10, 9, 7],
+  'moon': [10, 9, 7],
+  'mercury': [10, 9, 7],
+  'venus': [10, 9, 7],
+  'mars': [10, 9, 7],
+  'jupiter': [9, 9, 6],
+  'saturn': [9, 9, 6],
+  'uranus': [9, 8, 5],
+  'neptune': [9, 8, 5],
+  'pluto': [8, 7, 5],
+  'trueNode': [5, 4, 2],
+  'chiron': [6, 5, 3],
+  'lilith': [3, 3, 1.5],
+  'ascendant': [10, 10, 6],
+  'mc': [10, 10, 6]
+};
+
+// Define all astrological points considered for aspect calculations
+const ALL_POINTS_FOR_ASPECTS = [
+  "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
+  "uranus", "neptune", "pluto", "trueNode", "chiron", "lilith",
+  "ascendant", "mc"
+];
+  
 // Mapping of Elements and Qualities to Portuguese
 const ELEMENT_LABELS_PT = {
   fire: 'Fogo',
@@ -127,32 +157,52 @@ const SIGN_QUALITY_MAP = {
   "Gemini": "mutable", "Virgo": "mutable", "Sagittarius": "mutable", "Pisces": "mutable"
 };
 
-
 /**
  * Formats a planet's position information into a single string.
  * Format: Degree(°), Sign, Minutes (') Seconds (") and Retrograde (R)
  * The displayed degree is the degree within the sign (0-29).
- * @param {string} planet - The planet's name.
- * @param {object} data - Object containing planet sign data.
- * @param {object} degrees - Object containing the absolute degrees of the planets.
+ * @param {string} planetName - The planet's name.
+ * @param {object} planetSignData - Object containing planet sign data (from chartData.planets).
+ * @param {object} geoDegrees - Object containing the absolute degrees of the planets (from chartData.geo).
  * @returns {string} - The formatted string (e.g., "15° Touro, 27' 24" (R)").
  */
-const formatPositionDetails = (planet, data, degrees) => {
-  const degreeValue = degrees[planet]; // Ex: 35.4567 (absolute degree 0-360)
+const formatPositionDetails = (planetName, planetSignData, geoDegrees) => {
+  const degreeValue = geoDegrees[planetName]; // Ex: 35.4567 (absolute degree 0-360)
+  if (degreeValue === undefined || degreeValue === null) {
+    logger.warn(`Degree value for ${planetName} is missing or invalid.`);
+    return 'N/A';
+  }
+
   // Calculates the degree within the sign (0-29)
   const d = Math.floor(degreeValue % 30);
   const m = Math.floor((degreeValue * 60) % 60); // Minutes
   const s = Math.round((degreeValue * 3600) % 60); // Seconds
 
-  const sign = data[planet]?.sign || '-';
+  const sign = planetSignData[planetName]?.sign || '-';
   const signPt = SIGN_LABELS_PT[sign] || sign;
-  const retro = data[planet]?.retrograde === 'yes' ? ' (R)' : '';
+  const retro = planetSignData[planetName]?.retrograde === 'yes' ? ' (R)' : '';
 
   return `${d}° ${signPt}, ${m}' ${s}"${retro}`.trim();
 };
 
 /**
- * Calculates the aspect between two degrees using aspect definitions and orbs.
+ * Helper to get specific orb rules based on point category
+ * (Copied from ephemeris.js for consistency)
+ */
+const getOrbRulesForPoint = (pointName) => {
+  if (ORB_RULES[pointName]) {
+    return {
+      conjOpp: ORB_RULES[pointName][0],
+      triSqr: ORB_RULES[pointName][1],
+      sextile: ORB_RULES[pointName][2]
+    };
+  }
+  return null;
+};
+
+/**
+ * Calculates the aspect between two degrees using aspect definitions and dynamic orb rules.
+ * This function now mirrors the logic in `computeAspects` from `ephemeris.js`.
  * @param {string} planet1Name - Name of the first planet.
  * @param {number} degree1 - Degree of the first planet.
  * @param {string} planet2Name - Name of the second planet.
@@ -160,18 +210,54 @@ const formatPositionDetails = (planet, data, degrees) => {
  * @returns {string} - Aspect symbol or empty if no major aspect.
  */
 const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
-  let diff = Math.abs(degree1 - degree2);
+  // Ensure both planets are included in ALL_POINTS_FOR_ASPECTS
+  if (!ALL_POINTS_FOR_ASPECTS.includes(planet1Name) || !ALL_POINTS_FOR_ASPECTS.includes(planet2Name)) {
+    return '';
+  }
+
+  // Skip aspects between AC and MC as per rule in ephemeris.js
+  if ((planet1Name === "ascendant" && planet2Name === "mc") || (planet1Name === "mc" && planet2Name === "ascendant")) {
+    return '';
+  }
+
+  // Convert to degrees and minutes only (ignore seconds for orb calculation consistency with ephemeris.js)
+  const deg1 = Math.floor(degree1) + (Math.floor((degree1 % 1) * 60)) / 60;
+  const deg2 = Math.floor(degree2) + (Math.floor((degree2 % 1) * 60)) / 60;
+
+  let diff = Math.abs(deg1 - deg2);
   if (diff > 180) {
     diff = 360 - diff;
   }
 
   for (const aspectDef of ASPECT_DEFINITIONS) {
-    let orb = aspectDef.defaultOrb;
-    if ((planet1Name === "sun" || planet1Name === "moon" || planet2Name === "sun" || planet2Name === "moon")) {
-      orb = aspectDef.luminaryOrb;
+    const p1OrbRules = getOrbRulesForPoint(planet1Name);
+    const p2OrbRules = getOrbRulesForPoint(planet2Name);
+
+    if (!p1OrbRules || !p2OrbRules) {
+      logger.warn(`Orb rule not found for ${planet1Name} or ${planet2Name}. Skipping aspect check.`);
+      continue;
     }
 
-    if (diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
+    let orb1, orb2;
+    switch (aspectDef.category) {
+      case 0: // Conjunction/Opposition
+        orb1 = p1OrbRules.conjOpp;
+        orb2 = p2OrbRules.conjOpp;
+        break;
+      case 1: // Square/Trine
+        orb1 = p1OrbRules.triSqr;
+        orb2 = p2OrbRules.triSqr;
+        break;
+      case 2: // Sextile
+        orb1 = p1OrbRules.sextile;
+        orb2 = p2OrbRules.sextile;
+        break;
+      default:
+        continue;
+    }
+    const orb = (orb1 + orb2) / 2.0;
+
+    if (orb > 0 && diff >= (aspectDef.degree - orb) && diff <= (aspectDef.degree + orb)) {
       return ASPECT_SYMBOLS[aspectDef.name];
     }
   }
@@ -282,7 +368,7 @@ async function generateNatalTableImage(chartData) {
   const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
 
   // Define new constants for the elements/qualities table
-  const PADDING_BETWEEN_TABLES = 60;
+  const PADDING_BETWEEN_TABLES = 40;
   const EQ_COL_WIDTHS = {
     name: 120,
     count: 36,
@@ -333,18 +419,18 @@ async function generateNatalTableImage(chartData) {
 
     // First column: Planet Symbol (as row header)
     ctx.font = FONT_SYMBOLS;
-    ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + 10, currentY + ROW_HEIGHT - 8);
+    ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX, currentY + ROW_HEIGHT);
     ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
     colX += TABLE_COL_WIDTHS.symbol;
 
     // Second column: Planet Name
     ctx.font = FONT_TABLE_TEXT;
-    ctx.fillText(PLANET_LABELS_PT[planetRow] || planetRow, colX + 5, currentY + ROW_HEIGHT - 8);
+    ctx.fillText(PLANET_LABELS_PT[planetRow] || planetRow, colX, currentY + ROW_HEIGHT);
     ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.planet, ROW_HEIGHT);
     colX += TABLE_COL_WIDTHS.planet;
 
     // Third column: Position Details (Degree, Sign, Minutes, Seconds, Retrograde)
-    ctx.fillText(formatPositionDetails(planetRow, signs, degrees), colX + 5, currentY + ROW_HEIGHT - 8);
+    ctx.fillText(formatPositionDetails(planetRow, signs, degrees), colX, currentY + ROW_HEIGHT);
     ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.positionDetails, ROW_HEIGHT);
     colX += TABLE_COL_WIDTHS.positionDetails;
 
@@ -360,14 +446,14 @@ async function generateNatalTableImage(chartData) {
       if (rowIndex === colIndex) {
         // Diagonal cell: show planet symbol
         ctx.fillStyle = COLORS.TEXT;
-        ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
+        ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE, currentY + ROW_HEIGHT);
       } else if (colIndex > rowIndex) {
         // Upper part of the diagonal: draw nothing (leave blank)
       } else {
         // Lower part of the diagonal: calculate and draw aspect symbol
         const aspectSymbol = calculateAspect(planetRow, degrees[planetRow], planetCol, degrees[planetCol]);
         ctx.fillStyle = getAspectColor(aspectSymbol);
-        ctx.fillText(aspectSymbol, colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT - 8);
+        ctx.fillText(aspectSymbol, colX + ASPECT_MATRIX_CELL_SIZE, currentY + ROW_HEIGHT);
       }
       colX += ASPECT_MATRIX_CELL_SIZE;
     });
@@ -393,19 +479,19 @@ async function generateNatalTableImage(chartData) {
     ctx.lineWidth = 1;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-    ctx.fillText(ELEMENT_LABELS_PT[element] || element.charAt(0).toUpperCase() + element.slice(1), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(ELEMENT_LABELS_PT[element] || element.charAt(0).toUpperCase() + element.slice(1), eqColX, eqCurrentY + ROW_HEIGHT);
     eqColX += EQ_COL_WIDTHS.name;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-    ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(data.count.toString(), eqColX, eqCurrentY + ROW_HEIGHT);
     eqColX += EQ_COL_WIDTHS.count;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
-    ctx.fillText(elementsPlanets[element].join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(elementsPlanets[element].join(', '), eqColX, eqCurrentY + ROW_HEIGHT);
     eqColX += EQ_COL_WIDTHS.planets;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-    ctx.fillText(getTranslatedStatus(data.status), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(getTranslatedStatus(data.status), eqColX, eqCurrentY + ROW_HEIGHT);
     eqColX += EQ_COL_WIDTHS.status;
     eqCurrentY += ROW_HEIGHT;
   }
@@ -425,19 +511,19 @@ async function generateNatalTableImage(chartData) {
     ctx.lineWidth = 1;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.name, ROW_HEIGHT);
-    ctx.fillText(QUALITY_LABELS_PT[quality] || quality.charAt(0).toUpperCase() + quality.slice(1), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(QUALITY_LABELS_PT[quality] || quality.charAt(0).toUpperCase() + quality.slice(1), eqColX, eqCurrentY + ROW_HEIGHT);
     eqColX += EQ_COL_WIDTHS.name;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-    ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(data.count.toString(), eqColX, eqCurrentY + ROW_HEIGHT);
     eqColX += EQ_COL_WIDTHS.count;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
-    ctx.fillText(qualitiesPlanets[quality].join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(qualitiesPlanets[quality].join(', '), eqColX, eqCurrentY + ROW_HEIGHT);
     eqColX += EQ_COL_WIDTHS.planets;
 
     ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
-    ctx.fillText(getTranslatedStatus(data.status), eqColX + 5, eqCurrentY + ROW_HEIGHT - 8);
+    ctx.fillText(getTranslatedStatus(data.status), eqColX, eqCurrentY + ROW_HEIGHT);
     eqColX += EQ_COL_WIDTHS.status;
     eqCurrentY += ROW_HEIGHT;
   }
