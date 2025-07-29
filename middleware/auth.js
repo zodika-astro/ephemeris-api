@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 function verifyApiKey(req, res, next) {
   // Check both header and query parameter for API key
   const apiKey = req.header('X-API-KEY') || req.query.apiKey;
