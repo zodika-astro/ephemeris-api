@@ -9,11 +9,13 @@ const ephePath = path.join(__dirname, '..', 'ephe');
 swisseph.swe_set_ephe_path(ephePath);
 logger.info(`Swiss Ephemeris path set to: ${ephePath}`);
 
-// Zodiac signs
-const signs = [
-  "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-  "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
-];
+//astrology.js utils
+const {
+  degreeToSign,
+  getStatusByCount,
+  SIGN_ELEMENT_MAP,
+  SIGN_QUALITY_MAP
+} = require('../utils/astrology');
 
 // Aspect definitions and standard degree values
 const ASPECT_DEFINITIONS = [
@@ -51,41 +53,11 @@ const ALL_POINTS_FOR_ASPECTS = [
   "ascendant", "mc"
 ];
 
-// Element and modality classification
-const SIGN_ELEMENT_MAP = {
-  "Aries": "fire", "Leo": "fire", "Sagittarius": "fire",
-  "Taurus": "earth", "Virgo": "earth", "Capricorn": "earth",
-  "Gemini": "air", "Libra": "air", "Aquarius": "air",
-  "Cancer": "water", "Scorpio": "water", "Pisces": "water"
-};
-
-// Map zodiac signs to their corresponding qualities (modalities)
-const SIGN_QUALITY_MAP = {
-  "Aries": "cardinal", "Cancer": "cardinal", "Libra": "cardinal", "Capricorn": "cardinal",
-  "Taurus": "fixed", "Leo": "fixed", "Scorpio": "fixed", "Aquarius": "fixed",
-  "Gemini": "mutable", "Virgo": "mutable", "Sagittarius": "mutable", "Pisces": "mutable"
-};
-
 // Weight used for elemental/modality analysis
 const WEIGHT_PER_POINT = {
   sun: 3, moon: 3, ascendant: 3, mc: 3,
   mercury: 2, venus: 2, mars: 2, jupiter: 2,
   saturn: 1, uranus: 1, neptune: 1, pluto: 1
-};
-
-// Converts a celestial degree (0-360) to its corresponding zodiac sign
-const degreeToSign = (degree) => {
-  const normalized = ((degree % 360) + 360) % 360;
-  return signs[Math.floor(normalized / 30)];
-};
-
-// Determines status (lack, balance, excess) based on point count in categories
-const getStatusByCount = (count) => {
-  const LACK_MAX = 3;
-  const BALANCE_MAX = 8;
-  if (count <= LACK_MAX) return "lack";
-  if (count <= BALANCE_MAX) return "balance";
-  return "excess";
 };
 
 // Computes house cusps using Swiss Ephemeris
@@ -292,6 +264,8 @@ const analyzeHouses = (cusps) => {
     }))
   };
 };
+
+//Body Request ---- output
 
 const calculateEphemeris = async (reqBody) => {
   try {
