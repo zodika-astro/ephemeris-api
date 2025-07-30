@@ -12,7 +12,7 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 
 // trust proxy X-Fowarded-For
-app.set('trust proxy', true); 
+app.set('trust proxy', 1);
 
 // express rate limit
 const apiLimiter = rateLimit({
