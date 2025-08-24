@@ -34,6 +34,7 @@ yarn-debug.log*
 yarn-error.log*
 *.tmp
 *.temp
+*.js.save
 
 # IDEs e edits
 .vscode/
