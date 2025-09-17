@@ -69,7 +69,7 @@ router.post('/ephemeris/chart-image', verifyApiKey, validateBody(ephemerisSchema
 });
 
 // chart image (POST request)
-rrouter.post('/ephemeris/table-image', verifyApiKey, validateBody(ephemerisSchema), async (req, res) => {
+router.post('/ephemeris/table-image', verifyApiKey, validateBody(ephemerisSchema), async (req, res) => {
   logger.info('Table image generation route called'); // Log endpoint call
 
   try {
