@@ -1,6 +1,8 @@
 'use strict';
 
 const { verifyApiKey } = require('../middleware/auth');
+const validateBody = require('../middleware/validate');
+const ephemerisSchema = require('../schemas/ephemeris');
 const express = require('express');
 const router = express.Router();
 const EphemerisController = require('../controllers/ephemeris'); // ephemeris controller
@@ -12,7 +14,7 @@ const logger = require('../logger'); // Import the logger for consistent logging
 logger.info('Entered ephemeris route (routes/vers1.js)');
 
 // ephemeris calculations (POST request)
-router.post('/ephemeris', verifyApiKey, async (req, res) => {
+router.post('/ephemeris', verifyApiKey, validateBody(ephemerisSchema), async (req, res) => {
   logger.info('Ephemeris calculation route called'); // Log endpoint call
 
   try {
@@ -32,7 +34,7 @@ router.post('/ephemeris', verifyApiKey, async (req, res) => {
 });
 
 // chart image (POST request)
-router.post('/ephemeris/chart-image', verifyApiKey, async (req, res) => {
+router.post('/ephemeris/chart-image', verifyApiKey, validateBody(ephemerisSchema), async (req, res) => {
   logger.info('Chart image generation route called'); // Log endpoint call
 
   try {
@@ -67,7 +69,7 @@ router.post('/ephemeris/chart-image', verifyApiKey, async (req, res) => {
 });
 
 // chart image (POST request)
-router.post('/ephemeris/table-image', verifyApiKey, async (req, res) => {
+rrouter.post('/ephemeris/table-image', verifyApiKey, validateBody(ephemerisSchema), async (req, res) => {
   logger.info('Table image generation route called'); // Log endpoint call
 
   try {
