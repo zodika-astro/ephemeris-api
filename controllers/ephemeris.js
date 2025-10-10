@@ -54,39 +54,39 @@ const WEIGHT_PER_POINT = {
 };
 
 const SIGN_LABELS = {
-  en: ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"],
-  pt: ["Áries","Touro","Gêmeos","Câncer","Leão","Virgem","Libra","Escorpião","Sagitário","Capricórnio","Aquário","Peixes"],
-  es: ["Aries","Tauro","Géminis","Cáncer","Leo","Virgo","Libra","Escorpio","Sagitario","Capricornio","Acuario","Piscis"]
+  en: ["aries","taurus","gemini","cancer","leo","virgo","libra","scorpio","sagittarius","capricorn","aquarius","pisces"],
+  pt: ["áries","touro","gêmeos","câncer","leão","virgem","libra","escorpião","sagitário","capricórnio","aquário","peixes"],
+  es: ["aries","tauro","géminis","cáncer","leo","virgo","libra","escorpio","sagitario","capricornio","acuario","piscis"]
 };
 
 const PLANET_LABELS = {
   en: {
-    sun: "Sun", moon: "Moon", mercury: "Mercury", venus: "Venus", mars: "Mars",
-    jupiter: "Jupiter", saturn: "Saturn", uranus: "Uranus", neptune: "Neptune", pluto: "Pluto",
-    trueNode: "North Node", lilith: "Lilith", chiron: "Chiron", ascendant: "Ascendant", mc: "MC"
+    sun: "sun", moon: "moon", mercury: "mercury", venus: "venus", mars: "mars",
+    jupiter: "jupiter", saturn: "saturn", uranus: "uranus", neptune: "neptune", pluto: "pluto",
+    trueNode: "north node", lilith: "lilith", chiron: "chiron", ascendant: "ascendant", mc: "mc"
   },
   pt: {
-    sun: "Sol", moon: "Lua", mercury: "Mercúrio", venus: "Vênus", mars: "Marte",
-    jupiter: "Júpiter", saturn: "Saturno", uranus: "Urano", neptune: "Netuno", pluto: "Plutão",
-    trueNode: "Nodo Norte", lilith: "Lilith", chiron: "Quíron", ascendant: "Ascendente", mc: "Meio do Céu"
+    sun: "sol", moon: "lua", mercury: "mercúrio", venus: "vênus", mars: "marte",
+    jupiter: "júpiter", saturn: "saturno", uranus: "urano", neptune: "netuno", pluto: "plutão",
+    trueNode: "nodo norte", lilith: "lilith", chiron: "quíron", ascendant: "ascendente", mc: "meio do déu"
   },
   es: {
-    sun: "Sol", moon: "Luna", mercury: "Mercurio", venus: "Venus", mars: "Marte",
-    jupiter: "Júpiter", saturn: "Saturno", uranus: "Urano", neptune: "Neptuno", pluto: "Plutón",
-    trueNode: "Nodo Norte", lilith: "Lilith", chiron: "Quirón", ascendant: "Ascendente", mc: "Medio Cielo"
+    sun: "sol", moon: "luna", mercury: "mercurio", venus: "venus", mars: "marte",
+    jupiter: "júpiter", saturn: "saturno", uranus: "Urano", neptune: "neptuno", pluto: "plutón",
+    trueNode: "nodo norte", lilith: "lilith", chiron: "quirón", ascendant: "ascendente", mc: "medio cielo"
   }
 };
 
 const ELEMENT_LABELS = {
-  en: { fire: "Fire", earth: "Earth", air: "Air", water: "Water" },
-  pt: { fire: "Fogo", earth: "Terra", air: "Ar", water: "Água" },
-  es: { fire: "Fuego", earth: "Tierra", air: "Aire", water: "Agua" }
+  en: { fire: "fire", earth: "earth", air: "air", water: "water" },
+  pt: { fire: "fogo", earth: "terra", air: "ar", water: "água" },
+  es: { fire: "fuego", earth: "tierra", air: "aire", water: "agua" }
 };
 
 const QUALITY_LABELS = {
-  en: { cardinal: "Cardinal", fixed: "Fixed", mutable: "Mutable" },
-  pt: { cardinal: "Cardinal", fixed: "Fixo", mutable: "Mutável" },
-  es: { cardinal: "Cardinal", fixed: "Fijo", mutable: "Mutable" }
+  en: { cardinal: "cardinal", fixed: "fixed", mutable: "mutable" },
+  pt: { cardinal: "cardinal", fixed: "fixo", mutable: "mutável" },
+  es: { cardinal: "cardinal", fixed: "fijo", mutable: "mutable" }
 };
 
 const STATUS_LABELS = {
@@ -96,9 +96,9 @@ const STATUS_LABELS = {
 };
 
 const ASPECT_LABELS = {
-  en: { conjunction: "Conjunction", sextile: "Sextile", square: "Square", trine: "Trine", opposition: "Opposition" },
-  pt: { conjunction: "Conjunção", sextile: "Sextil", square: "Quadratura", trine: "Trígono", opposition: "Oposição" },
-  es: { conjunction: "Conjunción", sextile: "Sextil", square: "Cuadratura", trine: "Trígono", opposition: "Oposición" }
+  en: { conjunction: "conjunction", sextile: "sextile", square: "square", trine: "trine", opposition: "opposition" },
+  pt: { conjunction: "conjunção", sextile: "sextil", square: "quadratura", trine: "trígono", opposition: "oposição" },
+  es: { conjunction: "conjunción", sextile: "sextil", square: "quadratura", trine: "trígono", opposition: "oposición" }
 };
 
 const HOUSE_WORD = { en: "house", pt: "casa", es: "casa" };
