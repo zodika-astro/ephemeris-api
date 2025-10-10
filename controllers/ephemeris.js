@@ -4,12 +4,10 @@ const swisseph = require('swisseph');
 const path = require('path');
 const logger = require('../logger');
 
-// Set Swiss Ephemeris path
 const ephePath = path.join(__dirname, '..', 'ephe');
 swisseph.swe_set_ephe_path(ephePath);
 logger.info(`Swiss Ephemeris path set to: ${ephePath}`);
 
-//astrology.js utils
 const {
   degreeToSign,
   getStatusByCount,
@@ -17,7 +15,6 @@ const {
   SIGN_QUALITY_MAP
 } = require('../utils/astrology');
 
-// Aspect definitions and standard degree values
 const ASPECT_DEFINITIONS = [
   { name: "conjunction", degree: 0, category: 0 },
   { name: "sextile", degree: 60, category: 2 },
@@ -26,8 +23,6 @@ const ASPECT_DEFINITIONS = [
   { name: "opposition", degree: 180, category: 0 }
 ];
 
-// Define individual orb rules for each celestial body/point,
-// mapped to aspect categories: [Conj/Opp, Sq/Tr, Sextile]
 const ORB_RULES = {
   'sun': [10, 9, 7],
   'moon': [10, 9, 7],
@@ -46,21 +41,53 @@ const ORB_RULES = {
   'mc': [10, 10, 6]
 };
 
-// Define all astrological points considered for aspect calculations
 const ALL_POINTS_FOR_ASPECTS = [
   "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
   "uranus", "neptune", "pluto", "trueNode", "chiron", "lilith",
   "ascendant", "mc"
 ];
 
-// Weight used for elemental/modality analysis
 const WEIGHT_PER_POINT = {
   sun: 3, moon: 3, ascendant: 3, mc: 3,
   mercury: 2, venus: 2, mars: 2, jupiter: 2,
   saturn: 1, uranus: 1, neptune: 1, pluto: 1
 };
 
-// Computes house cusps using Swiss Ephemeris
+/* ===== i18n (somente para saída) ===== */
+
+const SIGN_LABELS = {
+  en: ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"],
+  pt: ["Áries","Touro","Gêmeos","Câncer","Leão","Virgem","Libra","Escorpião","Sagitário","Capricórnio","Aquário","Peixes"],
+  es: ["Aries","Tauro","Géminis","Cáncer","Leo","Virgo","Libra","Escorpio","Sagitario","Capricornio","Acuario","Piscis"]
+};
+
+const ASPECT_LABELS = {
+  en: { conjunction: "Conjunction", sextile: "Sextile", square: "Square", trine: "Trine", opposition: "Opposition" },
+  pt: { conjunction: "Conjunção",  sextile: "Sextil",   square: "Quadratura", trine: "Trígono", opposition: "Oposição" },
+  es: { conjunction: "Conjunción",  sextile: "Sextil",   square: "Cuadratura", trine: "Trígono", opposition: "Oposición" }
+};
+
+const HOUSE_WORD = { en: "house", pt: "casa", es: "casa" };
+
+function normalizeLang(raw) {
+  const v = String(raw || 'en').toLowerCase();
+  if (v.startsWith('pt')) return 'pt';
+  if (v.startsWith('es')) return 'es';
+  return 'en';
+}
+
+function signIndexFromDegree(deg) {
+  const n = ((deg % 360) + 360) % 360;
+  return Math.floor(n / 30);
+}
+
+function degreeToSignLocalized(deg, lang) {
+  const labels = SIGN_LABELS[lang] || SIGN_LABELS.en;
+  return labels[signIndexFromDegree(deg)];
+}
+
+/* ===================================== */
+
 const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   return new Promise((resolve, reject) => {
     swisseph.swe_houses_ex(jd, swisseph.SEFLG_SWIEPH, lat, lng, houseSystem, (res) => {
@@ -70,7 +97,6 @@ const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   });
 };
 
-// Determines the astrological house a planet is in given its degree and house cusps
 const determineAstrologicalHouse = (planetDegree, cusps) => {
   const normalizedPlanetDegree = ((planetDegree % 360) + 360) % 360;
   for (let i = 0; i < 12; i++) {
@@ -85,7 +111,6 @@ const determineAstrologicalHouse = (planetDegree, cusps) => {
   return null;
 };
 
-// Computes planetary positions, signs, retrogradation status, and houses
 async function computePlanets(jd, cusps) {
   const planetsMap = {
     sun: swisseph.SE_SUN, moon: swisseph.SE_MOON, mercury: swisseph.SE_MERCURY,
@@ -128,8 +153,7 @@ async function computePlanets(jd, cusps) {
   return { geo: geoPositions, signs: signData };
 }
 
-// Computes aspects between all relevant planetary pairs based on dynamic orb rules
-async function computeAspects(planetGeoPositions, planetSignData) {
+async function computeAspects(planetGeoPositions, planetSignData, lang) {
   const groupedAspects = {
     conjunction: [], sextile: [], square: [], trine: [], opposition: []
   };
@@ -140,7 +164,6 @@ async function computeAspects(planetGeoPositions, planetSignData) {
     for (let j = i + 1; j < allPointsKeys.length; j++) {
       const [p1, p2] = [allPointsKeys[i], allPointsKeys[j]];
 
-      // Skip aspects between AC and MC as per rule
       if ((p1 === "ascendant" && p2 === "mc") || (p1 === "mc" && p2 === "ascendant")) {
         continue;
       }
@@ -153,7 +176,6 @@ async function computeAspects(planetGeoPositions, planetSignData) {
         continue;
       }
 
-      // Convert to degrees and minutes only (ignore seconds)
       const deg1 = Math.floor(pos1) + (Math.floor((pos1 % 1) * 60)) / 60;
       const deg2 = Math.floor(pos2) + (Math.floor((pos2 % 1) * 60)) / 60;
       let cleanDiff = Math.abs(deg1 - deg2);
@@ -171,12 +193,17 @@ async function computeAspects(planetGeoPositions, planetSignData) {
         const orb = (p1Orb + p2Orb) / 2.0;
 
         if (orb > 0 && cleanDiff >= (aspectDef.degree - orb) && cleanDiff <= (aspectDef.degree + orb)) {
+          const aspectLabel = (ASPECT_LABELS[lang] || ASPECT_LABELS.en)[aspectDef.name];
+          const s1 = degreeToSignLocalized(pos1, lang);
+          const s2 = degreeToSignLocalized(pos2, lang);
+          const wordHouse = HOUSE_WORD[lang] || HOUSE_WORD.en;
+
           groupedAspects[aspectDef.name].push({
             planet1: { name: p1, sign: info1.sign, house: info1.house },
             planet2: { name: p2, sign: info2.sign, house: info2.house },
-            description: `${aspectDef.name.charAt(0).toUpperCase() + aspectDef.name.slice(1)} - ` +
-              `${p1.charAt(0).toUpperCase() + p1.slice(1)} (${info1.sign}) - house ${info1.house} x ` +
-              `${p2.charAt(0).toUpperCase() + p2.slice(1)} (${info2.sign}), house ${info2.house}`
+            description:
+              `${aspectLabel} — ${p1.charAt(0).toUpperCase() + p1.slice(1)} (${s1}) · ${wordHouse} ${info1.house} × ` +
+              `${p2.charAt(0).toUpperCase() + p2.slice(1)} (${s2}) · ${wordHouse} ${info2.house}`
           });
         }
       }
@@ -265,8 +292,6 @@ const analyzeHouses = (cusps) => {
   };
 };
 
-//Body Request ---- output
-
 const calculateEphemeris = async (reqBody) => {
   try {
     const {
@@ -276,6 +301,7 @@ const calculateEphemeris = async (reqBody) => {
       config = {}
     } = reqBody;
 
+    const lang = normalizeLang(config.language);
     const decimalHours = hours + minutes / 60 + seconds / 3600;
     const jd = swisseph.swe_julday(year, month, date, decimalHours - timezone, swisseph.SE_GREG_CAL);
 
@@ -295,7 +321,7 @@ const calculateEphemeris = async (reqBody) => {
       planetSignData.mc = { sign: degreeToSign(mcDegree), retrograde: "no", house: 10 };
     }
 
-    const aspects = await computeAspects(geo, planetSignData);
+    const aspects = await computeAspects(geo, planetSignData, lang);
     const { elements, qualities } = await analyzeElementalAndModalQualities(planetSignData, cusps);
     const analysis = analyzeHouses(cusps);
 
@@ -313,11 +339,18 @@ const calculateEphemeris = async (reqBody) => {
       }
 
       formattedHouses[`house${i}`] = {
-        sign: cuspInfo?.sign || null,
+        sign: cuspInfo ? degreeToSignLocalized(cuspInfo.degree, lang) : null,
         cuspDegree: cuspInfo?.degree || null,
         intercepted: hasInterceptedSign ? "yes" : "no",
         planets: planetsInThisHouse
       };
+    }
+
+    const planetsOut = {};
+    for (const [name, data] of Object.entries(planetSignData)) {
+      const deg = geo[name];
+      const localizedSign = typeof deg === 'number' ? degreeToSignLocalized(deg, lang) : data.sign;
+      planetsOut[name] = { ...data, sign: localizedSign };
     }
 
     return {
@@ -325,7 +358,7 @@ const calculateEphemeris = async (reqBody) => {
       message: "Ephemeris computed successfully",
       ephemerisQuery: reqBody,
       geo,
-      planets: planetSignData,
+      planets: planetsOut,
       houses: formattedHouses,
       aspects,
       elements,
