@@ -59,10 +59,46 @@ const SIGN_LABELS = {
   es: ["Aries","Tauro","Géminis","Cáncer","Leo","Virgo","Libra","Escorpio","Sagitario","Capricornio","Acuario","Piscis"]
 };
 
+const PLANET_LABELS = {
+  en: {
+    sun: "Sun", moon: "Moon", mercury: "Mercury", venus: "Venus", mars: "Mars",
+    jupiter: "Jupiter", saturn: "Saturn", uranus: "Uranus", neptune: "Neptune", pluto: "Pluto",
+    trueNode: "North Node", lilith: "Lilith", chiron: "Chiron", ascendant: "Ascendant", mc: "MC"
+  },
+  pt: {
+    sun: "Sol", moon: "Lua", mercury: "Mercúrio", venus: "Vênus", mars: "Marte",
+    jupiter: "Júpiter", saturn: "Saturno", uranus: "Urano", neptune: "Netuno", pluto: "Plutão",
+    trueNode: "Nodo Norte", lilith: "Lilith", chiron: "Quíron", ascendant: "Ascendente", mc: "Meio do Céu"
+  },
+  es: {
+    sun: "Sol", moon: "Luna", mercury: "Mercurio", venus: "Venus", mars: "Marte",
+    jupiter: "Júpiter", saturn: "Saturno", uranus: "Urano", neptune: "Neptuno", pluto: "Plutón",
+    trueNode: "Nodo Norte", lilith: "Lilith", chiron: "Quirón", ascendant: "Ascendente", mc: "Medio Cielo"
+  }
+};
+
+const ELEMENT_LABELS = {
+  en: { fire: "Fire", earth: "Earth", air: "Air", water: "Water" },
+  pt: { fire: "Fogo", earth: "Terra", air: "Ar", water: "Água" },
+  es: { fire: "Fuego", earth: "Tierra", air: "Aire", water: "Agua" }
+};
+
+const QUALITY_LABELS = {
+  en: { cardinal: "Cardinal", fixed: "Fixed", mutable: "Mutable" },
+  pt: { cardinal: "Cardinal", fixed: "Fixo", mutable: "Mutável" },
+  es: { cardinal: "Cardinal", fixed: "Fijo", mutable: "Mutable" }
+};
+
+const STATUS_LABELS = {
+  en: { lack: "lack", balance: "balance", excess: "excess" },
+  pt: { lack: "escassez", balance: "equilíbrio", excess: "excesso" },
+  es: { lack: "falta", balance: "equilibrio", excess: "exceso" }
+};
+
 const ASPECT_LABELS = {
   en: { conjunction: "Conjunction", sextile: "Sextile", square: "Square", trine: "Trine", opposition: "Opposition" },
-  pt: { conjunction: "Conjunção",  sextile: "Sextil",   square: "Quadratura", trine: "Trígono", opposition: "Oposição" },
-  es: { conjunction: "Conjunción",  sextile: "Sextil",   square: "Cuadratura", trine: "Trígono", opposition: "Oposición" }
+  pt: { conjunction: "Conjunção", sextile: "Sextil", square: "Quadratura", trine: "Trígono", opposition: "Oposição" },
+  es: { conjunction: "Conjunción", sextile: "Sextil", square: "Cuadratura", trine: "Trígono", opposition: "Oposición" }
 };
 
 const HOUSE_WORD = { en: "house", pt: "casa", es: "casa" };
@@ -70,7 +106,7 @@ const HOUSE_WORD = { en: "house", pt: "casa", es: "casa" };
 const YESNO = {
   en: { yes: "yes", no: "no" },
   pt: { yes: "sim", no: "não" },
-  es: { yes: "sí",  no: "no"  }
+  es: { yes: "sí", no: "no" }
 };
 
 function normalizeLang(raw) {
@@ -199,13 +235,14 @@ async function computeAspects(planetGeoPositions, planetSignData, lang) {
           const s1 = degreeToSignLocalized(pos1, lang);
           const s2 = degreeToSignLocalized(pos2, lang);
           const wordHouse = HOUSE_WORD[lang] || HOUSE_WORD.en;
+          const planetLabels = PLANET_LABELS[lang] || PLANET_LABELS.en;
 
           groupedAspects[aspectDef.name].push({
-            planet1: { name: p1, sign: s1, house: info1.house },
-            planet2: { name: p2, sign: s2, house: info2.house },
+            planet1: { name: p1, label: planetLabels[p1] || p1, sign: s1, house: info1.house },
+            planet2: { name: p2, label: planetLabels[p2] || p2, sign: s2, house: info2.house },
             description:
-              `${aspectLabel} — ${p1.charAt(0).toUpperCase() + p1.slice(1)} (${s1}) · ${wordHouse} ${info1.house} × ` +
-              `${p2.charAt(0).toUpperCase() + p2.slice(1)} (${s2}) · ${wordHouse} ${info2.house}`
+              `${aspectLabel} — ${planetLabels[p1] || p1} (${s1}) · ${wordHouse} ${info1.house} × ` +
+              `${planetLabels[p2] || p2} (${s2}) · ${wordHouse} ${info2.house}`
           });
         }
       }
@@ -329,6 +366,8 @@ const calculateEphemeris = async (reqBody) => {
 
     const formattedHouses = {};
     const yn = YESNO[lang] || YESNO.en;
+    const planetLabels = PLANET_LABELS[lang] || PLANET_LABELS.en;
+
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
       const hasInterceptedSign = analysis.housesWithInterceptedSigns.some(item => item.house === i);
@@ -345,7 +384,8 @@ const calculateEphemeris = async (reqBody) => {
         sign: cuspInfo ? degreeToSignLocalized(cuspInfo.degree, lang) : null,
         cuspDegree: cuspInfo?.degree || null,
         intercepted: hasInterceptedSign ? yn.yes : yn.no,
-        planets: planetsInThisHouse
+        planets: planetsInThisHouse,
+        planetsLabels: planetsInThisHouse.map(p => planetLabels[p] || p)
       };
     }
 
@@ -360,6 +400,27 @@ const calculateEphemeris = async (reqBody) => {
       };
     }
 
+    const elementsOut = {};
+    const elLabels = ELEMENT_LABELS[lang] || ELEMENT_LABELS.en;
+    const stLabels = STATUS_LABELS[lang] || STATUS_LABELS.en;
+    for (const [elKey, obj] of Object.entries(elements)) {
+      elementsOut[elKey] = {
+        ...obj,
+        label: elLabels[elKey] || elKey,
+        statusLabel: stLabels[obj.status] || obj.status
+      };
+    }
+
+    const qualitiesOut = {};
+    const qLabels = QUALITY_LABELS[lang] || QUALITY_LABELS.en;
+    for (const [qKey, obj] of Object.entries(qualities)) {
+      qualitiesOut[qKey] = {
+        ...obj,
+        label: qLabels[qKey] || qKey,
+        statusLabel: stLabels[obj.status] || obj.status
+      };
+    }
+
     return {
       statusCode: 200,
       message: "Ephemeris computed successfully",
@@ -368,8 +429,8 @@ const calculateEphemeris = async (reqBody) => {
       planets: planetsOut,
       houses: formattedHouses,
       aspects,
-      elements,
-      qualities
+      elements: elementsOut,
+      qualities: qualitiesOut
     };
   } catch (err) {
     logger.error(`Calculation error: ${err.message}`);
