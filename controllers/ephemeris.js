@@ -53,8 +53,6 @@ const WEIGHT_PER_POINT = {
   saturn: 1, uranus: 1, neptune: 1, pluto: 1
 };
 
-/* ===== i18n (somente para saída) ===== */
-
 const SIGN_LABELS = {
   en: ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"],
   pt: ["Áries","Touro","Gêmeos","Câncer","Leão","Virgem","Libra","Escorpião","Sagitário","Capricórnio","Aquário","Peixes"],
@@ -68,6 +66,12 @@ const ASPECT_LABELS = {
 };
 
 const HOUSE_WORD = { en: "house", pt: "casa", es: "casa" };
+
+const YESNO = {
+  en: { yes: "yes", no: "no" },
+  pt: { yes: "sim", no: "não" },
+  es: { yes: "sí",  no: "no"  }
+};
 
 function normalizeLang(raw) {
   const v = String(raw || 'en').toLowerCase();
@@ -85,8 +89,6 @@ function degreeToSignLocalized(deg, lang) {
   const labels = SIGN_LABELS[lang] || SIGN_LABELS.en;
   return labels[signIndexFromDegree(deg)];
 }
-
-/* ===================================== */
 
 const computeHouses = (jd, lat, lng, houseSystem = 'P') => {
   return new Promise((resolve, reject) => {
@@ -199,8 +201,8 @@ async function computeAspects(planetGeoPositions, planetSignData, lang) {
           const wordHouse = HOUSE_WORD[lang] || HOUSE_WORD.en;
 
           groupedAspects[aspectDef.name].push({
-            planet1: { name: p1, sign: info1.sign, house: info1.house },
-            planet2: { name: p2, sign: info2.sign, house: info2.house },
+            planet1: { name: p1, sign: s1, house: info1.house },
+            planet2: { name: p2, sign: s2, house: info2.house },
             description:
               `${aspectLabel} — ${p1.charAt(0).toUpperCase() + p1.slice(1)} (${s1}) · ${wordHouse} ${info1.house} × ` +
               `${p2.charAt(0).toUpperCase() + p2.slice(1)} (${s2}) · ${wordHouse} ${info2.house}`
@@ -326,6 +328,7 @@ const calculateEphemeris = async (reqBody) => {
     const analysis = analyzeHouses(cusps);
 
     const formattedHouses = {};
+    const yn = YESNO[lang] || YESNO.en;
     for (let i = 1; i <= 12; i++) {
       const cuspInfo = analysis.cusps.find(c => c.house === i);
       const hasInterceptedSign = analysis.housesWithInterceptedSigns.some(item => item.house === i);
@@ -341,7 +344,7 @@ const calculateEphemeris = async (reqBody) => {
       formattedHouses[`house${i}`] = {
         sign: cuspInfo ? degreeToSignLocalized(cuspInfo.degree, lang) : null,
         cuspDegree: cuspInfo?.degree || null,
-        intercepted: hasInterceptedSign ? "yes" : "no",
+        intercepted: hasInterceptedSign ? yn.yes : yn.no,
         planets: planetsInThisHouse
       };
     }
@@ -350,7 +353,11 @@ const calculateEphemeris = async (reqBody) => {
     for (const [name, data] of Object.entries(planetSignData)) {
       const deg = geo[name];
       const localizedSign = typeof deg === 'number' ? degreeToSignLocalized(deg, lang) : data.sign;
-      planetsOut[name] = { ...data, sign: localizedSign };
+      planetsOut[name] = {
+        ...data,
+        sign: localizedSign,
+        retrograde: data.retrograde === "yes" ? yn.yes : yn.no
+      };
     }
 
     return {
