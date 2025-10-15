@@ -91,7 +91,7 @@ const QUALITY_LABELS = {
 
 const STATUS_LABELS = {
   en: { lack: "lack", balance: "balance", excess: "excess" },
-  pt: { lack: "escassez", balance: "equilíbrio", excess: "excesso" },
+  pt: { lack: "falta", balance: "equilíbrio", excess: "excesso" },
   es: { lack: "falta", balance: "equilibrio", excess: "exceso" }
 };
 
