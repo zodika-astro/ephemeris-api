@@ -12,6 +12,7 @@ const InfoController = require('../common/info');
 const EphemerisController = require(path.resolve(__dirname, '..', 'controllers', 'ephemeris'));
 const ChartController = require(path.resolve(__dirname, '..', 'controllers', 'generateChartImage'));
 const TableController = require(path.resolve(__dirname, '..', 'controllers', 'generateTableImage'));
+const AspectsController = require(path.resolve(__dirname, '..', 'controllers', 'aspects'));
 
 // Middlewares
 const { verifyApiKey } = require('../middleware/auth');
@@ -71,6 +72,9 @@ router.post('/chart-image', verifyApiKey, validateBody(ephemerisSchema), ChartCo
 
 // Generate natal table image
 router.post('/table-image', verifyApiKey, validateBody(ephemerisSchema), TableController.generateNatalTableImage);
+
+// Generate aspects placeholders
+router.post('/aspects/placeholders', verifyApiKey, AspectsController.buildFromAspects);
 
 // Versioned API (if needed)
 router.use('/v1', require('./vers1'));
