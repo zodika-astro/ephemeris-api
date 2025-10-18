@@ -74,7 +74,7 @@ router.post('/chart-image', verifyApiKey, validateBody(ephemerisSchema), ChartCo
 router.post('/table-image', verifyApiKey, validateBody(ephemerisSchema), TableController.generateNatalTableImage);
 
 // Generate aspects placeholders
-router.post('/aspects/placeholders', verifyApiKey, AspectsController.buildFromAspects);
+router.post('/aspects', verifyApiKey, AspectsController.buildFromAspects);
 
 // Versioned API (if needed)
 router.use('/v1', require('./vers1'));
