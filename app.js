@@ -25,7 +25,7 @@ const apiLimiter = rateLimit({
 // Security middleware
 app.use(helmet());
 app.disable('x-powered-by');
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(apiLimiter);
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use('/health', require('./routes/health'));
