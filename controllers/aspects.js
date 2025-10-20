@@ -42,13 +42,15 @@ function normalizeLang(raw) {
 
 const TYPE_WEIGHTS = { conjunction: 5.0, opposition: 5.0, square: 4.0, trine: 3.0, sextile: 3.0 };
 const TYPE_LABELS_PT = { conjunction: 'conjunção', opposition: 'oposição', square: 'quadratura', trine: 'trígono', sextile: 'sextil' };
+
 const TYPE_INTRO = {
-  conjunction: 'foco concentrado neste tema.',
-  opposition:  'tensão entre dois polos pede balança.',
-  square:      'atrito criativo pede ajustes práticos.',
-  trine:       'facilidade e fluidez; cultivar consistência maximiza o potencial.',
-  sextile:     'oportunidades que pedem o primeiro passo.'
+  conjunction: 'Foco concentrado neste tema.',
+  opposition:  'Tensão pede equilíbrio.',
+  square:      'Atrito útil exige ajustes.',
+  trine:       'Fluidez favorece desenvolvimento.',
+  sextile:     'Oportunidade pede iniciativa.'
 };
+
 const TYPE_PHRASE = {
   conjunction: 'fusão de temas; foco importante no assunto.',
   opposition:  'puxões de dois polos; pede equilíbrio do eixo.',
@@ -127,21 +129,21 @@ const PT_LABEL_BY_NAME = {
 };
 
 const ROLE_BY_NAME = {
-  sun: 'identidade e propósito',
-  moon: 'emoções e necessidades',
-  mercury: 'mente e comunicação',
-  venus: 'vínculos e valores',
-  mars: 'ação e desejo',
+  sun: 'vitalidade e propósito',
+  moon: 'emoções e nutrição',
+  mercury: 'mente e expressão',
+  venus: 'vínculos e prazer',
+  mars: 'impulso e ação',
   jupiter: 'expansão e sentido',
-  saturn: 'estrutura e limites',
-  uranus: 'mudança e autonomia',
+  saturn: 'estrutura e responsabilidade',
+  uranus: 'mudança e originalidade',
   neptune: 'imaginação e fé',
   pluto: 'poder e transformação',
-  ascendant: 'persona e abordagem',
+  ascendant: 'presença e abordagem',
   mc: 'vocação e direção pública',
-  trueNode: 'trajetória evolutiva',
-  chiron: 'ferida/mentor e cura',
-  lilith: 'instintos e autonomia'
+  trueNode: 'direção evolutiva',
+  chiron: 'ferida e cura',
+  lilith: 'instinto e autonomia'
 };
 
 const HOUSE_THEMES_PT = {
@@ -172,43 +174,23 @@ function roleOf(name) {
   return ROLE_BY_NAME[name] || '';
 }
 
-function introByType(type) {
-  return TYPE_INTRO[type] || '';
-}
-function connectorByType(type) {
-  // frase curta do tipo, para atuar como "cola" entre P1 e P2
-  return TYPE_PHRASE[type] || '';
-}
+const TYPE_CONNECTOR_PT = {
+  conjunction: 'em conjunção com',
+  opposition:  'em oposição a',
+  square:      'em quadratura com',
+  trine:       'em trígono com',
+  sextile:     'em sextil com'
+};
 
-function planetBlock(p, isFirst = true) {
-  const lbl = safeLabel(p);
-  const role = roleOf(p.name);
-  const sg = safeSign(p);
-  // Ex.: "vênus, planeta dos vínculos, busca harmonia e prazer"
-  // mantemos tom prático-reflexivo, sem floreio
-  const base =
-    p.name === 'sun' ? `${lbl}, força central de ${role}, ilumina prioridades` :
-    p.name === 'moon' ? `${lbl}, bússola de ${role}, sinaliza necessidades reais` :
-    p.name === 'mercury' ? `${lbl}, foco em ${role}, organiza ideias e mensagens` :
-    p.name === 'venus' ? `${lbl}, planeta de ${role}, busca harmonia e valor genuíno` :
-    p.name === 'mars' ? `${lbl}, motor de ${role}, impulsiona decisões e coragem` :
-    p.name === 'jupiter' ? `${lbl}, vetor de ${role}, amplia horizontes com propósito` :
-    p.name === 'saturn' ? `${lbl}, alicerce de ${role}, estrutura compromissos e limites` :
-    p.name === 'uranus' ? `${lbl}, catalisador de ${role}, provoca mudança autêntica` :
-    p.name === 'neptune' ? `${lbl}, mar de ${role}, inspira imaginação e compaixão` :
-    p.name === 'pluto' ? `${lbl}, eixo de ${role}, demanda profundidade e verdade` :
-    p.name === 'ascendant' ? `${lbl}, fachada de ${role}, define o primeiro impacto` :
-    p.name === 'mc' ? `${lbl}, norte de ${role}, orienta escolhas públicas` :
-    p.name === 'trueNode' ? `${lbl}, chamado de ${role}, convida a crescer na direção certa` :
-    p.name === 'chiron' ? `${lbl}, ponto de ${role}, transforma a dor em serviço útil` :
-    p.name === 'lilith' ? `${lbl}, pulso de ${role}, sustenta autonomia sem culpas` :
-    `${lbl}, expressão de ${role}`;
+function cap(s){ return (s||'').charAt(0).toUpperCase()+String(s||'').slice(1); }
+function isSame(x,y){ return String(x||'').toLowerCase()===String(y||'').toLowerCase(); }
 
-  const withSign = sg ? `${base}, em ${sg},` : `${base},`;
-  // Se for o primeiro bloco, frase introdutória; se for o segundo, tom complementar
-  return isFirst
-    ? withSign + ' põe o tema em evidência'
-    : withSign + ' complementa esse movimento';
+function signSpan(p1, p2){
+  if (!p1.sign && !p2.sign) return '';
+  if (p1.sign && p2.sign){
+    return isSame(p1.sign, p2.sign) ? `em ${p1.sign}` : `de ${p1.sign} a ${p2.sign}`;
+  }
+  return `em ${p1.sign || p2.sign}`;
 }
 
 function housesBlock(h1, h2, type) {
@@ -234,10 +216,44 @@ function housesBlock(h1, h2, type) {
   return '';
 }
 
-function synthesisAdvice(p1, p2, type) {
-  // fecho prático baseado no par + tipo (NÃO usa casas)
-  const r1 = roleOf(p1.name), r2 = roleOf(p2.name);
+function introByType(type) {
+  return TYPE_INTRO[type] || '';
+}
+function connectorByType(type) {
+  return TYPE_PHRASE[type] || '';
+}
 
+function planetBlock(p, isFirst = true) {
+  const lbl = safeLabel(p);
+  const role = roleOf(p.name);
+  const sg = safeSign(p);
+  const base =
+    p.name === 'sun' ? `${lbl}, força central de ${role}, ilumina prioridades` :
+    p.name === 'moon' ? `${lbl}, bússola de ${role}, sinaliza necessidades reais` :
+    p.name === 'mercury' ? `${lbl}, foco em ${role}, organiza ideias e mensagens` :
+    p.name === 'venus' ? `${lbl}, planeta de ${role}, busca harmonia e valor genuíno` :
+    p.name === 'mars' ? `${lbl}, motor de ${role}, impulsiona decisões e coragem` :
+    p.name === 'jupiter' ? `${lbl}, vetor de ${role}, amplia horizontes com propósito` :
+    p.name === 'saturn' ? `${lbl}, alicerce de ${role}, estrutura compromissos e limites` :
+    p.name === 'uranus' ? `${lbl}, catalisador de ${role}, provoca mudança autêntica` :
+    p.name === 'neptune' ? `${lbl}, mar de ${role}, inspira imaginação e compaixão` :
+    p.name === 'pluto' ? `${lbl}, eixo de ${role}, demanda profundidade e verdade` :
+    p.name === 'ascendant' ? `${lbl}, fachada de ${role}, define o primeiro impacto` :
+    p.name === 'mc' ? `${lbl}, norte de ${role}, orienta escolhas públicas` :
+    p.name === 'trueNode' ? `${lbl}, chamado de ${role}, convida a crescer na direção certa` :
+    p.name === 'chiron' ? `${lbl}, ponto de ${role}, transforma a dor em serviço útil` :
+    p.name === 'lilith' ? `${lbl}, pulso de ${role}, sustenta autonomia sem culpas` :
+    `${lbl}, expressão de ${role}`;
+
+  const withSign = sg ? `${base}, em ${sg},` : `${base},`;
+  return isFirst
+    ? withSign + ' põe o tema em evidência'
+    : withSign + ' complementa esse movimento';
+}
+
+/** Sínteses específicas por par (ordem alfabética dos nomes) + fallback por aspecto */
+function synthesisAdvice(p1, p2, type) {
+  const r1 = roleOf(p1.name), r2 = roleOf(p2.name);
   const pairKey = [p1.name, p2.name].sort().join('|');
 
   const specific = {
@@ -274,33 +290,20 @@ function synthesisAdvice(p1, p2, type) {
   );
 }
 
-// --- ADICIONE (perto das constantes de labels), map de conectores por tipo:
-const TYPE_CONNECTOR_PT = {
-  conjunction: 'em conjunção com',
-  opposition:  'em oposição a',
-  square:      'em quadratura com',
-  trine:       'em trígono com',
-  sextile:     'em sextil com'
-};
-
-// --- ADICIONE helper para montar "planeta em signo casa N" com exceção p/ AC/MC:
+// monta “planeta em signo casa N”, pulando casa para AC/MC
 function formatBodyWithSignHouse(p) {
-  const lbl = safeLabel(p);            // já usa PT_LABEL_BY_NAME como fallback
-  const sg  = safeSign(p);             // string do signo (ex.: "leão")
+  const lbl = safeLabel(p);
+  const sg  = safeSign(p);
   const h   = p?.house;
 
   const base = sg ? `${lbl} em ${sg}` : `${lbl}`;
 
-  // Não citar casa para Ascendente ou Meio do Céu
   if (p?.name === 'ascendant' || p?.name === 'mc') {
     return base;
   }
-
-  // Se houver casa numérica, incluir
   if (Number.isFinite(h)) {
     return `${base} casa ${h}`;
   }
-
   return base;
 }
 
@@ -312,36 +315,21 @@ function makeTitle(a) {
 }
 
 function makeText(a) {
-  // BLOCO 1 — intro por tipo
-  const intro = introByType(a.type);
+  const intro = introByType(a.type);               // intro (por tipo)
+  const p1Block = planetBlock(a.p1, true);         // planeta1 (arquétipo)
+  const connector = connectorByType(a.type);       // tipo (conector curto)
+  const p2Block = planetBlock(a.p2, false);        // planeta2 (complementar)
+  const hBlock = housesBlock(a.p1.house, a.p2.house, a.type); // casas (contexto)
+  const synth = synthesisAdvice(a.p1, a.p2, a.type);          // síntese (sem casas)
 
-  // BLOCO 2 — planeta1 (arquétipo)
-  const p1Block = planetBlock(a.p1, true);
-
-  // BLOCO 3 — conector pelo tipo
-  const connector = connectorByType(a.type);
-
-  // BLOCO 4 — planeta2 (complementar)
-  const p2Block = planetBlock(a.p2, false);
-
-  // BLOCO 5 — casas (contexto de expressão)
-  const hBlock = housesBlock(a.p1.house, a.p2.house, a.type);
-
-  // BLOCO 6 — síntese (conselho), sem casas
-  const synth = synthesisAdvice(a.p1, a.p2, a.type);
-
-  // junção fluida + pontuação adaptada
-  // exemplo desejado:
-  // "a tensão entre desejo e estrutura se destaca. vênus..., em quadratura com saturno, ... entre a casa 7 e a 10, ... é hora de ..."
   const parts = [];
-  if (intro) parts.push(`${intro.charAt(0).toLowerCase()}${intro.slice(1)}`); // caixa baixa no início, estilo natural
+  if (intro) parts.push(`${intro}`);                    // Mantemos capitalizado e direto
   if (p1Block) parts.push(`${p1Block}.`);
   if (connector) parts.push(`${connector}`);
   if (p2Block) parts.push(`${p2Block}.`);
   if (hBlock) parts.push(`${hBlock}`);
   if (synth) parts.push(`${synth}`);
 
-  // limpar espaçamentos duplos
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
