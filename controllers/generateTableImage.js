@@ -157,11 +157,11 @@ const SIGN_QUALITY_MAP = {
     "Gemini": "mutable", "Virgo": "mutable", "Sagittarius": "mutable", "Pisces": "mutable"
 };
 
-/* ========= ADIÇÃO: normalizador PT->EN de chave de signo ========= */
+/* ========= Normalização robusta de signos vindos da ephemeris ========= */
 const PT_TO_EN_SIGN = {
     'áries':'Aries','aries':'Aries',
     'touro':'Taurus',
-    'gêmeos':'Gemini','gemeos':'Gemini','gêmeos':'Gemini',
+    'gêmeos':'Gemini','gemeos':'Gemini',
     'câncer':'Cancer','cancer':'Cancer',
     'leão':'Leo','leao':'Leo',
     'virgem':'Virgo',
@@ -173,16 +173,26 @@ const PT_TO_EN_SIGN = {
     'peixes':'Pisces'
 };
 
+const EN_LOWER_TO_EN = {
+    'aries':'Aries','taurus':'Taurus','gemini':'Gemini','cancer':'Cancer','leo':'Leo','virgo':'Virgo',
+    'libra':'Libra','scorpio':'Scorpio','sagittarius':'Sagittarius','capricorn':'Capricorn',
+    'aquarius':'Aquarius','pisces':'Pisces'
+};
+
 function normalizeSignKeyForMaps(sign) {
     if (!sign) return sign;
     const s = String(sign).trim();
-    // se já vier canônico EN (ex.: "Leo"), mantenha
-    if (SIGN_LABELS_PT[s]) return s;
-    // tenta PT minúsculo -> EN
+
+    if (SIGN_ELEMENT_MAP[s]) return s;
+
     const lower = s.toLowerCase();
-    return PT_TO_EN_SIGN[lower] || s;
+    if (PT_TO_EN_SIGN[lower]) return PT_TO_EN_SIGN[lower];
+    if (EN_LOWER_TO_EN[lower]) return EN_LOWER_TO_EN[lower];
+
+    const cap = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    return SIGN_ELEMENT_MAP[cap] ? cap : s;
 }
-/* ========= FIM DA ADIÇÃO ========= */
+/* ========= FIM ========= */
 
 /**
  * Formats a planet's position information into a single string.
@@ -204,8 +214,11 @@ const formatPositionDetails = (planetName, planetSignData, geoDegrees) => {
 
     const rawSign = planetSignData[planetName]?.sign || '-';
     const signKey = normalizeSignKeyForMaps(rawSign);
-    const signPt = SIGN_LABELS_PT[signKey] || rawSign; // mostra PT correto quando possível
-    const retro = planetSignData[planetName]?.retrograde === 'yes' ? ' (R)' : '';
+    const signPt = SIGN_LABELS_PT[signKey] || rawSign;
+
+    const retroRaw = planetSignData[planetName]?.retrograde;
+    const retroYes = ['yes','sim','sí','si','true','verdadeiro','verdadero'].includes(String(retroRaw).toLowerCase());
+    const retro = retroYes ? ' (R)' : '';
 
     return `${d}° ${signPt}, ${m}' ${s}"${retro}`.trim();
 };
@@ -235,7 +248,6 @@ const getOrbRulesForPoint = (pointName) => {
  * @returns {string} - Aspect symbol or empty if no major aspect.
  */
 const calculateAspect = (planet1Name, degree1, planet2Name, degree2) => {
-    // Validate that degrees are finite numbers before proceeding with calculations.
     if (!Number.isFinite(degree1) || !Number.isFinite(degree2)) {
         logger.warn(`Invalid (non-finite) degree values passed to calculateAspect: ${planet1Name}=${degree1}, ${planet2Name}=${degree2}. Returning empty aspect.`);
         return '';
@@ -338,7 +350,6 @@ const getTranslatedStatus = (status) => {
  * @returns {Buffer} - Generated PNG image buffer.
  */
 async function generateNatalTableImage(chartData) {
-    // Filter planetsList to include only points with valid, finite degree values.
     const planetsList = ALL_POINTS_FOR_ASPECTS.filter(p => Number.isFinite(chartData.geo[p]));
 
     const degrees = chartData.geo;
@@ -347,41 +358,30 @@ async function generateNatalTableImage(chartData) {
     const elementsPlanets = { fire: [], earth: [], air: [], water: [] };
     const qualitiesPlanets = { cardinal: [], fixed: [], mutable: [] };
 
-    /**
-     * Helper to add planet/point to the correct element/quality list.
-     * @param {string} pointName - The name of the celestial point.
-     * @param {string} sign - The sign the point is in.
-     */
     const addPointToCategories = (pointName, sign) => {
         if (!sign) return;
 
-        // Exclude points that do not contribute to element/quality calculations.
         const pointsWithoutWeight = ['trueNode', 'chiron', 'lilith'];
         if (pointsWithoutWeight.includes(pointName)) {
             return;
         }
 
-        // ==== normalização para usar os mapas de elementos/qualidades ====
         const signKey = normalizeSignKeyForMaps(sign);
         const element = SIGN_ELEMENT_MAP[signKey];
         const quality = SIGN_QUALITY_MAP[signKey];
-        // =================================================================
 
-        let displaySymbol = PLANET_SYMBOLS[pointName] || pointName;
+        const displaySymbol = PLANET_SYMBOLS[pointName] || pointName;
 
-        if (element) {
+        if (element && elementsPlanets[element]) {
             elementsPlanets[element].push(displaySymbol);
         }
-        if (quality) {
+        if (quality && qualitiesPlanets[quality]) {
             qualitiesPlanets[quality].push(displaySymbol);
         }
     };
 
-    // Add planets to categories based on their signs.
-    // chartData.planets already includes ascendant and mc from ephemeris.js.
-    for (const planetName in chartData.planets) {
-        const sign = chartData.planets[planetName].sign;
-        addPointToCategories(planetName, sign);
+    for (const planetName in signs) {
+        addPointToCategories(planetName, signs[planetName].sign);
     }
 
     const mainTableContentWidth = TABLE_COL_WIDTHS.symbol + TABLE_COL_WIDTHS.planet + TABLE_COL_WIDTHS.positionDetails + (planetsList.length * ASPECT_MATRIX_CELL_SIZE);
@@ -395,95 +395,76 @@ async function generateNatalTableImage(chartData) {
         status: 100
     };
 
-    // Initial X position of the elements/qualities table, calculated after the main table.
     const EQ_TABLE_START_X = PADDING + mainTableContentWidth + PADDING_BETWEEN_TABLES;
 
     const calculatedWidth = WIDTH;
 
-    // Calculate main table height.
     const mainTableHeight = TABLE_START_Y + (planetsList.length * ROW_HEIGHT) + PADDING;
 
     const elementsCount = Object.keys(chartData.elements).length;
     const qualitiesCount = Object.keys(chartData.qualities).length;
 
-    // Calculate EQ tables height.
     const eqTableContentHeight = (elementsCount * ROW_HEIGHT) + PADDING + (qualitiesCount * ROW_HEIGHT);
 
-    // Determine the total height needed for the Elements and Qualities block.
     const totalEQBlockHeight = (elementsCount > 0 || qualitiesCount > 0) ? eqTableContentHeight : 0;
 
-    // The final canvas height will be the maximum between the main table height and the elements/qualities table height.
     const calculatedHeight = Math.max(mainTableHeight, TABLE_START_Y + totalEQBlockHeight + PADDING);
 
     const canvas = createCanvas(calculatedWidth, calculatedHeight);
     const ctx = canvas.getContext('2d');
 
-    // Fill the canvas background.
     ctx.fillStyle = COLORS.BACKGROUND;
     ctx.fillRect(0, 0, calculatedWidth, calculatedHeight);
 
-    // --- Combined Positions and Aspects Table ---
     let currentY = TABLE_START_Y;
     let currentX = PADDING;
 
-    // Set textBaseline to align text vertically to the middle of the line.
     ctx.textBaseline = 'middle';
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
 
-    // --- Draw Data Rows of the Combined Table ---
     planetsList.forEach((planetRow, rowIndex) => {
         ctx.fillStyle = COLORS.TEXT;
 
         let colX = currentX;
 
-        // Apply specific font for 'Asc' and 'MC' or default planet symbols.
         const symbolFont = (planetRow === 'ascendant' || planetRow === 'mc') ? FONT_ASC_MC_SYMBOLS : FONT_SYMBOLS;
 
-        // Column: Symbol.
         ctx.font = symbolFont;
         ctx.textAlign = 'center';
         ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + TABLE_COL_WIDTHS.symbol / 2, currentY + ROW_HEIGHT / 2);
         ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.symbol, ROW_HEIGHT);
         colX += TABLE_COL_WIDTHS.symbol;
 
-        // Column: Planet Name.
         ctx.font = FONT_TABLE_TEXT;
         ctx.textAlign = 'left';
         ctx.fillText(PLANET_LABELS_PT[planetRow] || planetRow, colX + 5, currentY + ROW_HEIGHT / 2);
         ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.planet, ROW_HEIGHT);
         colX += TABLE_COL_WIDTHS.planet;
 
-        // Column: Position Details.
         ctx.fillText(formatPositionDetails(planetRow, signs, degrees), colX + 5, currentY + ROW_HEIGHT / 2);
         ctx.strokeRect(colX, currentY, TABLE_COL_WIDTHS.positionDetails, ROW_HEIGHT);
         colX += TABLE_COL_WIDTHS.positionDetails;
 
-        // Aspect matrix cells.
         ctx.font = FONT_ASPECT_SYMBOLS;
         ctx.textAlign = 'center';
         planetsList.forEach((planetCol, colIndex) => {
-            // Draw cell border only if it's on or below the diagonal.
             if (colIndex <= rowIndex) {
                 ctx.strokeRect(colX, currentY, ASPECT_MATRIX_CELL_SIZE, ROW_HEIGHT);
             }
 
             if (rowIndex === colIndex) {
-                // Diagonal cell: show planet symbol.
                 ctx.fillStyle = COLORS.TEXT;
-                // Apply specific font for 'Asc' and 'MC' or default planet symbols on diagonal.
                 const diagonalSymbolFont = (planetRow === 'ascendant' || planetRow === 'mc') ? FONT_ASC_MC_SYMBOLS : FONT_SYMBOLS;
                 ctx.font = diagonalSymbolFont;
                 ctx.fillText(PLANET_SYMBOLS[planetRow] || '', colX + ASPECT_MATRIX_CELL_SIZE / 2, currentY + ROW_HEIGHT / 2);
-                ctx.font = FONT_ASPECT_SYMBOLS; // Reset for subsequent aspect symbols.
+                ctx.font = FONT_ASPECT_SYMBOLS;
             } else if (colIndex > rowIndex) {
-                // Upper part of the diagonal remains blank.
+                // upper triangle empty
             } else {
-                // Lower part of the diagonal: calculate and draw aspect symbol.
                 const degree1 = degrees[planetRow];
                 const degree2 = degrees[planetCol];
 
-                // Check for missing degrees before calculating aspect to prevent 'deg2' error.
                 if (degree1 === undefined || degree2 === undefined) {
                     logger.warn(`Missing degree for ${planetRow} or ${planetCol} when calculating aspect for table. Cell left blank.`);
                 } else {
@@ -494,12 +475,10 @@ async function generateNatalTableImage(chartData) {
             }
             colX += ASPECT_MATRIX_CELL_SIZE;
         });
-        // Reset text alignment for the next row.
         ctx.textAlign = 'left';
         currentY += ROW_HEIGHT;
     });
 
-    // --- Elements and Qualities Table ---
     let eqCurrentY = TABLE_START_Y + (calculatedHeight - (TABLE_START_Y + totalEQBlockHeight + PADDING)) / 2;
     let eqCurrentX = EQ_TABLE_START_X;
 
@@ -508,7 +487,7 @@ async function generateNatalTableImage(chartData) {
     ctx.strokeStyle = COLORS.TABLE_BORDER;
     ctx.lineWidth = 1;
 
-    // --- Elements Section ---
+    // Elements
     for (const element in chartData.elements) {
         const data = chartData.elements[element];
         let eqColX = eqCurrentX;
@@ -518,11 +497,11 @@ async function generateNatalTableImage(chartData) {
         eqColX += EQ_COL_WIDTHS.name;
 
         ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-        ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT / 2);
+        ctx.fillText((data.count ?? 0).toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT / 2);
         eqColX += EQ_COL_WIDTHS.count;
 
         ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
-        ctx.fillText(elementsPlanets[element].join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT / 2);
+        ctx.fillText((elementsPlanets[element] || []).join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT / 2);
         eqColX += EQ_COL_WIDTHS.planets;
 
         ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
@@ -531,10 +510,9 @@ async function generateNatalTableImage(chartData) {
         eqCurrentY += ROW_HEIGHT;
     }
 
-    // Add spacing between Elements and Qualities tables
     eqCurrentY += PADDING;
 
-    // --- Qualities Section ---
+    // Qualities
     for (const quality in chartData.qualities) {
         const data = chartData.qualities[quality];
         let eqColX = eqCurrentX;
@@ -544,11 +522,11 @@ async function generateNatalTableImage(chartData) {
         eqColX += EQ_COL_WIDTHS.name;
 
         ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.count, ROW_HEIGHT);
-        ctx.fillText(data.count.toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT / 2);
+        ctx.fillText((data.count ?? 0).toString(), eqColX + 5, eqCurrentY + ROW_HEIGHT / 2);
         eqColX += EQ_COL_WIDTHS.count;
 
         ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.planets, ROW_HEIGHT);
-        ctx.fillText(qualitiesPlanets[quality].join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT / 2);
+        ctx.fillText((qualitiesPlanets[quality] || []).join(', '), eqColX + 5, eqCurrentY + ROW_HEIGHT / 2);
         eqColX += EQ_COL_WIDTHS.planets;
 
         ctx.strokeRect(eqColX, eqCurrentY, EQ_COL_WIDTHS.status, ROW_HEIGHT);
