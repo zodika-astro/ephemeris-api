@@ -2,7 +2,7 @@
 
 const logger = require('../logger');
 
-// ====== AUTH helpers (mesma política do ephemeris) ======
+/* ===================== AUTH helpers (mesma política do ephemeris) ===================== */
 function parseBasicAuth(header) {
   if (!header || !header.startsWith('Basic ')) return null;
   const base64 = header.slice(6);
@@ -31,9 +31,10 @@ function requireAuth(req) {
   return { ok: true };
 }
 
-// ====== Configurações e constantes ======
+/* ===================== Configurações e constantes ===================== */
 const TYPE_WEIGHTS = { conjunction: 5.0, opposition: 5.0, square: 4.0, trine: 3.0, sextile: 3.0 };
 const TYPE_LABELS_PT = { conjunction: 'conjunção', opposition: 'oposição', square: 'quadratura', trine: 'trígono', sextile: 'sextil' };
+
 const TYPE_PHRASE = {
   conjunction: 'fusão de temas; foco importante no assunto.',
   opposition:  'puxões de dois polos; pede equilíbrio do eixo.',
@@ -41,6 +42,7 @@ const TYPE_PHRASE = {
   trine:       'facilidade e fluxo; desenvolva para não dispersar energia.',
   sextile:     'oportunidades e sorte, demanda iniciativa.'
 };
+
 const PLANET_MULT = {
   ascendant: 2.5, mc: 2.5,
   sun: 2.5, moon: 2.5,
@@ -49,18 +51,19 @@ const PLANET_MULT = {
   uranus: 1.2, neptune: 1.2, pluto: 1.2,
   trueNode: 1.0, chiron: 1.0, lilith: 1.0
 };
+
 const GROUPS = {
   pessoais:   new Set(['sun','moon','mercury','venus','mars']),
   sociais:    new Set(['jupiter','saturn']),
   geracionais:new Set(['uranus','neptune','pluto']),
   pontos:     new Set(['ascendant','mc','trueNode','chiron','lilith'])
 };
+
 const typeOrder = ['conjunction','opposition','square','trine','sextile'];
 const TOP_LIST_MAX = 10;
-const TOP_CARDS_MAX = 3;
 const SCORE_CAP = 10;
 
-// ====== Utils de linguagem (default pt) ======
+/* ===================== Utils de linguagem (default pt) ===================== */
 function normalizeLang(raw) {
   const v = String(raw || 'pt').toLowerCase();
   if (v.startsWith('pt')) return 'pt';
@@ -68,7 +71,7 @@ function normalizeLang(raw) {
   return 'pt';
 }
 
-// ====== Parser robusto p/ aspects (objeto, JSON puro, ou "[Object: {...}]") ======
+/* ===================== Parser robusto p/ aspects (objeto, JSON puro, ou "[Object: {...}]") ===================== */
 function coerceAspects(raw) {
   if (!raw) return {};
   if (typeof raw === 'object') return raw;
@@ -83,6 +86,7 @@ function coerceAspects(raw) {
       const core = s.slice(first, last + 1);
       try { return JSON.parse(core); } catch {}
     }
+
     // tenta parse direto
     try { return JSON.parse(s); } catch {}
 
@@ -99,7 +103,7 @@ function coerceAspects(raw) {
   return {};
 }
 
-// ====== Scoring ======
+/* ===================== Scoring ===================== */
 const houseBonus = (h) => {
   if (!Number.isFinite(h)) return 0;
   const n = Number(h);
@@ -108,6 +112,7 @@ const houseBonus = (h) => {
   if ([3,6,9,12].includes(n)) return 0.1;
   return 0;
 };
+
 const groupOf = (n) => {
   if (GROUPS.pontos.has(n)) return 'pontos';
   if (GROUPS.pessoais.has(n)) return 'pessoais';
@@ -115,74 +120,71 @@ const groupOf = (n) => {
   if (GROUPS.geracionais.has(n)) return 'geracionais';
   return 'pontos';
 };
+
 const dominantGroup = (n1, n2) => {
   const order = ['pontos','pessoais','sociais','geracionais'];
   const g1 = groupOf(n1), g2 = groupOf(n2);
   return order.indexOf(g1) <= order.indexOf(g2) ? g1 : g2;
 };
 
-// ====== Geração dos textos ======
-const makeChip = (a) => {
-  const t = TYPE_LABELS_PT[a.type] || a.type;
-  const s1 = (a.p1.sign ?? '').toString();
-  const s2 = (a.p2.sign ?? '').toString();
-  const h1 = (a.p1.house ?? '').toString();
-  const h2 = (a.p2.house ?? '').toString();
-  const phrase = TYPE_PHRASE[a.type] || '';
-  return `${a.p1.label} ${t} ${a.p2.label} · ${s1} casa ${h1} × ${s2} casa ${h2} — ${phrase}`.trim();
+/* ===================== Explicações simples por tipo × grupo (20 textos) ===================== */
+const EXPLAIN = {
+  conjunction: {
+    pessoais:   'integra traços centrais; cuide da coerência entre intenção e rotina.',
+    sociais:    'alinha expansão e limites; escolhas sustentáveis brilham no longo prazo.',
+    geracionais:'sintoniza-se com tendências coletivas; transforme visão em prática.',
+    pontos:     'marca de identidade/rumo; decisões públicas ganham peso.'
+  },
+  opposition: {
+    pessoais:   'movimento entre necessidades e imagem; negocie com você mesmx.',
+    sociais:    'crescer vs. conter; o meio-termo nas parcerias estabiliza.',
+    geracionais:'pressões do zeitgeist; posicione-se sem perder raízes.',
+    pontos:     'eixo privado–público; defina fronteiras e horários de presença.'
+  },
+  square: {
+    pessoais:   'atrito produtivo; quebre em 3 passos e execute.',
+    sociais:    'ambição encontra estrutura; metas pequenas e mensuráveis.',
+    geracionais:'adaptação contínua; itere com consistência.',
+    pontos:     'pede ajustes objetivos na rotina e na exposição; menos é mais.'
+  },
+  trine: {
+    pessoais:   'talento natural; transforme em hábito diário.',
+    sociais:    'facilidade com crescimento estável; documente avanços.',
+    geracionais:'fluidez com o novo; aplique em projetos reais.',
+    pontos:     'boa visibilidade/rumo; direcione com intenção.'
+  },
+  sextile: {
+    pessoais:   'portas se abrem com iniciativa; comece pequeno.',
+    sociais:    'conexões úteis; faça follow-up.',
+    geracionais:'janelas de inovação; teste rápido e aprenda.',
+    pontos:     'toques de sorte nas escolhas; dê o primeiro passo.'
+  }
 };
 
-const makeCard = (a) => {
-  const EFFECTS = {
-    conjunction: {
-      pessoais: 'integra traços centrais; unir vontade e sentimento pede coerência diária.',
-      sociais: 'alinha expansão com responsabilidade; foco em resultados sustentáveis.',
-      geracionais: 'sensibilidade a tendências coletivas; use isso como visão de longo prazo.',
-      pontos: 'marca de identidade/propósito; decisões redefinem rumos.'
-    },
-    opposition: {
-      pessoais: 'oscilação entre necessidades e imagem; equilíbrio vem do diálogo interno.',
-      sociais: 'expansão versus limites; encontre o meio-termo nas parcerias.',
-      geracionais: 'tensões com mudanças coletivas; posicione-se sem perder raízes.',
-      pontos: 'eixo de vida público–privado; calibrar presença e limites é vital.'
-    },
-    square: {
-      pessoais: 'atrito produtivo; transforme impulso em plano simples e executável.',
-      sociais: 'ambição enfrenta estrutura; avance por etapas, com métricas claras.',
-      geracionais: 'pressão por adaptação; pequenas ações contínuas vencem inércia.',
-      pontos: 'pede ajustes práticos na rotina e na exposição; menos é mais.'
-    },
-    trine: {
-      pessoais: 'talento natural; pratique para que o dom gere consistência.',
-      sociais: 'oportunidade de crescer com estabilidade; cultive hábitos.',
-      geracionais: 'fluidez com o novo; aplique em projetos reais.',
-      pontos: 'facilidade de visibilidade/rumo; direcione com intenção.'
-    },
-    sextile: {
-      pessoais: 'portas se abrem com iniciativa; pequenos gestos contam.',
-      sociais: 'conexões úteis surgem; faça follow-up e documente.',
-      geracionais: 'janelas de inovação; teste rápido e aprenda.',
-      pontos: 'toques de sorte em escolhas; dê o primeiro passo.'
-    }
-  };
+/* ===================== Formatação de Título/Textos ===================== */
+function makeTitle(a) {
+  const typeLabel = TYPE_LABELS_PT[a.type] || a.type;
+  // lower-case para manter padrão visual igual ao exemplo
+  return `${a.p1.label} ${typeLabel} ${a.p2.label}`.toLowerCase();
+}
+
+function makeText(a) {
+  const typePhrase = TYPE_PHRASE[a.type] || '';
   const g = dominantGroup(a.p1.name, a.p2.name);
-  return {
-    title: `${a.p1.label} ${TYPE_LABELS_PT[a.type]} ${a.p2.label}`,
-    effect: (EFFECTS[a.type]?.[g]) || TYPE_PHRASE[a.type] || '',
-    tip:
-      (a.type==='conjunction' ? (g==='pontos' ? 'faça uma escolha pública simples e cumpra por 7 dias.' : 'defina 1 ritual diário de 10 minutos.') :
-      a.type==='opposition'  ? (g==='pontos' ? 'defina horários de ligar/desligar presença por 1 semana.' : 'escreva “eu quero” × “eu preciso” e ajuste.') :
-      a.type==='square'      ? 'antes de agir, rascunhe 3 passos e limite de tempo.' :
-      a.type==='trine'       ? 'transforme talento em rotina: 20min/dia.' :
-                               'envie 1 mensagem que pode abrir uma porta hoje.')
-  };
-};
+  const explain = EXPLAIN[a.type]?.[g] || '';
+  const h1 = a.p1.house != null ? `casa ${a.p1.house}` : '';
+  const h2 = a.p2.house != null ? `casa ${a.p2.house}` : '';
+  // ex.: "quíron em leão casa 1 × ascendente leão casa 1 — fusão de temas; ... explicação"
+  return `${a.p1.label} em ${a.p1.sign} ${h1} × ${a.p2.label} ${a.p2.sign} ${h2} — ${typePhrase} ${explain}`
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-// ====== Núcleo: transforma aspects em placeholders ======
+/* ===================== Núcleo: transforma aspects em 10 títulos/textos ===================== */
 function buildPlaceholdersFromAspects(rawAspects, lang = 'pt') {
   const aspectsObj = coerceAspects(rawAspects);
 
-  // normaliza e pontua
+  // 1) normaliza e pontua
   const norm = [];
   for (const type of Object.keys(aspectsObj || {})) {
     if (!TYPE_WEIGHTS.hasOwnProperty(type)) continue;
@@ -192,8 +194,8 @@ function buildPlaceholdersFromAspects(rawAspects, lang = 'pt') {
       const n1 = (p1.name||'').toString(), n2 = (p2.name||'').toString();
       if (!n1 || !n2) continue;
 
-      const base = TYPE_WEIGHTS[type];
-      const mult = Math.max(PLANET_MULT[n1]||1, PLANET_MULT[n2]||1);
+      const base  = TYPE_WEIGHTS[type];
+      const mult  = Math.max(PLANET_MULT[n1]||1, PLANET_MULT[n2]||1);
       const bonus = Math.max(houseBonus(p1.house), houseBonus(p2.house));
       const score = Math.min(SCORE_CAP, base * mult + bonus);
 
@@ -207,7 +209,7 @@ function buildPlaceholdersFromAspects(rawAspects, lang = 'pt') {
     }
   }
 
-  // dedup indiferente à ordem
+  // 2) dedup indiferente à ordem
   const dedup = new Map();
   for (const a of norm) {
     const key = `${a.type}|${[a.p1.name,a.p2.name].sort().join('_')}`;
@@ -216,7 +218,7 @@ function buildPlaceholdersFromAspects(rawAspects, lang = 'pt') {
   }
   const list = Array.from(dedup.values());
 
-  // ordena por score > tipo > label
+  // 3) ordena por score desc, depois prioridade de tipo, depois label
   list.sort((a,b) => {
     if (b.score !== a.score) return b.score - a.score;
     const ta = typeOrder.indexOf(a.type), tb = typeOrder.indexOf(b.type);
@@ -226,65 +228,42 @@ function buildPlaceholdersFromAspects(rawAspects, lang = 'pt') {
     return la.localeCompare(lb);
   });
 
-  // gera chips e cards
-  const top10 = list.slice(0, TOP_LIST_MAX).map(a => ({...a, chip: makeChip(a)}));
-  const top3cards = list
-    // evita 100% geracional × geracional
-    .filter(a => !(GROUPS.geracionais.has(a.p1.name) && GROUPS.geracionais.has(a.p2.name)))
-    .slice(0, TOP_CARDS_MAX)
-    .map(makeCard);
+  // 4) seleciona top 10 e monta placeholders (title/text)
+  const top10 = list.slice(0, TOP_LIST_MAX);
+  const placeholders = {};
+  const list_top = [];
 
-  // contagens por tipo (originais)
+  top10.forEach((a, idx) => {
+    const i = idx + 1;
+    const title = makeTitle(a);
+    const text  = makeText(a);
+    placeholders[`aspect${i}_title`] = title;
+    placeholders[`aspect${i}_text`]  = text;
+    list_top.push({ title, text, score: a.score, type: a.type });
+  });
+
+  // completa os que faltarem até 10
+  for (let i = top10.length + 1; i <= 10; i++) {
+    placeholders[`aspect${i}_title`] = '';
+    placeholders[`aspect${i}_text`]  = '';
+  }
+
+  // 5) contagens por tipo (do objeto original) — útil para telemetria
   const counts = { conjunction:0, opposition:0, square:0, trine:0, sextile:0 };
   for (const t of Object.keys(counts)) {
     counts[t] = Array.isArray(aspectsObj?.[t]) ? aspectsObj[t].length : 0;
   }
 
-  // matriz grupo × tipo (com lista dedupada)
-  const initTypeCounts = () => ({conjunction:0,opposition:0,square:0,trine:0,sextile:0});
-  const matrix = { pessoais: initTypeCounts(), sociais: initTypeCounts(), geracionais: initTypeCounts(), pontos: initTypeCounts() };
-  for (const a of list) {
-    const t = a.type;
-    for (const [g,set] of Object.entries(GROUPS)) {
-      if (set.has(a.p1.name) || set.has(a.p2.name)) matrix[g][t] += 1;
-    }
-  }
-
-  // placeholders p/ Replace Text
-  const placeholders = {};
-  for (let i=0;i<10;i++){ placeholders[`aspect${i+1}`] = top10[i]?.chip || ''; }
-  for (let i=0;i<3;i++){
-    placeholders[`card${i+1}_title`]  = top3cards[i]?.title  || '';
-    placeholders[`card${i+1}_effect`] = top3cards[i]?.effect || '';
-    placeholders[`card${i+1}_tip`]    = top3cards[i]?.tip    || '';
-  }
-  placeholders.count_conjunction = String(counts.conjunction);
-  placeholders.count_opposition  = String(counts.opposition);
-  placeholders.count_square      = String(counts.square);
-  placeholders.count_trine       = String(counts.trine);
-  placeholders.count_sextile     = String(counts.sextile);
-
-  for (const g of Object.keys(matrix)){
-    for (const t of Object.keys(matrix[g])){
-      placeholders[`matrix_${g}_${t}`] = String(matrix[g][t]);
-    }
-  }
-  placeholders.config1 = '';
-  placeholders.config2 = '';
-  placeholders.config3 = '';
-
   return {
-    placeholders,
-    top: top10.map(x => ({ chip: x.chip, score: x.score, type: x.type })),
-    cards: top3cards,
+    placeholders,      // somente 20 chaves: aspect{1..10}_title/_text
+    top: list_top,     // para debug/QA
     counts,
-    matrix,
     aspects_version: 'v1.0',
     scoring_version: 'v1.1'
   };
 }
 
-// ====== Controller/handler ======
+/* ===================== Controller/handler ===================== */
 async function buildFromAspects(req, res) {
   try {
     const auth = requireAuth(req);
@@ -294,7 +273,7 @@ async function buildFromAspects(req, res) {
 
     // onde pegar o campo aspects:
     // 1) req.body.aspects
-    // 2) req.body.body?.ephemeris?.aspects (caso você mande o payload do Webhook inteiro)
+    // 2) req.body.body?.ephemeris?.aspects (payload completo do webhook)
     // 3) req.body.json?.body?.ephemeris?.aspects (compat extra)
     const rawAspects =
       req.body?.aspects ??
