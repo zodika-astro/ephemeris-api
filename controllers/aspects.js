@@ -274,9 +274,41 @@ function synthesisAdvice(p1, p2, type) {
   );
 }
 
+// --- ADICIONE (perto das constantes de labels), map de conectores por tipo:
+const TYPE_CONNECTOR_PT = {
+  conjunction: 'em conjunção com',
+  opposition:  'em oposição a',
+  square:      'em quadratura com',
+  trine:       'em trígono com',
+  sextile:     'em sextil com'
+};
+
+// --- ADICIONE helper para montar "planeta em signo casa N" com exceção p/ AC/MC:
+function formatBodyWithSignHouse(p) {
+  const lbl = safeLabel(p);            // já usa PT_LABEL_BY_NAME como fallback
+  const sg  = safeSign(p);             // string do signo (ex.: "leão")
+  const h   = p?.house;
+
+  const base = sg ? `${lbl} em ${sg}` : `${lbl}`;
+
+  // Não citar casa para Ascendente ou Meio do Céu
+  if (p?.name === 'ascendant' || p?.name === 'mc') {
+    return base;
+  }
+
+  // Se houver casa numérica, incluir
+  if (Number.isFinite(h)) {
+    return `${base} casa ${h}`;
+  }
+
+  return base;
+}
+
 function makeTitle(a) {
-  // Ex.: "quíron conjunção ascendente"
-  return `${safeLabel(a.p1)} ${TYPE_LABELS_PT[a.type] || a.type} ${safeLabel(a.p2)}`;
+  const left  = formatBodyWithSignHouse(a.p1);
+  const right = formatBodyWithSignHouse(a.p2);
+  const link  = TYPE_CONNECTOR_PT[a.type] || 'com';
+  return `${left} ${link} ${right}`;
 }
 
 function makeText(a) {
