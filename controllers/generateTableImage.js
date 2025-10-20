@@ -157,6 +157,33 @@ const SIGN_QUALITY_MAP = {
     "Gemini": "mutable", "Virgo": "mutable", "Sagittarius": "mutable", "Pisces": "mutable"
 };
 
+/* ========= ADIÇÃO: normalizador PT->EN de chave de signo ========= */
+const PT_TO_EN_SIGN = {
+    'áries':'Aries','aries':'Aries',
+    'touro':'Taurus',
+    'gêmeos':'Gemini','gemeos':'Gemini','gêmeos':'Gemini',
+    'câncer':'Cancer','cancer':'Cancer',
+    'leão':'Leo','leao':'Leo',
+    'virgem':'Virgo',
+    'libra':'Libra',
+    'escorpião':'Scorpio','escorpiao':'Scorpio',
+    'sagitário':'Sagittarius','sagitario':'Sagittarius',
+    'capricórnio':'Capricorn','capricornio':'Capricorn',
+    'aquário':'Aquarius','aquario':'Aquarius',
+    'peixes':'Pisces'
+};
+
+function normalizeSignKeyForMaps(sign) {
+    if (!sign) return sign;
+    const s = String(sign).trim();
+    // se já vier canônico EN (ex.: "Leo"), mantenha
+    if (SIGN_LABELS_PT[s]) return s;
+    // tenta PT minúsculo -> EN
+    const lower = s.toLowerCase();
+    return PT_TO_EN_SIGN[lower] || s;
+}
+/* ========= FIM DA ADIÇÃO ========= */
+
 /**
  * Formats a planet's position information into a single string.
  * @param {string} planetName - The planet's name.
@@ -175,8 +202,9 @@ const formatPositionDetails = (planetName, planetSignData, geoDegrees) => {
     const m = Math.floor((degreeValue * 60) % 60);
     const s = Math.round((degreeValue * 3600) % 60);
 
-    const sign = planetSignData[planetName]?.sign || '-';
-    const signPt = SIGN_LABELS_PT[sign] || sign;
+    const rawSign = planetSignData[planetName]?.sign || '-';
+    const signKey = normalizeSignKeyForMaps(rawSign);
+    const signPt = SIGN_LABELS_PT[signKey] || rawSign; // mostra PT correto quando possível
     const retro = planetSignData[planetName]?.retrograde === 'yes' ? ' (R)' : '';
 
     return `${d}° ${signPt}, ${m}' ${s}"${retro}`.trim();
@@ -333,8 +361,11 @@ async function generateNatalTableImage(chartData) {
             return;
         }
 
-        const element = SIGN_ELEMENT_MAP[sign];
-        const quality = SIGN_QUALITY_MAP[sign];
+        // ==== normalização para usar os mapas de elementos/qualidades ====
+        const signKey = normalizeSignKeyForMaps(sign);
+        const element = SIGN_ELEMENT_MAP[signKey];
+        const quality = SIGN_QUALITY_MAP[signKey];
+        // =================================================================
 
         let displaySymbol = PLANET_SYMBOLS[pointName] || pointName;
 
