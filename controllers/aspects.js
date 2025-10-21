@@ -1,17 +1,16 @@
 'use strict';
 
 const logger = require('../logger');
+const { getAspectText } = require('./aspectstexts'); // textos externos
 
-/* ========================= AUTH (mesma política do ephemeris) ========================= */
+/* ========================= AUTH ========================= */
 function parseBasicAuth(header) {
   if (!header || !header.startsWith('Basic ')) return null;
   const base64 = header.slice(6);
   try {
     const [user, pass] = Buffer.from(base64, 'base64').toString('utf8').split(':');
     return { user, pass };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 function requireAuth(req) {
@@ -31,8 +30,7 @@ function requireAuth(req) {
   return { ok: true };
 }
 
-/* ========================= Configs gerais ========================= */
-
+/* ========================= Configs ========================= */
 function normalizeLang(raw) {
   const v = String(raw || 'pt').toLowerCase();
   if (v.startsWith('pt')) return 'pt';
@@ -41,23 +39,7 @@ function normalizeLang(raw) {
 }
 
 const TYPE_WEIGHTS = { conjunction: 5.0, opposition: 5.0, square: 4.0, trine: 3.0, sextile: 3.0 };
-const TYPE_LABELS_PT = { conjunction: 'conjunção', opposition: 'oposição', square: 'quadratura', trine: 'trígono', sextile: 'sextil' };
-
-const TYPE_INTRO = {
-  conjunction: 'Foco concentrado neste tema.',
-  opposition:  'Tensão pede equilíbrio.',
-  square:      'Atrito útil exige ajustes.',
-  trine:       'Fluidez favorece desenvolvimento.',
-  sextile:     'Oportunidade pede iniciativa.'
-};
-
-const TYPE_PHRASE = {
-  conjunction: 'fusão de temas; foco importante no assunto.',
-  opposition:  'puxões de dois polos; pede equilíbrio do eixo.',
-  square:      'tensão produtiva; ajuste de rota pela ação.',
-  trine:       'facilidade e fluxo; desenvolva para não dispersar energia.',
-  sextile:     'oportunidades e sorte, demanda iniciativa.'
-};
+const TYPE_LABELS_PT = { conjunction: 'conjunção', opposition: 'oposição', square: 'quadratura', trine: 'trígono', sextil: 'sextil' };
 
 const PLANET_MULT = {
   ascendant: 2.5, mc: 2.5,
@@ -68,36 +50,24 @@ const PLANET_MULT = {
   trueNode: 1.0, chiron: 1.0, lilith: 1.0
 };
 
-const GROUPS = {
-  pessoais:    new Set(['sun','moon','mercury','venus','mars']),
-  sociais:     new Set(['jupiter','saturn']),
-  geracionais: new Set(['uranus','neptune','pluto']),
-  pontos:      new Set(['ascendant','mc','trueNode','chiron','lilith'])
-};
-
 const typeOrder = ['conjunction','opposition','square','trine','sextile'];
 const TOP_LIST_MAX = 10;
 const SCORE_CAP = 10;
 
-/* ========================= Parser robusto p/ aspects ========================= */
+/* ========================= Parser ========================= */
 function coerceAspects(raw) {
   if (!raw) return {};
   if (typeof raw === 'object') return raw;
 
   if (typeof raw === 'string') {
     const s = raw.trim();
-
-    // tenta recortar o primeiro bloco {...}
     const first = s.indexOf('{');
     const last  = s.lastIndexOf('}');
     if (first !== -1 && last !== -1 && last > first) {
       const core = s.slice(first, last + 1);
       try { return JSON.parse(core); } catch {}
     }
-    // tenta parse direto
     try { return JSON.parse(s); } catch {}
-
-    // caso venha array com um objeto dentro
     if (s.startsWith('[') && s.endsWith(']')) {
       try {
         const arr = JSON.parse(s);
@@ -120,7 +90,7 @@ const houseBonus = (h) => {
   return 0;
 };
 
-/* ========================= Vocabulário ========================= */
+/* ========================= Vocabulário mínimo p/ TÍTULO ========================= */
 const PT_LABEL_BY_NAME = {
   sun: 'sol', moon: 'lua', mercury: 'mercúrio', venus: 'vênus', mars: 'marte',
   jupiter: 'júpiter', saturn: 'saturno', uranus: 'urano', neptune: 'netuno', pluto: 'plutão',
@@ -128,52 +98,7 @@ const PT_LABEL_BY_NAME = {
   chiron: 'quíron', lilith: 'lilith'
 };
 
-const ROLE_BY_NAME = {
-  sun: 'vitalidade e propósito',
-  moon: 'emoções e nutrição',
-  mercury: 'mente e expressão',
-  venus: 'vínculos e prazer',
-  mars: 'impulso e ação',
-  jupiter: 'expansão e sentido',
-  saturn: 'estrutura e responsabilidade',
-  uranus: 'mudança e originalidade',
-  neptune: 'imaginação e fé',
-  pluto: 'poder e transformação',
-  ascendant: 'presença e abordagem',
-  mc: 'vocação e direção pública',
-  trueNode: 'direção evolutiva',
-  chiron: 'ferida e cura',
-  lilith: 'instinto e autonomia'
-};
-
-const HOUSE_THEMES_PT = {
-  1: 'identidade, presença e inícios',
-  2: 'recursos, valores e segurança',
-  3: 'comunicação, estudos e trocas',
-  4: 'raízes, família e base emocional',
-  5: 'criação, prazer e expressão',
-  6: 'rotina, saúde e serviço',
-  7: 'parcerias, contratos e espelhos',
-  8: 'intimidade, fusões e crises',
-  9: 'visão, fé e expansão intelectual',
-  10: 'carreira, imagem pública e direção',
-  11: 'redes, projetos e futuro',
-  12: 'retiro, bastidores e integração interna'
-};
-
-/* ========================= Helpers de texto ========================= */
-function safeLabel(p) {
-  return (p?.label && typeof p.label === 'string')
-    ? p.label
-    : (PT_LABEL_BY_NAME[p?.name] || p?.name || '').toString();
-}
-function safeSign(p) {
-  return (p?.sign && typeof p.sign === 'string') ? p.sign : '';
-}
-function roleOf(name) {
-  return ROLE_BY_NAME[name] || '';
-}
-
+// conector do título
 const TYPE_CONNECTOR_PT = {
   conjunction: 'em conjunção com',
   opposition:  'em oposição a',
@@ -182,128 +107,25 @@ const TYPE_CONNECTOR_PT = {
   sextile:     'em sextil com'
 };
 
-function cap(s){ return (s||'').charAt(0).toUpperCase()+String(s||'').slice(1); }
-function isSame(x,y){ return String(x||'').toLowerCase()===String(y||'').toLowerCase(); }
-
-function signSpan(p1, p2){
-  if (!p1.sign && !p2.sign) return '';
-  if (p1.sign && p2.sign){
-    return isSame(p1.sign, p2.sign) ? `em ${p1.sign}` : `de ${p1.sign} a ${p2.sign}`;
-  }
-  return `em ${p1.sign || p2.sign}`;
+/* ========================= Helpers de TÍTULO ========================= */
+function safeLabel(p) {
+  return (p?.label && typeof p.label === 'string')
+    ? p.label
+    : (PT_LABEL_BY_NAME[p?.name] || p?.name || '').toString();
+}
+function safeSign(p) {
+  return (p?.sign && typeof p.sign === 'string') ? p.sign : '';
 }
 
-function housesBlock(h1, h2, type) {
-  if (!Number.isFinite(h1) && !Number.isFinite(h2)) return '';
-  const t1 = Number.isFinite(h1) ? `casa ${h1}${HOUSE_THEMES_PT[h1] ? ` (${HOUSE_THEMES_PT[h1]})` : ''}` : '';
-  const t2 = Number.isFinite(h2) ? `casa ${h2}${HOUSE_THEMES_PT[h2] ? ` (${HOUSE_THEMES_PT[h2]})` : ''}` : '';
-  const tense = (type === 'square' || type === 'opposition');
-  if (t1 && t2) {
-    return tense
-      ? `Entre ${t1} e ${t2}, surge um atrito útil: alinhar prioridades reduz fricção.`
-      : `Entre ${t1} e ${t2}, há terreno fértil: coordene esforços para aproveitar o fluxo.`;
-  }
-  if (t1) {
-    return tense
-      ? `Na ${t1}, foque ajustes práticos para converter tensão em progresso.`
-      : `Na ${t1}, há abertura para desenvolver o melhor do aspecto.`;
-  }
-  if (t2) {
-    return tense
-      ? `Na ${t2}, trate as arestas com presença e limites claros.`
-      : `Na ${t2}, pequenas iniciativas destravam oportunidades.`;
-  }
-  return '';
-}
-
-function introByType(type) {
-  return TYPE_INTRO[type] || '';
-}
-function connectorByType(type) {
-  return TYPE_PHRASE[type] || '';
-}
-
-function planetBlock(p, isFirst = true) {
-  const lbl = safeLabel(p);
-  const role = roleOf(p.name);
-  const sg = safeSign(p);
-  const base =
-    p.name === 'sun' ? `${lbl}, força central de ${role}, ilumina prioridades` :
-    p.name === 'moon' ? `${lbl}, bússola de ${role}, sinaliza necessidades reais` :
-    p.name === 'mercury' ? `${lbl}, foco em ${role}, organiza ideias e mensagens` :
-    p.name === 'venus' ? `${lbl}, planeta de ${role}, busca harmonia e valor genuíno` :
-    p.name === 'mars' ? `${lbl}, motor de ${role}, impulsiona decisões e coragem` :
-    p.name === 'jupiter' ? `${lbl}, vetor de ${role}, amplia horizontes com propósito` :
-    p.name === 'saturn' ? `${lbl}, alicerce de ${role}, estrutura compromissos e limites` :
-    p.name === 'uranus' ? `${lbl}, catalisador de ${role}, provoca mudança autêntica` :
-    p.name === 'neptune' ? `${lbl}, mar de ${role}, inspira imaginação e compaixão` :
-    p.name === 'pluto' ? `${lbl}, eixo de ${role}, demanda profundidade e verdade` :
-    p.name === 'ascendant' ? `${lbl}, fachada de ${role}, define o primeiro impacto` :
-    p.name === 'mc' ? `${lbl}, norte de ${role}, orienta escolhas públicas` :
-    p.name === 'trueNode' ? `${lbl}, chamado de ${role}, convida a crescer na direção certa` :
-    p.name === 'chiron' ? `${lbl}, ponto de ${role}, transforma a dor em serviço útil` :
-    p.name === 'lilith' ? `${lbl}, pulso de ${role}, sustenta autonomia sem culpas` :
-    `${lbl}, expressão de ${role}`;
-
-  const withSign = sg ? `${base}, em ${sg},` : `${base},`;
-  return isFirst
-    ? withSign + ' põe o tema em evidência'
-    : withSign + ' complementa esse movimento';
-}
-
-/** Sínteses específicas por par (ordem alfabética dos nomes) + fallback por aspecto */
-function synthesisAdvice(p1, p2, type) {
-  const r1 = roleOf(p1.name), r2 = roleOf(p2.name);
-  const pairKey = [p1.name, p2.name].sort().join('|');
-
-  const specific = {
-    'venus|saturn': 'amadureça vínculos: alinhe expectativas por escrito e combine limites antes de promessas.',
-    'sun|saturn': 'construa autoridade simples: defina metas semanais mínimas e revise com honestidade.',
-    'moon|mars': 'regule impulso emocional: pause 5 minutos, escolha 1 ação útil e execute.',
-    'mercury|neptune': 'garanta clareza: use checklist de fatos e confirme por mensagem.',
-    'venus|mars': 'alinhe afeto e ação: rituais curtos de presença valem mais que intensidade.',
-    'sun|pluto': 'use potência com ética: influencie para resolver, não para controlar.',
-    'moon|pluto': 'processe camadas: diário breve e constante ajuda a metabolizar.',
-    'mercury|uranus': 'ideias disruptivas pedem protótipo: teste rápido e itere.',
-    'jupiter|saturn': 'expanda com sustentação: métricas simples + cadência realista.',
-    'uranus|neptune': 'transforme inspiração em algo tangível: um esboço já é um começo.',
-    'ascendant|chiron': 'autoimagem terapêutica: pratique uma apresentação que acolhe sua história.',
-    'ascendant|lilith': 'presença autêntica: negocie fronteiras sem pedir desculpas por existir.',
-    'mc|venus': 'valorize entregas: beleza serve ao valor, não o contrário.',
-    'mc|saturn': 'carreira com lastro: compromissos repetíveis constroem reputação.',
-    'trueNode|sun': 'assuma o passo visível que te aproxima do que te faz crescer.',
-    'trueNode|moon': 'nutra o futuro: crie rotinas que sustentem seu caminho.',
-    'mc|pluto': 'poder público com propósito: transforme sistemas, evite imposição.',
-    'ascendant|mars': 'comece pequeno hoje; ajuste em marcha.',
-    'venus|pluto': 'intensidade com consentimento: transparência e limites claros.'
-  }[pairKey];
-
-  if (specific) return specific;
-
-  // fallback por tipo
-  return (
-    type === 'conjunction' ? `una ${r1} e ${r2} com um gesto diário concreto.` :
-    type === 'opposition'  ? `balanceie ${r1} e ${r2}: estabeleça um limite e um pedido claros.` :
-    type === 'square'      ? `estruture ${r1} com ${r2} em 3 passos práticos e prazo curto.` :
-    type === 'trine'       ? `transforme a facilidade entre ${r1} e ${r2} em hábito consistente.` :
-                              `dê o primeiro passo para aproximar ${r1} de ${r2} hoje.`
-  );
-}
-
-// monta “planeta em signo casa N”, pulando casa para AC/MC
 function formatBodyWithSignHouse(p) {
   const lbl = safeLabel(p);
   const sg  = safeSign(p);
   const h   = p?.house;
-
   const base = sg ? `${lbl} em ${sg}` : `${lbl}`;
-
-  if (p?.name === 'ascendant' || p?.name === 'mc') {
-    return base;
-  }
-  if (Number.isFinite(h)) {
-    return `${base} casa ${h}`;
-  }
+  // AC/MC: não agrega "casa N"
+  if (p?.name === 'ascendant' || p?.name === 'mc') return base;
+  // corpos com casa: apenas "casa N" (sem tema de casa)
+  if (Number.isFinite(h)) return `${base} casa ${h}`;
   return base;
 }
 
@@ -314,23 +136,24 @@ function makeTitle(a) {
   return `${left} ${link} ${right}`;
 }
 
+/* ========================= Texto: 100% dicionário externo ========================= */
+function normSlug(name) {
+  const v = String(name || '').toLowerCase();
+  if (v === 'truenode' || v === 'true_node' || v === 'truenode') return 'north_node';
+  if (v === 'truenode' || v === 'trueNode') return 'north_node';
+  if (v === 'ascendant') return 'asc';
+  if (v === 'midheaven') return 'mc';
+  return v; // sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto, chiron, lilith, asc, mc, north_node
+}
+
 function makeText(a) {
-  const intro = introByType(a.type);               // intro (por tipo)
-  const p1Block = planetBlock(a.p1, true);         // planeta1 (arquétipo)
-  const connector = connectorByType(a.type);       // tipo (conector curto)
-  const p2Block = planetBlock(a.p2, false);        // planeta2 (complementar)
-  const hBlock = housesBlock(a.p1.house, a.p2.house, a.type); // casas (contexto)
-  const synth = synthesisAdvice(a.p1, a.p2, a.type);          // síntese (sem casas)
-
-  const parts = [];
-  if (intro) parts.push(`${intro}`);                    // Mantemos capitalizado e direto
-  if (p1Block) parts.push(`${p1Block}.`);
-  if (connector) parts.push(`${connector}`);
-  if (p2Block) parts.push(`${p2Block}.`);
-  if (hBlock) parts.push(`${hBlock}`);
-  if (synth) parts.push(`${synth}`);
-
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
+  const s1 = normSlug(a?.p1?.name);
+  const s2 = normSlug(a?.p2?.name);
+  const aspect = String(a?.type || '').toLowerCase();
+  // inválido: não existe aspecto entre asc e mc
+  if ((s1 === 'asc' && s2 === 'mc') || (s1 === 'mc' && s2 === 'asc')) return '';
+  const text = getAspectText(s1, s2, aspect);
+  return (text && typeof text === 'string') ? text.trim() : '';
 }
 
 /* ========================= Núcleo: aspects -> top10 placeholders ========================= */
@@ -402,19 +225,14 @@ function buildTop10Placeholders(rawAspects) {
   };
 }
 
-/* ========================= Controller/handler ========================= */
+/* ========================= Controller ========================= */
 async function buildFromAspects(req, res) {
   try {
     const auth = requireAuth(req);
     if (!auth.ok) return res.status(auth.code).json({ ok:false, error: auth.msg });
 
-    // lang mantido para futura expansão; hoje os textos são pt
     const _lang = normalizeLang(req.query.lang || req.body?.lang || 'pt');
 
-    // onde pegar o campo aspects:
-    // 1) req.body.aspects
-    // 2) req.body.body?.ephemeris?.aspects (payload inteiro do Webhook)
-    // 3) req.body.json?.body?.ephemeris?.aspects (compat extra)
     const rawAspects =
       req.body?.aspects ??
       req.body?.body?.ephemeris?.aspects ??
@@ -431,8 +249,8 @@ async function buildFromAspects(req, res) {
       ok: true,
       aspects_parsed_ok: parsedOk,
       placeholders: out.placeholders,
-      top_debug: out.top_meta, // útil pra validar ranking no n8n; remova se quiser
-      aspects_version: 'v1.2',
+      top_debug: out.top_meta, // remova em prod se quiser
+      aspects_version: 'v2.1', // enxugado
       scoring_version: 'v1.2'
     });
   } catch (err) {
