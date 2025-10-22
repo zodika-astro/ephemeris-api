@@ -1,7 +1,7 @@
 'use strict';
 
 const logger = require('../logger');
-// novo: importa o dicionário externo de textos
+// importa o dicionário externo de textos
 const { getAspectText } = require('./aspectstexts');
 
 /* ========================= AUTH (mesma política do ephemeris) ========================= */
@@ -43,7 +43,15 @@ function normalizeLang(raw) {
 }
 
 const TYPE_WEIGHTS = { conjunction: 5.0, opposition: 5.0, square: 4.0, trine: 3.0, sextile: 3.0 };
-const TYPE_LABELS_PT = { conjunction: 'conjunção', opposition: 'oposição', square: 'quadratura', trine: 'trígono', sextil: 'sextil' };
+
+// Alinha a chave ao payload ("sextile")
+const TYPE_LABELS_PT = {
+  conjunction: 'conjunção',
+  opposition: 'oposição',
+  square: 'quadratura',
+  trine: 'trígono',
+  sextile: 'sextil'
+};
 
 const PLANET_MULT = {
   ascendant: 2.5, mc: 2.5,
@@ -106,7 +114,7 @@ const houseBonus = (h) => {
   return 0;
 };
 
-/* ========================= Vocabulário ========================= */
+/* ========================= Vocabulário (apenas para título) ========================= */
 const PT_LABEL_BY_NAME = {
   sun: 'sol', moon: 'lua', mercury: 'mercúrio', venus: 'vênus', mars: 'marte',
   jupiter: 'júpiter', saturn: 'saturno', uranus: 'urano', neptune: 'netuno', pluto: 'plutão',
@@ -114,7 +122,7 @@ const PT_LABEL_BY_NAME = {
   chiron: 'quíron', lilith: 'lilith'
 };
 
-/* ========================= Helpers de texto ========================= */
+/* ========================= Helpers de título ========================= */
 function safeLabel(p) {
   return (p?.label && typeof p.label === 'string')
     ? p.label
@@ -122,9 +130,6 @@ function safeLabel(p) {
 }
 function safeSign(p) {
   return (p?.sign && typeof p.sign === 'string') ? p.sign : '';
-}
-function roleOf(name) {
-  return ROLE_BY_NAME[name] || '';
 }
 
 const TYPE_CONNECTOR_PT = {
@@ -135,31 +140,16 @@ const TYPE_CONNECTOR_PT = {
   sextile:     'em sextil com'
 };
 
-function cap(s){ return (s||'').charAt(0).toUpperCase()+String(s||'').slice(1); }
 function isSame(x,y){ return String(x||'').toLowerCase()===String(y||'').toLowerCase(); }
 
-function signSpan(p1, p2){
-  if (!p1.sign && !p2.sign) return '';
-  if (p1.sign && p2.sign){
-    return isSame(p1.sign, p2.sign) ? `em ${p1.sign}` : `de ${p1.sign} a ${p2.sign}`;
-  }
-  return `em ${p1.sign || p2.sign}`;
-}
-
-// monta “planeta em signo casa N”, pulando casa para AC/MC
 function formatBodyWithSignHouse(p) {
   const lbl = safeLabel(p);
   const sg  = safeSign(p);
   const h   = p?.house;
 
   const base = sg ? `${lbl} em ${sg}` : `${lbl}`;
-
-  if (p?.name === 'ascendant' || p?.name === 'mc') {
-    return base;
-  }
-  if (Number.isFinite(h)) {
-    return `${base} casa ${h}`;
-  }
+  if (p?.name === 'ascendant' || p?.name === 'mc') return base;
+  if (Number.isFinite(h)) return `${base} casa ${h}`;
   return base;
 }
 
@@ -170,59 +160,48 @@ function makeTitle(a) {
   return `${left} ${link} ${right}`;
 }
 
-/* ========= NOVO: normalização e lookup tolerante ========= */
-
-// mapeia aliases/variações para os slugs usados no dicionário
-const NAME_ALIAS = {
-  // pontos
-  ascendant: 'asc', ac: 'asc', asc: 'asc',
-  mc: 'mc', midheaven: 'mc', medium_coeli: 'mc', meio_do_ceu: 'mc', 'meio do céu': 'mc',
-  // nodo norte
-  truenode: 'north_node', 'true_node': 'north_node', 'trueNode': 'north_node',
-  northnode: 'north_node', 'north_node': 'north_node', node: 'north_node',
-  // planetas/corpos
-  sun: 'sun', moon: 'moon', mercury: 'mercury', venus: 'venus', mars: 'mars',
-  jupiter: 'jupiter', saturn: 'saturn', uranus: 'uranus', neptune: 'neptune',
-  pluto: 'pluto', chiron: 'chiron', lilith: 'lilith'
-};
-
-function normName(raw) {
-  if (!raw) return '';
-  const simple = String(raw)
-    .normalize('NFD').replace(/\p{Diacritic}/gu, '') // remove acentos
-    .toLowerCase()
-    .replace(/\s+/g,'_');
-  return NAME_ALIAS[simple] || NAME_ALIAS[raw] || simple;
+/* ========= TEXTO: 100% do dicionário externo; com busca robusta ========= */
+function normSlug(name) {
+  const v = String(name || '').toLowerCase();
+  if (v === 'truenode' || v === 'truenode') return 'north_node';
+  if (v === 'trueNode' || v === 'true_node') return 'north_node';
+  if (v === 'ascendant') return 'asc';
+  if (v === 'midheaven') return 'mc';
+  return v; // sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto, chiron, lilith, asc, mc, north_node
 }
 
-// tenta em 3 ordens: recebida, invertida, alfabética
-function tryGetAspectText(n1, n2, aspect) {
-  const kA = getAspectText(n1, n2, aspect);
-  if (kA) return kA;
-  const kB = getAspectText(n2, n1, aspect);
-  if (kB) return kB;
-  const [a, b] = [n1, n2].sort();
-  const kC = getAspectText(a, b, aspect);
-  if (!kC) {
-    logger && logger.warn && logger.warn(`TEXT MISSING for pair [${n1}|${n2}] aspect=${aspect}`);
+// tenta direto, invertido e ordem alfabética
+function lookupText(s1, s2, aspect) {
+  try {
+    // 1) como veio
+    let t = getAspectText(s1, s2, aspect);
+    if (t) return String(t).trim();
+
+    // 2) invertido
+    t = getAspectText(s2, s1, aspect);
+    if (t) return String(t).trim();
+
+    // 3) ordem alfabética (par canônico)
+    const [a, b] = [s1, s2].sort();
+    t = getAspectText(a, b, aspect);
+    if (t) return String(t).trim();
+
+    return '';
+  } catch {
+    return '';
   }
-  return kC || '';
 }
 
 function makeText(a) {
-  // normaliza nomes para os slugs esperados pelo aspectstexts.js
-  const s1 = normName(a?.p1?.name);
-  const s2 = normName(a?.p2?.name);
+  const s1 = normSlug(a?.p1?.name);
+  const s2 = normSlug(a?.p2?.name);
   const aspect = String(a?.type || '').toLowerCase();
 
-  // não existe aspecto entre asc e mc — retorna string vazia
+  // não existe aspecto entre asc e mc — retorna vazio
   if ((s1 === 'asc' && s2 === 'mc') || (s1 === 'mc' && s2 === 'asc')) {
     return '';
   }
-
-  // chama o dicionário externo (sem fallback de texto gerado)
-  const text = tryGetAspectText(s1, s2, aspect);
-  return (text && typeof text === 'string') ? text.trim() : '';
+  return lookupText(s1, s2, aspect);
 }
 
 /* ========================= Núcleo: aspects -> top10 placeholders ========================= */
@@ -300,17 +279,20 @@ async function buildFromAspects(req, res) {
     const auth = requireAuth(req);
     if (!auth.ok) return res.status(auth.code).json({ ok:false, error: auth.msg });
 
+    // n8n às vezes envia como array
+    const root = Array.isArray(req.body) ? req.body[0] : req.body;
+
     // lang mantido para futura expansão; hoje os textos são pt
-    const _lang = normalizeLang(req.query.lang || req.body?.lang || 'pt');
+    const _lang = normalizeLang(root?.lang || root?.query?.lang || root?.body?.lang || 'pt');
 
     // onde pegar o campo aspects:
-    // 1) req.body.aspects
-    // 2) req.body.body?.ephemeris?.aspects (payload inteiro do Webhook)
-    // 3) req.body.json?.body?.ephemeris?.aspects (compat extra)
+    // 1) root.aspects
+    // 2) root.body?.ephemeris?.aspects (payload inteiro do Webhook)
+    // 3) root.json?.body?.ephemeris?.aspects (compat extra)
     const rawAspects =
-      req.body?.aspects ??
-      req.body?.body?.ephemeris?.aspects ??
-      req.body?.json?.body?.ephemeris?.aspects;
+      root?.aspects ??
+      root?.body?.ephemeris?.aspects ??
+      root?.json?.body?.ephemeris?.aspects;
 
     if (!rawAspects) {
       return res.status(400).json({ ok:false, error:'Missing "aspects" in body' });
@@ -323,8 +305,8 @@ async function buildFromAspects(req, res) {
       ok: true,
       aspects_parsed_ok: parsedOk,
       placeholders: out.placeholders,
-      top_debug: out.top_meta, // útil pra validar ranking no n8n; remova se quiser
-      aspects_version: 'v1.3',   // bump por mudança de origem do texto
+      top_debug: out.top_meta,
+      aspects_version: 'v1.4',   // bump por busca robusta + sextile
       scoring_version: 'v1.2'
     });
   } catch (err) {
