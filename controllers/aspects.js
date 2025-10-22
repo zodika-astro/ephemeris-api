@@ -170,21 +170,49 @@ function makeTitle(a) {
   return `${left} ${link} ${right}`;
 }
 
-/* ========= NOVO: texto final vem 100% do dicionário externo, sem fallback ========= */
-function normSlug(name) {
-  const v = String(name || '').toLowerCase();
-  if (v === 'truenode') return 'north_node';
-  if (v === 'trueNode') return 'north_node';
-  if (v === 'true_node') return 'north_node';
-  if (v === 'ascendant') return 'asc';
-  if (v === 'midheaven') return 'mc';
-  return v; // sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto, chiron, lilith, asc, mc, north_node
+/* ========= NOVO: normalização e lookup tolerante ========= */
+
+// mapeia aliases/variações para os slugs usados no dicionário
+const NAME_ALIAS = {
+  // pontos
+  ascendant: 'asc', ac: 'asc', asc: 'asc',
+  mc: 'mc', midheaven: 'mc', medium_coeli: 'mc', meio_do_ceu: 'mc', 'meio do céu': 'mc',
+  // nodo norte
+  truenode: 'north_node', 'true_node': 'north_node', 'trueNode': 'north_node',
+  northnode: 'north_node', 'north_node': 'north_node', node: 'north_node',
+  // planetas/corpos
+  sun: 'sun', moon: 'moon', mercury: 'mercury', venus: 'venus', mars: 'mars',
+  jupiter: 'jupiter', saturn: 'saturn', uranus: 'uranus', neptune: 'neptune',
+  pluto: 'pluto', chiron: 'chiron', lilith: 'lilith'
+};
+
+function normName(raw) {
+  if (!raw) return '';
+  const simple = String(raw)
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '') // remove acentos
+    .toLowerCase()
+    .replace(/\s+/g,'_');
+  return NAME_ALIAS[simple] || NAME_ALIAS[raw] || simple;
+}
+
+// tenta em 3 ordens: recebida, invertida, alfabética
+function tryGetAspectText(n1, n2, aspect) {
+  const kA = getAspectText(n1, n2, aspect);
+  if (kA) return kA;
+  const kB = getAspectText(n2, n1, aspect);
+  if (kB) return kB;
+  const [a, b] = [n1, n2].sort();
+  const kC = getAspectText(a, b, aspect);
+  if (!kC) {
+    logger && logger.warn && logger.warn(`TEXT MISSING for pair [${n1}|${n2}] aspect=${aspect}`);
+  }
+  return kC || '';
 }
 
 function makeText(a) {
   // normaliza nomes para os slugs esperados pelo aspectstexts.js
-  const s1 = normSlug(a?.p1?.name);
-  const s2 = normSlug(a?.p2?.name);
+  const s1 = normName(a?.p1?.name);
+  const s2 = normName(a?.p2?.name);
   const aspect = String(a?.type || '').toLowerCase();
 
   // não existe aspecto entre asc e mc — retorna string vazia
@@ -192,8 +220,8 @@ function makeText(a) {
     return '';
   }
 
-  // chama o dicionário externo (sem fallback)
-  const text = getAspectText(s1, s2, aspect);
+  // chama o dicionário externo (sem fallback de texto gerado)
+  const text = tryGetAspectText(s1, s2, aspect);
   return (text && typeof text === 'string') ? text.trim() : '';
 }
 
