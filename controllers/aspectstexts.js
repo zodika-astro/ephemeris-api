@@ -759,7 +759,7 @@ const TEXTS = {
     square: "lilith em quadratura com o meio do céu indica atrito entre liberdade e reputação, pedindo coragem para se posicionar com verdade e ética.",
     trine: "lilith em trígono com o meio do céu indica harmonia entre independência e propósito, favorecendo sucesso por autenticidade.",
     sextile: "lilith em sextil com o meio do céu indica oportunidade de alinhar liberdade e carreira, favorecendo reconhecimento por originalidade."
-  },
+  }
 };
 
 /* ============================================================
