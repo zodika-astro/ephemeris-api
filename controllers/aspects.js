@@ -1,8 +1,51 @@
 'use strict';
 
 const logger = require('../logger');
-// importa o dicionário externo de textos
-const { getAspectText } = require('./aspectstexts');
+
+/* ========= import robusto do dicionário ========= */
+let _rawDict = null;
+try {
+  // tenta require normal
+  _rawDict = require('./aspectstexts');
+} catch (e) {
+  // log leve; evita cair server se logger não estiver configurado
+  console && console.warn && console.warn('[aspects] falha ao carregar ./aspectstexts:', e?.message);
+}
+
+// função segura p/ obter getAspectText OU ler direto do dicionário
+function resolveGetAspectText() {
+  if (!_rawDict) return null;
+
+  // 1) named export getAspectText
+  if (typeof _rawDict.getAspectText === 'function') return _rawDict.getAspectText;
+
+  // 2) default export com getAspectText
+  if (_rawDict.default && typeof _rawDict.default.getAspectText === 'function') {
+    return _rawDict.default.getAspectText;
+  }
+
+  // 3) caso o arquivo exporte DIRETO um objeto-dicionário de pares
+  //    montamos uma função compatível em cima dele
+  const dict = _rawDict.default || _rawDict;
+  if (dict && typeof dict === 'object') {
+    return function getAspectTextLike(s1, s2, aspect) {
+      const key1 = `${s1}|${s2}`;
+      const key2 = `${s2}|${s1}`;
+      const key3 = [s1, s2].sort().join('|');
+
+      const node = dict[key1] || dict[key2] || dict[key3];
+      if (!node) return '';
+      // padroniza aspect key
+      const asp = String(aspect || '').toLowerCase();
+      // aceita tanto {conjunction:"..."} quanto {"conjunction":"..."}
+      return (node[asp] && typeof node[asp] === 'string') ? node[asp] : '';
+    };
+  }
+
+  return null;
+}
+
+const getAspectText = resolveGetAspectText();
 
 /* ========================= AUTH (mesma política do ephemeris) ========================= */
 function parseBasicAuth(header) {
@@ -44,7 +87,6 @@ function normalizeLang(raw) {
 
 const TYPE_WEIGHTS = { conjunction: 5.0, opposition: 5.0, square: 4.0, trine: 3.0, sextile: 3.0 };
 
-// Alinha a chave ao payload ("sextile")
 const TYPE_LABELS_PT = {
   conjunction: 'conjunção',
   opposition: 'oposição',
@@ -114,7 +156,7 @@ const houseBonus = (h) => {
   return 0;
 };
 
-/* ========================= Vocabulário (apenas para título) ========================= */
+/* ========================= Vocabulário (título) ========================= */
 const PT_LABEL_BY_NAME = {
   sun: 'sol', moon: 'lua', mercury: 'mercúrio', venus: 'vênus', mars: 'marte',
   jupiter: 'júpiter', saturn: 'saturno', uranus: 'urano', neptune: 'netuno', pluto: 'plutão',
@@ -122,7 +164,6 @@ const PT_LABEL_BY_NAME = {
   chiron: 'quíron', lilith: 'lilith'
 };
 
-/* ========================= Helpers de título ========================= */
 function safeLabel(p) {
   return (p?.label && typeof p.label === 'string')
     ? p.label
@@ -139,8 +180,6 @@ const TYPE_CONNECTOR_PT = {
   trine:       'em trígono com',
   sextile:     'em sextil com'
 };
-
-function isSame(x,y){ return String(x||'').toLowerCase()===String(y||'').toLowerCase(); }
 
 function formatBodyWithSignHouse(p) {
   const lbl = safeLabel(p);
@@ -160,52 +199,59 @@ function makeTitle(a) {
   return `${left} ${link} ${right}`;
 }
 
-/* ========= TEXTO: 100% do dicionário externo; com busca robusta ========= */
+/* ========= TEXTO: 100% do dicionário externo; busca robusta + debug ========= */
 function normSlug(name) {
   const v = String(name || '').toLowerCase();
-  if (v === 'truenode' || v === 'truenode') return 'north_node';
-  if (v === 'trueNode' || v === 'true_node') return 'north_node';
+  if (v === 'truenode') return 'north_node';
+  if (v === 'true_node') return 'north_node';
   if (v === 'ascendant') return 'asc';
   if (v === 'midheaven') return 'mc';
   return v; // sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto, chiron, lilith, asc, mc, north_node
 }
 
-// tenta direto, invertido e ordem alfabética
-function lookupText(s1, s2, aspect) {
-  try {
-    // 1) como veio
-    let t = getAspectText(s1, s2, aspect);
-    if (t) return String(t).trim();
+function tryGetText(s1, s2, aspect) {
+  if (!getAspectText) return { text: '', tried: ['<getAspectText ausente>'] };
 
-    // 2) invertido
-    t = getAspectText(s2, s1, aspect);
-    if (t) return String(t).trim();
+  const tried = [];
+  const order1 = `${s1}|${s2}`;
+  tried.push(`${order1}.${aspect}`);
+  let t = getAspectText(s1, s2, aspect);
+  if (t) return { text: String(t).trim(), tried };
 
-    // 3) ordem alfabética (par canônico)
-    const [a, b] = [s1, s2].sort();
-    t = getAspectText(a, b, aspect);
-    if (t) return String(t).trim();
+  const order2 = `${s2}|${s1}`;
+  tried.push(`${order2}.${aspect}`);
+  t = getAspectText(s2, s1, aspect);
+  if (t) return { text: String(t).trim(), tried };
 
-    return '';
-  } catch {
-    return '';
-  }
+  const [a, b] = [s1, s2].sort();
+  const order3 = `${a}|${b}`;
+  tried.push(`${order3}.${aspect}`);
+  t = getAspectText(a, b, aspect);
+  if (t) return { text: String(t).trim(), tried };
+
+  return { text: '', tried };
 }
 
-function makeText(a) {
+function makeText(a, debugList) {
   const s1 = normSlug(a?.p1?.name);
   const s2 = normSlug(a?.p2?.name);
   const aspect = String(a?.type || '').toLowerCase();
 
   // não existe aspecto entre asc e mc — retorna vazio
   if ((s1 === 'asc' && s2 === 'mc') || (s1 === 'mc' && s2 === 'asc')) {
+    debugList && debugList.push({ pair: `${s1}|${s2}`, aspect, reason: 'par inválido asc↔mc' });
     return '';
   }
-  return lookupText(s1, s2, aspect);
+
+  const { text, tried } = tryGetText(s1, s2, aspect);
+  if (!text && debugList) {
+    debugList.push({ pair: `${s1}|${s2}`, aspect, tried });
+  }
+  return text;
 }
 
 /* ========================= Núcleo: aspects -> top10 placeholders ========================= */
-function buildTop10Placeholders(rawAspects) {
+function buildTop10Placeholders(rawAspects, wantDebug=false) {
   const aspectsObj = coerceAspects(rawAspects);
 
   // normaliza + pontua
@@ -255,10 +301,12 @@ function buildTop10Placeholders(rawAspects) {
 
   // placeholders (20 campos: 10 títulos + 10 textos)
   const placeholders = {};
+  const debugMissing = wantDebug ? [] : null;
+
   for (let i = 0; i < TOP_LIST_MAX; i++) {
     const a = top10[i];
     placeholders[`aspect${i+1}_title`] = a ? makeTitle(a) : '';
-    placeholders[`aspect${i+1}_text`]  = a ? makeText(a)  : '';
+    placeholders[`aspect${i+1}_text`]  = a ? makeText(a, debugMissing)  : '';
   }
 
   return {
@@ -269,7 +317,8 @@ function buildTop10Placeholders(rawAspects) {
       type: x.type,
       p1: x.p1.name, p2: x.p2.name,
       house1: x.p1.house ?? null, house2: x.p2.house ?? null
-    }))
+    })),
+    debug_missing: debugMissing || undefined
   };
 }
 
@@ -282,13 +331,12 @@ async function buildFromAspects(req, res) {
     // n8n às vezes envia como array
     const root = Array.isArray(req.body) ? req.body[0] : req.body;
 
-    // lang mantido para futura expansão; hoje os textos são pt
+    // debug via query ou body
+    const dbg = !!(req.query?.debug || root?.debug);
+
     const _lang = normalizeLang(root?.lang || root?.query?.lang || root?.body?.lang || 'pt');
 
     // onde pegar o campo aspects:
-    // 1) root.aspects
-    // 2) root.body?.ephemeris?.aspects (payload inteiro do Webhook)
-    // 3) root.json?.body?.ephemeris?.aspects (compat extra)
     const rawAspects =
       root?.aspects ??
       root?.body?.ephemeris?.aspects ??
@@ -299,18 +347,21 @@ async function buildFromAspects(req, res) {
     }
 
     const parsedOk = !!Object.keys(coerceAspects(rawAspects)||{}).length;
-    const out = buildTop10Placeholders(rawAspects);
+    const out = buildTop10Placeholders(rawAspects, dbg);
 
     return res.json({
       ok: true,
       aspects_parsed_ok: parsedOk,
       placeholders: out.placeholders,
       top_debug: out.top_meta,
-      aspects_version: 'v1.4',   // bump por busca robusta + sextile
+      debug_missing: out.debug_missing,
+      aspects_version: 'v1.5',   // robust import + debug
       scoring_version: 'v1.2'
     });
   } catch (err) {
-    logger.error(`aspects controller error: ${err.message}`);
+    // fallback pro caso do logger estar mudo no ambiente
+    console && console.error && console.error('[aspects] error:', err);
+    logger && logger.error && logger.error(`aspects controller error: ${err.message}`);
     return res.status(500).json({ ok:false, error: err.message });
   }
 }
