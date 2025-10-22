@@ -68,7 +68,7 @@ const PLANET_LABELS = {
   pt: {
     sun: "sol", moon: "lua", mercury: "mercúrio", venus: "vênus", mars: "marte",
     jupiter: "júpiter", saturn: "saturno", uranus: "urano", neptune: "netuno", pluto: "plutão",
-    trueNode: "nodo norte", lilith: "lilith", chiron: "quíron", ascendant: "ascendente", mc: "meio do déu"
+    trueNode: "nodo norte", lilith: "lilith", chiron: "quíron", ascendant: "ascendente", mc: "meio do céu"
   },
   es: {
     sun: "sol", moon: "luna", mercury: "mercurio", venus: "venus", mars: "marte",
