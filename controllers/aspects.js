@@ -2,38 +2,115 @@
 
 const logger = require('../logger');
 
-/* ========================= Dicionário externo: import robusto ========================= */
-let __textsModule = null;
+/* ========= import robusto do dicionário ========= */
+let _rawDict = null;
+let _dictObj = null;       // objeto bruto (se existir)
+let _dictHasGetter = false;
+let _dictGetter = null;    // função final tolerante
+let _dictMode = 'none';
+
 try {
-  __textsModule = require('./aspectstexts');
+  _rawDict = require('./aspectstexts');
 } catch (e) {
-  console && console.warn && console.warn('[aspects] não consegui carregar ./aspectstexts:', e?.message);
+  console && console.warn && console.warn('[aspects] falha ao carregar ./aspectstexts:', e?.message);
 }
 
-function makeGetterFromObject(dictLike) {
-  const dict = dictLike?.default || dictLike;
-  if (!dict || typeof dict !== 'object') return null;
-  return function getAspectTextLike(s1, s2, aspect) {
-    const asp = String(aspect || '').toLowerCase();
+/* ========= normalizador de aspect ========= */
+function normAspectKey(aspect) {
+  const a = String(aspect || '').toLowerCase().trim();
+  // aceita 'sextil' como alias de 'sextile' se alguém configurar assim
+  if (a === 'sextil') return 'sextile';
+  return a;
+}
+
+/* ========= montar getter tolerante ========= */
+(function resolveDict() {
+  // 1) detectar modos de export
+  const mod = _rawDict && (_rawDict.default || _rawDict);
+  const hasFunc = !!(_rawDict && typeof _rawDict.getAspectText === 'function')
+               || !!(_rawDict?.default && typeof _rawDict.default.getAspectText === 'function');
+  const func = (_rawDict && _rawDict.getAspectText) || (_rawDict?.default && _rawDict.default.getAspectText);
+
+  // se houver um objeto dicionário plano
+  if (mod && typeof mod === 'object') _dictObj = mod;
+
+  _dictHasGetter = !!hasFunc;
+
+  // getter manual (lookup direto no objeto)
+  function manualLookup(s1, s2, aspect) {
+    if (!_dictObj || typeof _dictObj !== 'object') return { text: '', hit: null };
+    const a = normAspectKey(aspect);
+
     const k1 = `${s1}|${s2}`;
     const k2 = `${s2}|${s1}`;
     const k3 = [s1, s2].sort().join('|');
-    const node = dict[k1] || dict[k2] || dict[k3];
-    return (node && typeof node[asp] === 'string') ? node[asp] : '';
-  };
-}
 
-const getAspectText =
-  (typeof __textsModule?.getAspectText === 'function' && __textsModule.getAspectText) ||
-  (typeof __textsModule?.default?.getAspectText === 'function' && __textsModule.default.getAspectText) ||
-  makeGetterFromObject(__textsModule);
+    const node = _dictObj[k1] || _dictObj[k2] || _dictObj[k3];
+    if (!node || typeof node !== 'object') return { text: '', hit: null };
 
-/* sanity log no boot */
-(function sanity() {
-  console && console.info && console.info('[aspects] dicionário carregado?', !!getAspectText);
-  if (!getAspectText) return;
-  const probe = getAspectText('mc','jupiter','conjunction') || getAspectText('jupiter','mc','conjunction');
-  console && console.info && console.info('[aspects] probe mc|jupiter.conjunction existe?', !!probe);
+    let val = node[a];
+    if (typeof val !== 'string') return { text: '', hit: { key: node === _dictObj[k1] ? k1 : (node === _dictObj[k2] ? k2 : k3), aspect: a, reason: 'value_not_string' } };
+
+    const trimmed = val.trim();
+    if (!trimmed) return { text: '', hit: { key: node === _dictObj[k1] ? k1 : (node === _dictObj[k2] ? k2 : k3), aspect: a, reason: 'whitespace_or_empty' } };
+
+    return { text: trimmed, hit: { key: node === _dictObj[k1] ? k1 : (node === _dictObj[k2] ? k2 : k3), aspect: a, reason: 'ok_manual' } };
+  }
+
+  // getter final tolerante
+  if (hasFunc) {
+    _dictMode = _dictObj ? 'function+object' : 'function_only';
+    _dictGetter = (s1, s2, aspect) => {
+      const a = normAspectKey(aspect);
+
+      // 1) tenta função (ordem direta, invertida, ordenada)
+      try {
+        let v = func(s1, s2, a);
+        if (typeof v === 'string' && v.trim()) return { text: v.trim(), source: 'fn', tried: [`${s1}|${s2}.${a}`] };
+
+        v = func(s2, s1, a);
+        if (typeof v === 'string' && v.trim()) return { text: v.trim(), source: 'fn', tried: [`${s2}|${s1}.${a}`] };
+
+        const [x, y] = [s1, s2].sort();
+        v = func(x, y, a);
+        if (typeof v === 'string' && v.trim()) return { text: v.trim(), source: 'fn', tried: [`${x}|${y}.${a}`] };
+      } catch (e) {
+        console && console.warn && console.warn('[aspects] getAspectText lançou erro:', e?.message);
+      }
+
+      // 2) fallback manual no objeto, se disponível
+      if (_dictObj) {
+        const m = manualLookup(s1, s2, a);
+        if (m.text) return { text: m.text, source: 'manual', tried: [`${m?.hit?.key}.${a}`] };
+      }
+
+      // 3) nada encontrado: monte "tried" explícito
+      const tried = [`${s1}|${s2}.${a}`, `${s2}|${s1}.${a}`, `${[s1, s2].sort().join('|')}.${a}`];
+      return { text: '', source: 'none', tried };
+    };
+  } else if (_dictObj) {
+    _dictMode = 'object_only';
+    _dictGetter = (s1, s2, aspect) => {
+      const a = normAspectKey(aspect);
+      const m = manualLookup(s1, s2, a);
+      if (m.text) return { text: m.text, source: 'manual', tried: [`${m?.hit?.key}.${a}`] };
+      const tried = [`${s1}|${s2}.${a}`, `${s2}|${s1}.${a}`, `${[s1, s2].sort().join('|')}.${a}`];
+      return { text: '', source: 'none', tried };
+    };
+  } else {
+    _dictMode = 'none';
+    _dictGetter = () => ({ text: '', source: 'none', tried: ['<dictionary not loaded>'] });
+  }
+
+  // sanity log leve no startup
+  try {
+    console && console.info && console.info('[aspects] dict_loaded =', !!_rawDict, 'mode =', _dictMode,
+      'hasGetter =', _dictHasGetter, 'hasObject =', !!_dictObj);
+    if (_dictObj) {
+      const someKeys = Object.keys(_dictObj).slice(0, 5);
+      console && console.info && console.info('[aspects] dict sample keys:', someKeys);
+    }
+  } catch (_) {}
 })();
 
 /* ========================= AUTH (mesma política do ephemeris) ========================= */
@@ -75,7 +152,14 @@ function normalizeLang(raw) {
 }
 
 const TYPE_WEIGHTS = { conjunction: 5.0, opposition: 5.0, square: 4.0, trine: 3.0, sextile: 3.0 };
-const TYPE_LABELS_PT = { conjunction: 'conjunção', opposition: 'oposição', square: 'quadratura', trine: 'trígono', sextile: 'sextil' };
+
+const TYPE_LABELS_PT = {
+  conjunction: 'conjunção',
+  opposition: 'oposição',
+  square: 'quadratura',
+  trine: 'trígono',
+  sextile: 'sextil'
+};
 
 const PLANET_MULT = {
   ascendant: 2.5, mc: 2.5,
@@ -104,13 +188,18 @@ function coerceAspects(raw) {
 
   if (typeof raw === 'string') {
     const s = raw.trim();
+
+    // tenta recortar o primeiro bloco {...}
     const first = s.indexOf('{');
     const last  = s.lastIndexOf('}');
     if (first !== -1 && last !== -1 && last > first) {
       const core = s.slice(first, last + 1);
       try { return JSON.parse(core); } catch {}
     }
+    // tenta parse direto
     try { return JSON.parse(s); } catch {}
+
+    // caso venha array com um objeto dentro
     if (s.startsWith('[') && s.endsWith(']')) {
       try {
         const arr = JSON.parse(s);
@@ -162,6 +251,7 @@ function formatBodyWithSignHouse(p) {
   const lbl = safeLabel(p);
   const sg  = safeSign(p);
   const h   = p?.house;
+
   const base = sg ? `${lbl} em ${sg}` : `${lbl}`;
   if (p?.name === 'ascendant' || p?.name === 'mc') return base;
   if (Number.isFinite(h)) return `${base} casa ${h}`;
@@ -175,36 +265,14 @@ function makeTitle(a) {
   return `${left} ${link} ${right}`;
 }
 
-/* ========= TEXTO: 100% do dicionário externo; busca robusta + debug ========= */
+/* ========= TEXTO: 100% do dicionário externo; busca tolerante + debug ========= */
 function normSlug(name) {
   const v = String(name || '').toLowerCase();
-  if (v === 'truenode' || v === 'true_node' || v === 'northnode') return 'north_node';
+  if (v === 'truenode') return 'north_node';
+  if (v === 'true_node') return 'north_node';
   if (v === 'ascendant') return 'asc';
   if (v === 'midheaven') return 'mc';
   return v; // sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto, chiron, lilith, asc, mc, north_node
-}
-
-function tryGetText(s1, s2, aspect) {
-  if (!getAspectText) return { text: '', tried: ['<getAspectText ausente>'] };
-
-  const tried = [];
-  const order1 = `${s1}|${s2}`;
-  tried.push(`${order1}.${aspect}`);
-  let t = getAspectText(s1, s2, aspect);
-  if (t) return { text: String(t).trim(), tried };
-
-  const order2 = `${s2}|${s1}`;
-  tried.push(`${order2}.${aspect}`);
-  t = getAspectText(s2, s1, aspect);
-  if (t) return { text: String(t).trim(), tried };
-
-  const [a, b] = [s1, s2].sort();
-  const order3 = `${a}|${b}`;
-  tried.push(`${order3}.${aspect}`);
-  t = getAspectText(a, b, aspect);
-  if (t) return { text: String(t).trim(), tried };
-
-  return { text: '', tried };
 }
 
 function makeText(a, debugList) {
@@ -212,20 +280,36 @@ function makeText(a, debugList) {
   const s2 = normSlug(a?.p2?.name);
   const aspect = String(a?.type || '').toLowerCase();
 
-  // não existe aspecto entre asc e mc — retorna vazio
+  // não existe aspecto entre asc e mc — retorna vazio, mas reporta no debug
   if ((s1 === 'asc' && s2 === 'mc') || (s1 === 'mc' && s2 === 'asc')) {
-    debugList && debugList.push({ pair: `${s1}|${s2}`, aspect, reason: 'par inválido asc↔mc' });
+    if (debugList) debugList.push({ pair: `${s1}|${s2}`, aspect, reason: 'par_invalido_asc_mc' });
     return '';
   }
 
-  const { text, tried } = tryGetText(s1, s2, aspect);
-  if (!text && debugList) {
-    debugList.push({ pair: `${s1}|${s2}`, aspect, tried });
+  const res = _dictGetter(s1, s2, aspect);
+
+  // se veio texto, ok
+  if (res && typeof res.text === 'string' && res.text.trim()) {
+    return res.text.trim();
   }
-  return text;
+
+  // se não veio texto, reporte as tentativas
+  if (debugList) {
+    const tried = (res && Array.isArray(res.tried)) ? res.tried : [];
+    debugList.push({
+      pair: `${s1}|${s2}`,
+      aspect,
+      tried,
+      source: res?.source || 'none',
+      note: 'texto ausente ou apenas whitespace'
+    });
+  }
+  return '';
 }
 
 /* ========================= Núcleo: aspects -> top10 placeholders ========================= */
+const typeOrder = ['conjunction','opposition','square','trine','sextile'];
+
 function buildTop10Placeholders(rawAspects, wantDebug=false) {
   const aspectsObj = coerceAspects(rawAspects);
 
@@ -281,7 +365,7 @@ function buildTop10Placeholders(rawAspects, wantDebug=false) {
   for (let i = 0; i < TOP_LIST_MAX; i++) {
     const a = top10[i];
     placeholders[`aspect${i+1}_title`] = a ? makeTitle(a) : '';
-    placeholders[`aspect${i+1}_text`]  = a ? makeText(a, debugMissing) : '';
+    placeholders[`aspect${i+1}_text`]  = a ? makeText(a, debugMissing)  : '';
   }
 
   return {
@@ -293,7 +377,7 @@ function buildTop10Placeholders(rawAspects, wantDebug=false) {
       p1: x.p1.name, p2: x.p2.name,
       house1: x.p1.house ?? null, house2: x.p2.house ?? null
     })),
-    debug_missing: debugMissing || []
+    debug_missing: debugMissing || undefined
   };
 }
 
@@ -311,10 +395,10 @@ async function buildFromAspects(req, res) {
 
     const _lang = normalizeLang(root?.lang || root?.query?.lang || root?.body?.lang || 'pt');
 
-    // onde pegar o campo aspects:
+    // onde pegar o campo aspects (ou aspectsPayload):
     const rawAspects =
       root?.aspects ??
-      root?.aspectsPayload ?? // compat com seu Node Code
+      root?.aspectsPayload ??
       root?.body?.ephemeris?.aspects ??
       root?.json?.body?.ephemeris?.aspects;
 
@@ -331,11 +415,13 @@ async function buildFromAspects(req, res) {
       placeholders: out.placeholders,
       top_debug: out.top_meta,
       debug_missing: out.debug_missing,
-      dict_loaded: !!getAspectText,
-      aspects_version: 'v1.7',   // bump: getter tolerante + sanity + debug_missing
+      dict_loaded: !!_rawDict,
+      dict_mode: _dictMode,
+      aspects_version: 'v1.9',   // <= bump visível no retorno
       scoring_version: 'v1.2'
     });
   } catch (err) {
+    // fallback pro caso do logger estar mudo no ambiente
     console && console.error && console.error('[aspects] error:', err);
     logger && logger.error && logger.error(`aspects controller error: ${err.message}`);
     return res.status(500).json({ ok:false, error: err.message });
