@@ -5,37 +5,49 @@ const logger = require('../logger');
 /* ========= import robusto do dicionário ========= */
 let _rawDict = null;
 try {
-  _rawDict = require('./aspectstexts'); // agora exporta apenas o objeto TEXTS
+  _rawDict = require('./aspectstexts'); // preferível exportar diretamente o objeto TEXTS
 } catch (e) {
   if (console && console.warn) {
     console.warn('[aspects] falha ao carregar ./aspectstexts:', e?.message);
   }
 }
 
+/* ========= util de clamp/higiene ========= */
+function clampStr(s, max = 2000) {
+  const v = String(s ?? '');
+  if (v.length <= max) return v;
+  return v.slice(0, max - 1) + '…';
+}
+function stripCtl(s) {
+  return String(s || '').replace(/[\u0000-\u001F\u007F]/g, '');
+}
+
 /**
  * Resolve um getter tolerante:
  * - Se o módulo exportou getAspectText (função), usa direto
- * - Se exportou um objeto TEXTS, cria um getter compatível (ordem indiferente)
+ * - Se exportou um objeto TEXTS (puro, default ou wrapper), cria um getter compatível (ordem indiferente)
  */
 function resolveGetAspectText() {
   if (!_rawDict) return null;
 
-  // 1) se já existe getAspectText
+  // 1) função exportada
   if (typeof _rawDict.getAspectText === 'function') return _rawDict.getAspectText;
-  if (_rawDict.default && typeof _rawDict.default.getAspectText === 'function') {
+  if (_rawDict?.default && typeof _rawDict.default.getAspectText === 'function') {
     return _rawDict.default.getAspectText;
   }
 
-  // 2) export puro de objeto (TEXTS)
-  const dict = _rawDict.default || _rawDict;
+  // 2) objeto exportado (com ou sem wrapper TEXTS)
+  const base = _rawDict?.default ?? _rawDict;
+  const dict = (base && typeof base === 'object' && base.TEXTS && typeof base.TEXTS === 'object')
+    ? base.TEXTS
+    : base;
+
   if (dict && typeof dict === 'object') {
     return function getAspectTextLike(s1, s2, aspect) {
       const asp = String(aspect || '').toLowerCase();
-      // tenta três formas de chave (ordem direta, invertida e ordenada)
       const k1 = `${s1}|${s2}`;
       const k2 = `${s2}|${s1}`;
       const k3 = [s1, s2].sort().join('|');
-
       const node = dict[k1] || dict[k2] || dict[k3];
       if (!node) return '';
       const v = node[asp];
@@ -104,47 +116,9 @@ const PLANET_MULT = {
   trueNode: 1.0, chiron: 1.0, lilith: 1.0
 };
 
-const GROUPS = {
-  pessoais:    new Set(['sun','moon','mercury','venus','mars']),
-  sociais:     new Set(['jupiter','saturn']),
-  geracionais: new Set(['uranus','neptune','pluto']),
-  pontos:      new Set(['ascendant','mc','trueNode','chiron','lilith'])
-};
-
 const typeOrder = ['conjunction','opposition','square','trine','sextile'];
 const TOP_LIST_MAX = 10;
 const SCORE_CAP = 10;
-
-/* ========================= Parser robusto p/ aspects ========================= */
-function coerceAspects(raw) {
-  if (!raw) return {};
-  if (typeof raw === 'object') return raw;
-
-  if (typeof raw === 'string') {
-    const s = raw.trim();
-
-    // tenta recortar o primeiro bloco {...}
-    const first = s.indexOf('{');
-    const last  = s.lastIndexOf('}');
-    if (first !== -1 && last !== -1 && last > first) {
-      const core = s.slice(first, last + 1);
-      try { return JSON.parse(core); } catch {}
-    }
-    // tenta parse direto
-    try { return JSON.parse(s); } catch {}
-
-    // caso venha array com um objeto dentro
-    if (s.startsWith('[') && s.endsWith(']')) {
-      try {
-        const arr = JSON.parse(s);
-        if (Array.isArray(arr) && arr.length) {
-          return Object.assign({}, ...arr.filter(o => o && typeof o === 'object'));
-        }
-      } catch {}
-    }
-  }
-  return {};
-}
 
 /* ========================= Scoring ========================= */
 const houseBonus = (h) => {
@@ -185,10 +159,9 @@ function formatBodyWithSignHouse(p) {
   const lbl = safeLabel(p);
   const sg  = safeSign(p);
   const h   = p?.house;
-
   const base = sg ? `${lbl} em ${sg}` : `${lbl}`;
   if (p?.name === 'ascendant' || p?.name === 'mc') return base;
-  if (Number.isFinite(h)) return `${base} casa ${h}`;
+  if (Number.isFinite(h)) return `${base} · casa ${h}`;
   return base;
 }
 
@@ -196,35 +169,59 @@ function makeTitle(a) {
   const left  = formatBodyWithSignHouse(a.p1);
   const right = formatBodyWithSignHouse(a.p2);
   const link  = TYPE_CONNECTOR_PT[a.type] || 'com';
-  return `${left} ${link} ${right}`;
+  return clampStr(stripCtl(`${left} ${link} ${right}`), 180);
 }
 
 /* ========= normalização + lookup de texto ========= */
 function normSlug(name) {
   const v = String(name || '').toLowerCase();
-  if (v === 'truenode' || v === 'true_node') return 'north_node';
-  if (v === 'ascendant') return 'asc';
+  if (v === 'truenode' || v === 'true_node' || v === 'northnode') return 'north_node';
+  if (v === 'ascendant' || v === 'asc') return 'asc';
   if (v === 'midheaven' || v === 'mc') return 'mc';
   return v; // sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto, chiron, lilith, asc, mc, north_node
 }
 
+/* ========= Fallback único, direto e prático por tipo ========= */
+const FALLBACK = {
+  conjunction(L, R) {
+    return `${L} com ${R}: soma de forças e foco. união de temas e direcionamento para metas mais concretas.`;
+  },
+  opposition(L, R) {
+    return `${L} vs ${R}: pede equilíbrio entre dois polos. definir limites e negociar prioridades objetivas.`;
+  },
+  square(L, R) {
+    return `${L} × ${R}: tensão entre dois planetas de forma produtiva. quebrar tarefas em etapas curtas e avançar com método.`;
+  },
+  trine(L, R) {
+    return `${L} ↔ ${R}: fluidez e apoio entre esses dois corpos. transformar a facilidade em rotina útil para gerar mais resultados.`;
+  },
+  sextile(L, R) {
+    return `${L} ↔ ${R}: oportunidade e sorte neste aspecto. dar um passo prático para manter esta parceria.`;
+  }
+};
+
+function labelSignHouse(p) {
+  const lbl = safeLabel(p);
+  const sg  = safeSign(p);
+  const h   = Number.isFinite(p?.house) ? ` · casa ${p.house}` : '';
+  return sg ? `${lbl} (${sg})${h}` : `${lbl}${h}`;
+}
+
+/* ========= lookup com fallback ========= */
 function tryGetText(s1, s2, aspect) {
   if (!getAspectText) return { text: '', tried: ['<getAspectText ausente>'] };
 
   const tried = [];
   const asp = String(aspect || '').toLowerCase();
 
-  // ordem direta
   tried.push(`${s1}|${s2}.${asp}`);
   let t = getAspectText(s1, s2, asp);
   if (t) return { text: String(t).trim(), tried };
 
-  // ordem invertida
   tried.push(`${s2}|${s1}.${asp}`);
   t = getAspectText(s2, s1, asp);
   if (t) return { text: String(t).trim(), tried };
 
-  // ordem ordenada
   const k = [s1, s2].sort();
   tried.push(`${k[0]}|${k[1]}.${asp}`);
   t = getAspectText(k[0], k[1], asp);
@@ -238,17 +235,58 @@ function makeText(a, debugList) {
   const s2 = normSlug(a?.p2?.name);
   const aspect = String(a?.type || '').toLowerCase();
 
-  // não existe aspecto entre asc e mc — retorna vazio
+  // não existe aspecto entre asc e mc — retorna vazio (sem fallback)
   if ((s1 === 'asc' && s2 === 'mc') || (s1 === 'mc' && s2 === 'asc')) {
     if (debugList) debugList.push({ pair: `${s1}|${s2}`, aspect, reason: 'par inválido asc↔mc' });
     return '';
   }
 
   const { text, tried } = tryGetText(s1, s2, aspect);
-  if (!text && debugList) {
-    debugList.push({ pair: `${s1}|${s2}`, aspect, tried });
+  if (text) return clampStr(stripCtl(text), 4000);
+
+  if (debugList) debugList.push({ pair: `${s1}|${s2}`, aspect, tried });
+
+  // ---- Fallback único por tipo ----
+  const L = labelSignHouse(a.p1);
+  const R = labelSignHouse(a.p2);
+  const fn = FALLBACK[aspect];
+  if (typeof fn === 'function') {
+    return clampStr(stripCtl(fn(L, R)), 600);
   }
-  return text;
+
+  // último recurso (se surgir algum tipo não mapeado)
+  return clampStr(stripCtl(`${L} ${TYPE_CONNECTOR_PT[aspect] || 'com'} ${R}. aplique clareza e método para extrair valores práticos.`), 600);
+}
+
+/* ========================= Parser robusto p/ aspects ========================= */
+function coerceAspects(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+
+    // tenta recortar o primeiro bloco {...}
+    const first = s.indexOf('{');
+    const last  = s.lastIndexOf('}');
+    if (first !== -1 && last !== -1 && last > first) {
+      const core = s.slice(first, last + 1);
+      try { return JSON.parse(core); } catch {}
+    }
+    // tenta parse direto
+    try { return JSON.parse(s); } catch {}
+
+    // caso venha array com um objeto dentro
+    if (s.startsWith('[') && s.endsWith(']')) {
+      try {
+        const arr = JSON.parse(s);
+        if (Array.isArray(arr) && arr.length) {
+          return Object.assign({}, ...arr.filter(o => o && typeof o === 'object'));
+        }
+      } catch {}
+    }
+  }
+  return {};
 }
 
 /* ========================= Núcleo: aspects -> top10 placeholders ========================= */
@@ -306,8 +344,16 @@ function buildTop10Placeholders(rawAspects, wantDebug=false) {
 
   for (let i = 0; i < TOP_LIST_MAX; i++) {
     const a = top10[i];
-    placeholders[`aspect${i+1}_title`] = a ? makeTitle(a) : '';
-    placeholders[`aspect${i+1}_text`]  = a ? makeText(a, debugMissing)  : '';
+    if (a) {
+      const title = makeTitle(a);
+      const text  = makeText(a, debugMissing) || ''; // makeText já aplica fallback único
+      placeholders[`aspect${i+1}_title`] = title;
+      placeholders[`aspect${i+1}_text`]  = text;
+    } else {
+      // preencher slots restantes
+      placeholders[`aspect${i+1}_title`] = '— sem mais aspectos principais —';
+      placeholders[`aspect${i+1}_text`]  = 'o seu mapa natal não possui mais aspectos principais.';
+    }
   }
 
   return {
@@ -348,8 +394,9 @@ async function buildFromAspects(req, res) {
       return res.status(400).json({ ok:false, error:'Missing "aspects" in body' });
     }
 
-    const parsedOk = !!Object.keys(coerceAspects(rawAspects)||{}).length;
-    const out = buildTop10Placeholders(rawAspects, dbg);
+    const parsed = coerceAspects(rawAspects);
+    const parsedOk = !!Object.keys(parsed||{}).length;
+    const out = buildTop10Placeholders(parsed, dbg);
 
     return res.json({
       ok: true,
@@ -358,7 +405,7 @@ async function buildFromAspects(req, res) {
       top_debug: out.top_meta,
       debug_missing: out.debug_missing,
       dict_loaded: !!_rawDict,
-      aspects_version: 'v1.8',
+      aspects_version: 'v1.10',
       scoring_version: 'v1.2'
     });
   } catch (err) {
