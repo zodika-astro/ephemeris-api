@@ -841,4 +841,4 @@ const TEXTS = {
 };
 
 
-module.exports = { TEXTS };
+module.exports = TEXTS;
