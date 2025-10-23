@@ -2,50 +2,39 @@
 
 const logger = require('../logger');
 
-/* ========= import robusto do dicionário ========= */
-let _rawDict = null;
+/* ========================= Dicionário externo: import robusto ========================= */
+let __textsModule = null;
 try {
-  // tenta require normal
-  _rawDict = require('./aspectstexts');
+  __textsModule = require('./aspectstexts');
 } catch (e) {
-  // log leve; evita cair server se logger não estiver configurado
-  console && console.warn && console.warn('[aspects] falha ao carregar ./aspectstexts:', e?.message);
+  console && console.warn && console.warn('[aspects] não consegui carregar ./aspectstexts:', e?.message);
 }
 
-// função segura p/ obter getAspectText OU ler direto do dicionário
-function resolveGetAspectText() {
-  if (!_rawDict) return null;
-
-  // 1) named export getAspectText
-  if (typeof _rawDict.getAspectText === 'function') return _rawDict.getAspectText;
-
-  // 2) default export com getAspectText
-  if (_rawDict.default && typeof _rawDict.default.getAspectText === 'function') {
-    return _rawDict.default.getAspectText;
-  }
-
-  // 3) caso o arquivo exporte DIRETO um objeto-dicionário de pares
-  //    montamos uma função compatível em cima dele
-  const dict = _rawDict.default || _rawDict;
-  if (dict && typeof dict === 'object') {
-    return function getAspectTextLike(s1, s2, aspect) {
-      const key1 = `${s1}|${s2}`;
-      const key2 = `${s2}|${s1}`;
-      const key3 = [s1, s2].sort().join('|');
-
-      const node = dict[key1] || dict[key2] || dict[key3];
-      if (!node) return '';
-      // padroniza aspect key
-      const asp = String(aspect || '').toLowerCase();
-      // aceita tanto {conjunction:"..."} quanto {"conjunction":"..."}
-      return (node[asp] && typeof node[asp] === 'string') ? node[asp] : '';
-    };
-  }
-
-  return null;
+function makeGetterFromObject(dictLike) {
+  const dict = dictLike?.default || dictLike;
+  if (!dict || typeof dict !== 'object') return null;
+  return function getAspectTextLike(s1, s2, aspect) {
+    const asp = String(aspect || '').toLowerCase();
+    const k1 = `${s1}|${s2}`;
+    const k2 = `${s2}|${s1}`;
+    const k3 = [s1, s2].sort().join('|');
+    const node = dict[k1] || dict[k2] || dict[k3];
+    return (node && typeof node[asp] === 'string') ? node[asp] : '';
+  };
 }
 
-const getAspectText = resolveGetAspectText();
+const getAspectText =
+  (typeof __textsModule?.getAspectText === 'function' && __textsModule.getAspectText) ||
+  (typeof __textsModule?.default?.getAspectText === 'function' && __textsModule.default.getAspectText) ||
+  makeGetterFromObject(__textsModule);
+
+/* sanity log no boot */
+(function sanity() {
+  console && console.info && console.info('[aspects] dicionário carregado?', !!getAspectText);
+  if (!getAspectText) return;
+  const probe = getAspectText('mc','jupiter','conjunction') || getAspectText('jupiter','mc','conjunction');
+  console && console.info && console.info('[aspects] probe mc|jupiter.conjunction existe?', !!probe);
+})();
 
 /* ========================= AUTH (mesma política do ephemeris) ========================= */
 function parseBasicAuth(header) {
@@ -86,14 +75,7 @@ function normalizeLang(raw) {
 }
 
 const TYPE_WEIGHTS = { conjunction: 5.0, opposition: 5.0, square: 4.0, trine: 3.0, sextile: 3.0 };
-
-const TYPE_LABELS_PT = {
-  conjunction: 'conjunção',
-  opposition: 'oposição',
-  square: 'quadratura',
-  trine: 'trígono',
-  sextile: 'sextil'
-};
+const TYPE_LABELS_PT = { conjunction: 'conjunção', opposition: 'oposição', square: 'quadratura', trine: 'trígono', sextile: 'sextil' };
 
 const PLANET_MULT = {
   ascendant: 2.5, mc: 2.5,
@@ -122,18 +104,13 @@ function coerceAspects(raw) {
 
   if (typeof raw === 'string') {
     const s = raw.trim();
-
-    // tenta recortar o primeiro bloco {...}
     const first = s.indexOf('{');
     const last  = s.lastIndexOf('}');
     if (first !== -1 && last !== -1 && last > first) {
       const core = s.slice(first, last + 1);
       try { return JSON.parse(core); } catch {}
     }
-    // tenta parse direto
     try { return JSON.parse(s); } catch {}
-
-    // caso venha array com um objeto dentro
     if (s.startsWith('[') && s.endsWith(']')) {
       try {
         const arr = JSON.parse(s);
@@ -185,7 +162,6 @@ function formatBodyWithSignHouse(p) {
   const lbl = safeLabel(p);
   const sg  = safeSign(p);
   const h   = p?.house;
-
   const base = sg ? `${lbl} em ${sg}` : `${lbl}`;
   if (p?.name === 'ascendant' || p?.name === 'mc') return base;
   if (Number.isFinite(h)) return `${base} casa ${h}`;
@@ -202,8 +178,7 @@ function makeTitle(a) {
 /* ========= TEXTO: 100% do dicionário externo; busca robusta + debug ========= */
 function normSlug(name) {
   const v = String(name || '').toLowerCase();
-  if (v === 'truenode') return 'north_node';
-  if (v === 'true_node') return 'north_node';
+  if (v === 'truenode' || v === 'true_node' || v === 'northnode') return 'north_node';
   if (v === 'ascendant') return 'asc';
   if (v === 'midheaven') return 'mc';
   return v; // sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto, chiron, lilith, asc, mc, north_node
@@ -306,7 +281,7 @@ function buildTop10Placeholders(rawAspects, wantDebug=false) {
   for (let i = 0; i < TOP_LIST_MAX; i++) {
     const a = top10[i];
     placeholders[`aspect${i+1}_title`] = a ? makeTitle(a) : '';
-    placeholders[`aspect${i+1}_text`]  = a ? makeText(a, debugMissing)  : '';
+    placeholders[`aspect${i+1}_text`]  = a ? makeText(a, debugMissing) : '';
   }
 
   return {
@@ -318,7 +293,7 @@ function buildTop10Placeholders(rawAspects, wantDebug=false) {
       p1: x.p1.name, p2: x.p2.name,
       house1: x.p1.house ?? null, house2: x.p2.house ?? null
     })),
-    debug_missing: debugMissing || undefined
+    debug_missing: debugMissing || []
   };
 }
 
@@ -339,6 +314,7 @@ async function buildFromAspects(req, res) {
     // onde pegar o campo aspects:
     const rawAspects =
       root?.aspects ??
+      root?.aspectsPayload ?? // compat com seu Node Code
       root?.body?.ephemeris?.aspects ??
       root?.json?.body?.ephemeris?.aspects;
 
@@ -355,11 +331,11 @@ async function buildFromAspects(req, res) {
       placeholders: out.placeholders,
       top_debug: out.top_meta,
       debug_missing: out.debug_missing,
-      aspects_version: 'v1.5',   // robust import + debug
+      dict_loaded: !!getAspectText,
+      aspects_version: 'v1.7',   // bump: getter tolerante + sanity + debug_missing
       scoring_version: 'v1.2'
     });
   } catch (err) {
-    // fallback pro caso do logger estar mudo no ambiente
     console && console.error && console.error('[aspects] error:', err);
     logger && logger.error && logger.error(`aspects controller error: ${err.message}`);
     return res.status(500).json({ ok:false, error: err.message });
