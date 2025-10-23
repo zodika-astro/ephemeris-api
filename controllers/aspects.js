@@ -4,114 +4,48 @@ const logger = require('../logger');
 
 /* ========= import robusto do dicionário ========= */
 let _rawDict = null;
-let _dictObj = null;       // objeto bruto (se existir)
-let _dictHasGetter = false;
-let _dictGetter = null;    // função final tolerante
-let _dictMode = 'none';
-
 try {
-  _rawDict = require('./aspectstexts');
+  _rawDict = require('./aspectstexts'); // agora exporta apenas o objeto TEXTS
 } catch (e) {
-  console && console.warn && console.warn('[aspects] falha ao carregar ./aspectstexts:', e?.message);
+  if (console && console.warn) {
+    console.warn('[aspects] falha ao carregar ./aspectstexts:', e?.message);
+  }
 }
 
-/* ========= normalizador de aspect ========= */
-function normAspectKey(aspect) {
-  const a = String(aspect || '').toLowerCase().trim();
-  // aceita 'sextil' como alias de 'sextile' se alguém configurar assim
-  if (a === 'sextil') return 'sextile';
-  return a;
+/**
+ * Resolve um getter tolerante:
+ * - Se o módulo exportou getAspectText (função), usa direto
+ * - Se exportou um objeto TEXTS, cria um getter compatível (ordem indiferente)
+ */
+function resolveGetAspectText() {
+  if (!_rawDict) return null;
+
+  // 1) se já existe getAspectText
+  if (typeof _rawDict.getAspectText === 'function') return _rawDict.getAspectText;
+  if (_rawDict.default && typeof _rawDict.default.getAspectText === 'function') {
+    return _rawDict.default.getAspectText;
+  }
+
+  // 2) export puro de objeto (TEXTS)
+  const dict = _rawDict.default || _rawDict;
+  if (dict && typeof dict === 'object') {
+    return function getAspectTextLike(s1, s2, aspect) {
+      const asp = String(aspect || '').toLowerCase();
+      // tenta três formas de chave (ordem direta, invertida e ordenada)
+      const k1 = `${s1}|${s2}`;
+      const k2 = `${s2}|${s1}`;
+      const k3 = [s1, s2].sort().join('|');
+
+      const node = dict[k1] || dict[k2] || dict[k3];
+      if (!node) return '';
+      const v = node[asp];
+      return (typeof v === 'string') ? v : '';
+    };
+  }
+  return null;
 }
 
-/* ========= montar getter tolerante ========= */
-(function resolveDict() {
-  // 1) detectar modos de export
-  const mod = _rawDict && (_rawDict.default || _rawDict);
-  const hasFunc = !!(_rawDict && typeof _rawDict.getAspectText === 'function')
-               || !!(_rawDict?.default && typeof _rawDict.default.getAspectText === 'function');
-  const func = (_rawDict && _rawDict.getAspectText) || (_rawDict?.default && _rawDict.default.getAspectText);
-
-  // se houver um objeto dicionário plano
-  if (mod && typeof mod === 'object') _dictObj = mod;
-
-  _dictHasGetter = !!hasFunc;
-
-  // getter manual (lookup direto no objeto)
-  function manualLookup(s1, s2, aspect) {
-    if (!_dictObj || typeof _dictObj !== 'object') return { text: '', hit: null };
-    const a = normAspectKey(aspect);
-
-    const k1 = `${s1}|${s2}`;
-    const k2 = `${s2}|${s1}`;
-    const k3 = [s1, s2].sort().join('|');
-
-    const node = _dictObj[k1] || _dictObj[k2] || _dictObj[k3];
-    if (!node || typeof node !== 'object') return { text: '', hit: null };
-
-    let val = node[a];
-    if (typeof val !== 'string') return { text: '', hit: { key: node === _dictObj[k1] ? k1 : (node === _dictObj[k2] ? k2 : k3), aspect: a, reason: 'value_not_string' } };
-
-    const trimmed = val.trim();
-    if (!trimmed) return { text: '', hit: { key: node === _dictObj[k1] ? k1 : (node === _dictObj[k2] ? k2 : k3), aspect: a, reason: 'whitespace_or_empty' } };
-
-    return { text: trimmed, hit: { key: node === _dictObj[k1] ? k1 : (node === _dictObj[k2] ? k2 : k3), aspect: a, reason: 'ok_manual' } };
-  }
-
-  // getter final tolerante
-  if (hasFunc) {
-    _dictMode = _dictObj ? 'function+object' : 'function_only';
-    _dictGetter = (s1, s2, aspect) => {
-      const a = normAspectKey(aspect);
-
-      // 1) tenta função (ordem direta, invertida, ordenada)
-      try {
-        let v = func(s1, s2, a);
-        if (typeof v === 'string' && v.trim()) return { text: v.trim(), source: 'fn', tried: [`${s1}|${s2}.${a}`] };
-
-        v = func(s2, s1, a);
-        if (typeof v === 'string' && v.trim()) return { text: v.trim(), source: 'fn', tried: [`${s2}|${s1}.${a}`] };
-
-        const [x, y] = [s1, s2].sort();
-        v = func(x, y, a);
-        if (typeof v === 'string' && v.trim()) return { text: v.trim(), source: 'fn', tried: [`${x}|${y}.${a}`] };
-      } catch (e) {
-        console && console.warn && console.warn('[aspects] getAspectText lançou erro:', e?.message);
-      }
-
-      // 2) fallback manual no objeto, se disponível
-      if (_dictObj) {
-        const m = manualLookup(s1, s2, a);
-        if (m.text) return { text: m.text, source: 'manual', tried: [`${m?.hit?.key}.${a}`] };
-      }
-
-      // 3) nada encontrado: monte "tried" explícito
-      const tried = [`${s1}|${s2}.${a}`, `${s2}|${s1}.${a}`, `${[s1, s2].sort().join('|')}.${a}`];
-      return { text: '', source: 'none', tried };
-    };
-  } else if (_dictObj) {
-    _dictMode = 'object_only';
-    _dictGetter = (s1, s2, aspect) => {
-      const a = normAspectKey(aspect);
-      const m = manualLookup(s1, s2, a);
-      if (m.text) return { text: m.text, source: 'manual', tried: [`${m?.hit?.key}.${a}`] };
-      const tried = [`${s1}|${s2}.${a}`, `${s2}|${s1}.${a}`, `${[s1, s2].sort().join('|')}.${a}`];
-      return { text: '', source: 'none', tried };
-    };
-  } else {
-    _dictMode = 'none';
-    _dictGetter = () => ({ text: '', source: 'none', tried: ['<dictionary not loaded>'] });
-  }
-
-  // sanity log leve no startup
-  try {
-    console && console.info && console.info('[aspects] dict_loaded =', !!_rawDict, 'mode =', _dictMode,
-      'hasGetter =', _dictHasGetter, 'hasObject =', !!_dictObj);
-    if (_dictObj) {
-      const someKeys = Object.keys(_dictObj).slice(0, 5);
-      console && console.info && console.info('[aspects] dict sample keys:', someKeys);
-    }
-  } catch (_) {}
-})();
+const getAspectText = resolveGetAspectText();
 
 /* ========================= AUTH (mesma política do ephemeris) ========================= */
 function parseBasicAuth(header) {
@@ -265,14 +199,38 @@ function makeTitle(a) {
   return `${left} ${link} ${right}`;
 }
 
-/* ========= TEXTO: 100% do dicionário externo; busca tolerante + debug ========= */
+/* ========= normalização + lookup de texto ========= */
 function normSlug(name) {
   const v = String(name || '').toLowerCase();
-  if (v === 'truenode') return 'north_node';
-  if (v === 'true_node') return 'north_node';
+  if (v === 'truenode' || v === 'true_node') return 'north_node';
   if (v === 'ascendant') return 'asc';
-  if (v === 'midheaven') return 'mc';
+  if (v === 'midheaven' || v === 'mc') return 'mc';
   return v; // sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto, chiron, lilith, asc, mc, north_node
+}
+
+function tryGetText(s1, s2, aspect) {
+  if (!getAspectText) return { text: '', tried: ['<getAspectText ausente>'] };
+
+  const tried = [];
+  const asp = String(aspect || '').toLowerCase();
+
+  // ordem direta
+  tried.push(`${s1}|${s2}.${asp}`);
+  let t = getAspectText(s1, s2, asp);
+  if (t) return { text: String(t).trim(), tried };
+
+  // ordem invertida
+  tried.push(`${s2}|${s1}.${asp}`);
+  t = getAspectText(s2, s1, asp);
+  if (t) return { text: String(t).trim(), tried };
+
+  // ordem ordenada
+  const k = [s1, s2].sort();
+  tried.push(`${k[0]}|${k[1]}.${asp}`);
+  t = getAspectText(k[0], k[1], asp);
+  if (t) return { text: String(t).trim(), tried };
+
+  return { text: '', tried };
 }
 
 function makeText(a, debugList) {
@@ -280,36 +238,20 @@ function makeText(a, debugList) {
   const s2 = normSlug(a?.p2?.name);
   const aspect = String(a?.type || '').toLowerCase();
 
-  // não existe aspecto entre asc e mc — retorna vazio, mas reporta no debug
+  // não existe aspecto entre asc e mc — retorna vazio
   if ((s1 === 'asc' && s2 === 'mc') || (s1 === 'mc' && s2 === 'asc')) {
-    if (debugList) debugList.push({ pair: `${s1}|${s2}`, aspect, reason: 'par_invalido_asc_mc' });
+    if (debugList) debugList.push({ pair: `${s1}|${s2}`, aspect, reason: 'par inválido asc↔mc' });
     return '';
   }
 
-  const res = _dictGetter(s1, s2, aspect);
-
-  // se veio texto, ok
-  if (res && typeof res.text === 'string' && res.text.trim()) {
-    return res.text.trim();
+  const { text, tried } = tryGetText(s1, s2, aspect);
+  if (!text && debugList) {
+    debugList.push({ pair: `${s1}|${s2}`, aspect, tried });
   }
-
-  // se não veio texto, reporte as tentativas
-  if (debugList) {
-    const tried = (res && Array.isArray(res.tried)) ? res.tried : [];
-    debugList.push({
-      pair: `${s1}|${s2}`,
-      aspect,
-      tried,
-      source: res?.source || 'none',
-      note: 'texto ausente ou apenas whitespace'
-    });
-  }
-  return '';
+  return text;
 }
 
 /* ========================= Núcleo: aspects -> top10 placeholders ========================= */
-const typeOrder = ['conjunction','opposition','square','trine','sextile'];
-
 function buildTop10Placeholders(rawAspects, wantDebug=false) {
   const aspectsObj = coerceAspects(rawAspects);
 
@@ -390,15 +332,15 @@ async function buildFromAspects(req, res) {
     // n8n às vezes envia como array
     const root = Array.isArray(req.body) ? req.body[0] : req.body;
 
-    // debug via query ou body
+    // debug via query (?debug=1) ou body {debug:true}
     const dbg = !!(req.query?.debug || root?.debug);
 
     const _lang = normalizeLang(root?.lang || root?.query?.lang || root?.body?.lang || 'pt');
 
-    // onde pegar o campo aspects (ou aspectsPayload):
+    // onde pegar o campo aspects:
     const rawAspects =
       root?.aspects ??
-      root?.aspectsPayload ??
+      root?.aspectsPayload ?? // você já prepara esse campo no n8n
       root?.body?.ephemeris?.aspects ??
       root?.json?.body?.ephemeris?.aspects;
 
@@ -416,14 +358,12 @@ async function buildFromAspects(req, res) {
       top_debug: out.top_meta,
       debug_missing: out.debug_missing,
       dict_loaded: !!_rawDict,
-      dict_mode: _dictMode,
-      aspects_version: 'v1.9',   // <= bump visível no retorno
+      aspects_version: 'v1.8',
       scoring_version: 'v1.2'
     });
   } catch (err) {
-    // fallback pro caso do logger estar mudo no ambiente
-    console && console.error && console.error('[aspects] error:', err);
-    logger && logger.error && logger.error(`aspects controller error: ${err.message}`);
+    if (console && console.error) console.error('[aspects] error:', err);
+    if (logger && logger.error) logger.error(`aspects controller error: ${err.message}`);
     return res.status(500).json({ ok:false, error: err.message });
   }
 }
